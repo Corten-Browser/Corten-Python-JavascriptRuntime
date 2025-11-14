@@ -102,11 +102,16 @@ class BytecodeCompiler:
         """
         try:
             # Compile program body
-            for statement in self.ast.body:
-                self._compile_statement(statement)
+            statements = self.ast.body
+            for i, statement in enumerate(statements):
+                is_last = (i == len(statements) - 1)
+                self._compile_statement(statement, is_last_statement=is_last)
 
-            # Add implicit return at end
-            self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+            # Check if last statement was an ExpressionStatement that kept its value
+            # If not, add implicit return undefined
+            if not statements or not isinstance(statements[-1], ExpressionStatement):
+                self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+
             self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
 
             # Set local count
@@ -117,12 +122,13 @@ class BytecodeCompiler:
         except Exception as e:
             raise CompileError(f"Compilation failed: {e}") from e
 
-    def _compile_statement(self, stmt: Statement) -> None:
+    def _compile_statement(self, stmt: Statement, is_last_statement: bool = False) -> None:
         """Compile a statement node."""
         if isinstance(stmt, ExpressionStatement):
             self._compile_expression(stmt.expression)
-            # Pop expression result (statement doesn't use it)
-            self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
+            # Pop expression result unless it's the last statement (for eval/REPL mode)
+            if not is_last_statement:
+                self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
 
         elif isinstance(stmt, VariableDeclaration):
             self._compile_variable_declaration(stmt)
