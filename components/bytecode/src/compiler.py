@@ -30,6 +30,8 @@ from components.parser.src.ast_nodes import (
     ArrayExpression,
     ObjectExpression,
     Property,
+    ArrowFunctionExpression,
+    BlockStatement,
 )
 
 
@@ -156,6 +158,9 @@ class BytecodeCompiler:
 
         elif isinstance(expr, ObjectExpression):
             self._compile_object_expression(expr)
+
+        elif isinstance(expr, ArrowFunctionExpression):
+            self._compile_arrow_function_expression(expr)
 
         else:
             raise CompileError(f"Unsupported expression type: {type(expr).__name__}")
@@ -379,3 +384,83 @@ class BytecodeCompiler:
 
             # Store property in object
             self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_PROPERTY))
+
+    def _compile_arrow_function_expression(self, node: ArrowFunctionExpression) -> None:
+        """
+        Compile an arrow function expression.
+
+        Arrow functions are anonymous functions with concise syntax. They support
+        two body forms:
+        - Expression body: x => x * 2 (implicit return)
+        - Block body: x => { return x * 2; } (explicit return)
+
+        Args:
+            node: ArrowFunctionExpression AST node
+
+        Bytecode sequence:
+            CREATE_FUNCTION param_count, function_bytecode
+
+        The function bytecode contains:
+            For expression body:
+                <expression bytecode>
+                RETURN
+            For block body:
+                <block bytecode>
+                LOAD_UNDEFINED  # Implicit return if no explicit return
+                RETURN
+        """
+        # Extract parameter names
+        param_names = [param.name for param in node.params]
+        param_count = len(param_names)
+
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for function body
+        self.bytecode = BytecodeArray(local_count=param_count)
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Declare parameters as local variables
+        for param_name in param_names:
+            local_index = self.next_local_index
+            self.locals[param_name] = local_index
+            self.next_local_index += 1
+
+        # Compile function body based on type
+        if isinstance(node.body, BlockStatement):
+            # Block body: compile statements normally
+            for statement in node.body.body:
+                self._compile_statement(statement)
+
+            # Add implicit return undefined at end (in case no explicit return)
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+        else:
+            # Expression body: compile expression and add implicit return
+            self._compile_expression(node.body)
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        # Get compiled function bytecode
+        function_bytecode = self.bytecode
+
+        # Set local count for function
+        function_bytecode.local_count = self.next_local_index
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # Emit CREATE_CLOSURE instruction
+        # operand1: parameter count
+        # operand2: function bytecode
+        self.bytecode.add_instruction(
+            Instruction(
+                opcode=Opcode.CREATE_CLOSURE,
+                operand1=param_count,
+                operand2=function_bytecode,
+            )
+        )
