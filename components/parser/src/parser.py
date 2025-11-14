@@ -38,6 +38,9 @@ from .ast_nodes import (
     VariableDeclarator,
     VariableDeclaration,
     FunctionDeclaration,
+    ClassDeclaration,
+    ClassExpression,
+    MethodDefinition,
     IfStatement,
     WhileStatement,
     ReturnStatement,
@@ -140,6 +143,10 @@ class Parser:
         # Function declaration
         if self.current_token.type == TokenType.FUNCTION:
             return self._parse_function_declaration()
+
+        # Class declaration
+        if self.current_token.type == TokenType.CLASS:
+            return self._parse_class_declaration()
 
         # If statement
         if self.current_token.type == TokenType.IF:
@@ -556,6 +563,147 @@ class Parser:
                     parameters.append(param_token.value)
 
         return parameters
+
+    def _parse_class_declaration(self) -> ClassDeclaration:
+        """
+        Parse class declaration.
+
+        Syntax: class ClassName [extends SuperClass] { methods }
+
+        Returns:
+            ClassDeclaration: Parsed class declaration
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.CLASS)
+
+        # Class name (required for declarations)
+        id_token = self._expect(TokenType.IDENTIFIER)
+        class_id = Identifier(name=id_token.value, location=id_token.location)
+
+        # Check for extends clause
+        super_class = None
+        if self.current_token.type == TokenType.EXTENDS:
+            self._advance()  # skip extends
+            # Parse super class expression (usually identifier)
+            super_class = self._parse_primary_expression()
+
+        # Parse class body
+        body = self._parse_class_body()
+
+        return ClassDeclaration(
+            id=class_id, superClass=super_class, body=body, location=start_location
+        )
+
+    def _parse_class_expression(self) -> ClassExpression:
+        """
+        Parse class expression.
+
+        Syntax: class [ClassName] [extends SuperClass] { methods }
+
+        Returns:
+            ClassExpression: Parsed class expression
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.CLASS)
+
+        # Class name (optional for expressions)
+        class_id = None
+        if self.current_token.type == TokenType.IDENTIFIER:
+            id_token = self.current_token
+            self._advance()
+            class_id = Identifier(name=id_token.value, location=id_token.location)
+
+        # Check for extends clause
+        super_class = None
+        if self.current_token.type == TokenType.EXTENDS:
+            self._advance()  # skip extends
+            # Parse super class expression (usually identifier)
+            super_class = self._parse_primary_expression()
+
+        # Parse class body
+        body = self._parse_class_body()
+
+        return ClassExpression(
+            id=class_id, superClass=super_class, body=body, location=start_location
+        )
+
+    def _parse_class_body(self) -> List[MethodDefinition]:
+        """
+        Parse class body (methods).
+
+        Syntax: { [static] [get|set] methodName(params) { body } }
+
+        Returns:
+            List[MethodDefinition]: List of method definitions
+        """
+        self._expect(TokenType.LBRACE)
+
+        methods = []
+
+        while self.current_token.type != TokenType.RBRACE:
+            # Check for static modifier
+            is_static = False
+            if self.current_token.type == TokenType.STATIC:
+                is_static = True
+                self._advance()  # skip static
+
+            # Check for getter/setter
+            method_kind = "method"
+            if self.current_token.type == TokenType.GET:
+                method_kind = "get"
+                self._advance()  # skip get
+            elif self.current_token.type == TokenType.SET:
+                method_kind = "set"
+                self._advance()  # skip set
+
+            # Method name
+            method_start = self.current_token.location
+            if self.current_token.type != TokenType.IDENTIFIER:
+                raise SyntaxError(
+                    f"Expected method name in class body "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+
+            method_name = self.current_token.value
+            method_name_token = self.current_token
+            self._advance()
+
+            # Check if it's the constructor
+            if method_name == "constructor":
+                method_kind = "constructor"
+
+            # Method parameters
+            self._expect(TokenType.LPAREN)
+            parameters = self._parse_parameter_list()
+            self._expect(TokenType.RPAREN)
+
+            # Method body
+            body = self._parse_block_statement()
+
+            # Create method definition
+            key = Identifier(name=method_name, location=method_name_token.location)
+            value = FunctionExpression(
+                name=None,  # Methods don't have names (they're properties)
+                parameters=parameters,
+                body=body,
+                location=method_start,
+            )
+
+            method = MethodDefinition(
+                key=key,
+                value=value,
+                kind=method_kind,
+                computed=False,  # For now, only support non-computed property names
+                static=is_static,
+                location=method_start,
+            )
+
+            methods.append(method)
+
+        self._expect(TokenType.RBRACE)
+
+        return methods
 
     def _parse_if_statement(self) -> IfStatement:
         """Parse if statement."""
@@ -1119,6 +1267,10 @@ class Parser:
             token = self.current_token
             self._advance()
             return Literal(value=None, location=token.location)
+
+        # Class expression
+        if self.current_token.type == TokenType.CLASS:
+            return self._parse_class_expression()
 
         # Identifier
         if self.current_token.type == TokenType.IDENTIFIER:

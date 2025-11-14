@@ -27,6 +27,9 @@ from components.parser.src.ast_nodes import (
     VariableDeclaration,
     ReturnStatement,
     FunctionDeclaration,
+    ClassDeclaration,
+    ClassExpression,
+    MethodDefinition,
     CallExpression,
     ArrayExpression,
     ObjectExpression,
@@ -156,6 +159,9 @@ class BytecodeCompiler:
         elif isinstance(stmt, FunctionDeclaration):
             self._compile_function_declaration(stmt)
 
+        elif isinstance(stmt, ClassDeclaration):
+            self._compile_class_declaration(stmt)
+
         elif isinstance(stmt, IfStatement):
             self._compile_if_statement(stmt)
 
@@ -208,6 +214,9 @@ class BytecodeCompiler:
 
         elif isinstance(expr, TemplateLiteral):
             self._compile_template_literal(expr)
+
+        elif isinstance(expr, ClassExpression):
+            self._compile_class_expression(expr)
 
         else:
             raise CompileError(f"Unsupported expression type: {type(expr).__name__}")
@@ -1084,6 +1093,173 @@ class BytecodeCompiler:
                 const_index = self.bytecode.add_constant(next_quasi)
                 self._emit(Opcode.LOAD_CONSTANT, const_index)
                 self._emit(Opcode.ADD)
+
+    def _compile_class_declaration(self, node: ClassDeclaration) -> None:
+        """
+        Compile a class declaration.
+
+        Classes are compiled as constructor functions with methods attached
+        to the prototype. Static methods are attached to the constructor itself.
+
+        Args:
+            node: ClassDeclaration AST node
+        """
+        class_name = node.id.name
+
+        # Compile the class (creates constructor function and prototype setup)
+        self._compile_class(node.id, node.superClass, node.body)
+
+        # Store the class (constructor function) in a variable
+        if class_name in self.locals:
+            local_index = self.locals[class_name]
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+            )
+        else:
+            name_index = self.bytecode.add_constant(class_name)
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index)
+            )
+
+    def _compile_class_expression(self, node: ClassExpression) -> None:
+        """
+        Compile a class expression.
+
+        Similar to class declaration but doesn't store the result - leaves it
+        on the stack for the caller to use.
+
+        Args:
+            node: ClassExpression AST node
+        """
+        self._compile_class(node.id, node.superClass, node.body)
+
+    def _compile_class(self, id, superClass, body) -> None:
+        """
+        Compile class body - shared between declaration and expression.
+
+        Strategy: Compile class to a constructor function with prototype methods.
+
+        Args:
+            id: Class name (Identifier or None for anonymous)
+            superClass: Parent class expression (optional)
+            body: List of MethodDefinition nodes
+        """
+        # Find constructor method and other methods
+        constructor_method = None
+        instance_methods = []
+        static_methods = []
+
+        for method in body:
+            if method.kind == "constructor":
+                constructor_method = method
+            elif method.static:
+                static_methods.append(method)
+            else:
+                instance_methods.append(method)
+
+        # Compile constructor function (or create default constructor)
+        if constructor_method:
+            # Use the provided constructor
+            self._compile_method_as_function(constructor_method)
+        else:
+            # Create default empty constructor
+            self._compile_default_constructor()
+
+        # For now, we'll create a simple class structure
+        # The constructor function is now on the stack
+
+        # TODO: Add methods to prototype
+        # TODO: Add static methods to constructor
+        # TODO: Handle inheritance with superClass
+
+    def _compile_method_as_function(self, method: MethodDefinition) -> None:
+        """
+        Compile a method as a function.
+
+        Args:
+            method: MethodDefinition node
+        """
+        # Extract method details from the FunctionExpression value
+        function_expr = method.value
+        param_names = function_expr.parameters
+        param_count = len(param_names)
+        function_body = function_expr.body
+
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for method body
+        self.bytecode = BytecodeArray(local_count=param_count)
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Declare parameters as local variables
+        for param_name in param_names:
+            local_index = self.next_local_index
+            self.locals[param_name] = local_index
+            self.next_local_index += 1
+
+        # Compile method body
+        for statement in function_body.body:
+            self._compile_statement(statement)
+
+        # Add implicit return undefined
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        # Get compiled method bytecode
+        method_bytecode = self.bytecode
+        method_bytecode.local_count = self.next_local_index
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # Emit CREATE_CLOSURE to create the method function
+        self.bytecode.add_instruction(
+            Instruction(
+                opcode=Opcode.CREATE_CLOSURE,
+                operand1=param_count,
+                operand2=method_bytecode,
+            )
+        )
+
+    def _compile_default_constructor(self) -> None:
+        """Compile a default empty constructor function."""
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for empty constructor
+        self.bytecode = BytecodeArray(local_count=0)
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Empty constructor just returns undefined
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        # Get compiled constructor bytecode
+        constructor_bytecode = self.bytecode
+        constructor_bytecode.local_count = self.next_local_index
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # Emit CREATE_CLOSURE for constructor
+        self.bytecode.add_instruction(
+            Instruction(
+                opcode=Opcode.CREATE_CLOSURE,
+                operand1=0,  # No parameters
+                operand2=constructor_bytecode,
+            )
+        )
 
     def _compile_if_statement(self, node: IfStatement) -> None:
         """

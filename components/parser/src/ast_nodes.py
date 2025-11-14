@@ -391,6 +391,92 @@ class ObjectExpression(Expression):
 
 
 # ============================================================================
+# CLASSES
+# ============================================================================
+
+
+@dataclass
+class MethodDefinition:
+    """
+    Method definition in a class.
+
+    Represents methods in class bodies including constructors, instance methods,
+    static methods, getters, and setters.
+
+    Attributes:
+        key: Method name (Identifier or Literal for computed names)
+        value: Method function (FunctionExpression)
+        kind: Method kind - "constructor", "method", "get", "set"
+        computed: True for computed property names [expr]
+        static: True for static methods
+        location: Source location
+
+    Example:
+        >>> # Regular method: greet() { ... }
+        >>> MethodDefinition(
+        ...     key=Identifier(name="greet", location=loc),
+        ...     value=FunctionExpression(...),
+        ...     kind="method",
+        ...     computed=False,
+        ...     static=False,
+        ...     location=loc
+        ... )
+        >>> # Constructor: constructor(name) { ... }
+        >>> MethodDefinition(
+        ...     key=Identifier(name="constructor", location=loc),
+        ...     value=FunctionExpression(...),
+        ...     kind="constructor",
+        ...     computed=False,
+        ...     static=False,
+        ...     location=loc
+        ... )
+    """
+
+    key: Expression
+    value: FunctionExpression
+    kind: str  # "constructor", "method", "get", "set"
+    computed: bool
+    static: bool
+    location: SourceLocation
+
+
+@dataclass
+class ClassExpression(Expression):
+    """
+    Class expression.
+
+    Represents class expressions (classes used as values).
+    Examples: const C = class { }, const C = class Person { }
+
+    Attributes:
+        id: Class name (optional, None for anonymous classes)
+        superClass: Parent class expression (optional, None if no extends)
+        body: List of method definitions
+        location: Source location
+
+    Example:
+        >>> # const C = class { constructor(x) { this.x = x; } }
+        >>> ClassExpression(
+        ...     id=None,
+        ...     superClass=None,
+        ...     body=[MethodDefinition(...)],
+        ...     location=loc
+        ... )
+        >>> # const C = class Person extends Base { }
+        >>> ClassExpression(
+        ...     id=Identifier(name="Person", location=loc),
+        ...     superClass=Identifier(name="Base", location=loc),
+        ...     body=[],
+        ...     location=loc
+        ... )
+    """
+
+    id: Optional[Identifier]
+    superClass: Optional[Expression]
+    body: List[MethodDefinition]
+
+
+# ============================================================================
 # STATEMENTS
 # ============================================================================
 
@@ -653,6 +739,42 @@ class FunctionDeclaration(Statement):
     name: str
     parameters: List[str]
     body: "BlockStatement"
+
+
+@dataclass
+class ClassDeclaration(Statement):
+    """
+    Class declaration statement.
+
+    Represents class declarations.
+    Example: class Person { constructor(name) { this.name = name; } }
+
+    Attributes:
+        id: Class name (Identifier)
+        superClass: Parent class expression (optional, None if no extends)
+        body: List of method definitions
+        location: Source location
+
+    Example:
+        >>> # class Person { constructor(name) { this.name = name; } }
+        >>> ClassDeclaration(
+        ...     id=Identifier(name="Person", location=loc),
+        ...     superClass=None,
+        ...     body=[MethodDefinition(...)],
+        ...     location=loc
+        ... )
+        >>> # class Student extends Person { }
+        >>> ClassDeclaration(
+        ...     id=Identifier(name="Student", location=loc),
+        ...     superClass=Identifier(name="Person", location=loc),
+        ...     body=[],
+        ...     location=loc
+        ... )
+    """
+
+    id: Identifier
+    superClass: Optional[Expression]
+    body: List[MethodDefinition]
 
 
 @dataclass
