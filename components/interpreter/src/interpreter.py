@@ -141,8 +141,22 @@ class Interpreter:
                     frame.push(value)
 
                 case Opcode.STORE_LOCAL:
+                    # Phase 1: Enforce const immutability
+                    local_index = instruction.operand1
                     value = frame.pop()
-                    frame.locals[instruction.operand1] = value
+
+                    # Check if trying to reassign a const variable
+                    if frame.is_const(local_index) and frame.is_initialized(
+                        local_index
+                    ):
+                        raise TypeError(
+                            f"Assignment to constant variable at local {local_index}"
+                        )
+
+                    # Store value
+                    frame.locals[local_index] = value
+                    # Mark as initialized
+                    frame.mark_initialized(local_index)
 
                 # Arithmetic
                 case Opcode.ADD:
