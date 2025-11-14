@@ -23,10 +23,23 @@ orchestration/tmp/
 orchestration/*.tmp
 orchestration/*.temp
 
-# Python cache
+# Python cache (orchestration)
 orchestration/__pycache__/
 orchestration/**/__pycache__/
 orchestration/**/*.pyc
+
+# Python cache (project-wide)
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.pytest_cache/
+.mypy_cache/
 
 # IDE files (if in orchestration dir)
 orchestration/.vscode/
