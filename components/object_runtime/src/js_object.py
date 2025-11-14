@@ -10,8 +10,8 @@ from components.memory_gc.src import HeapObject, GarbageCollector
 from components.value_system.src import Value
 
 
-# Sentinel value for undefined
-UNDEFINED_VALUE = Value.from_smi(-1)  # Temporary representation
+# Sentinel value for undefined (matches LOAD_UNDEFINED opcode)
+UNDEFINED_VALUE = Value.from_smi(0)  # Temporary representation
 
 
 class JSObject(HeapObject):

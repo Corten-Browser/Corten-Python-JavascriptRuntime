@@ -71,7 +71,7 @@ class TestClassDeclarationCompilation:
 
         # Then
         assert len(bytecode.instructions) > 0
-        assert len(bytecode.constants) > 0  # Should have function constants
+        assert len(bytecode.constant_pool) > 0  # Should have function constants
 
     def test_class_with_instance_methods(self):
         """
@@ -98,7 +98,7 @@ class TestClassDeclarationCompilation:
         # Then
         assert len(bytecode.instructions) > 0
         # Should have multiple function constants (one per method)
-        assert len(bytecode.constants) > 0
+        assert len(bytecode.constant_pool) > 0
 
     def test_class_with_static_methods(self):
         """
