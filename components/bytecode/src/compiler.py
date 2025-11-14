@@ -23,6 +23,7 @@ from components.parser.src.ast_nodes import (
     Identifier,
     TemplateLiteral,
     BinaryExpression,
+    UnaryExpression,
     ExpressionStatement,
     VariableDeclaration,
     ReturnStatement,
@@ -126,9 +127,21 @@ class BytecodeCompiler:
                 is_last = i == len(statements) - 1
                 self._compile_statement(statement, is_last_statement=is_last)
 
-            # Check if last statement was an ExpressionStatement that kept its value
-            # If not, add implicit return undefined
-            if not statements or not isinstance(statements[-1], ExpressionStatement):
+            # Check if last statement kept a value on the stack
+            # ExpressionStatements keep their value
+            # VariableDeclarations with initializers also keep their value (via DUP)
+            # If neither, add implicit return undefined
+            should_load_undefined = True
+            if statements:
+                last_stmt = statements[-1]
+                if isinstance(last_stmt, ExpressionStatement):
+                    should_load_undefined = False
+                elif isinstance(last_stmt, VariableDeclaration):
+                    # Check if any declarator has an initializer
+                    if any(decl.init is not None for decl in last_stmt.declarations):
+                        should_load_undefined = False
+
+            if should_load_undefined:
                 self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
 
             self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
@@ -152,7 +165,7 @@ class BytecodeCompiler:
                 self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
 
         elif isinstance(stmt, VariableDeclaration):
-            self._compile_variable_declaration(stmt)
+            self._compile_variable_declaration(stmt, is_last_statement)
 
         elif isinstance(stmt, ReturnStatement):
             if stmt.argument:
@@ -203,6 +216,9 @@ class BytecodeCompiler:
 
         elif isinstance(expr, BinaryExpression):
             self._compile_binary_expression(expr)
+
+        elif isinstance(expr, UnaryExpression):
+            self._compile_unary_expression(expr)
 
         elif isinstance(expr, CallExpression):
             # Simplified: Basic function call
@@ -383,6 +399,25 @@ class BytecodeCompiler:
             self.bytecode.add_instruction(Instruction(opcode=Opcode.GREATER_EQUAL))
         else:
             raise CompileError(f"Unsupported binary operator: {op}")
+
+    def _compile_unary_expression(self, expr) -> None:
+        """Compile a unary expression."""
+        from components.parser.src.ast_nodes import UnaryExpression
+
+        # Compile the argument
+        self._compile_expression(expr.argument)
+
+        # Emit the appropriate opcode based on the operator
+        op = expr.operator
+        if op == "-":
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.NEGATE))
+        elif op == "+":
+            # Unary plus converts to number, but in our implementation
+            # we can treat it as a no-op since we're already numeric
+            # or emit a TO_NUMBER opcode if we have one
+            pass  # No-op for now
+        else:
+            raise CompileError(f"Unsupported unary operator: {op}")
 
     def _compile_pattern(self, pattern, keep_value=False):
         """
@@ -646,7 +681,9 @@ class BytecodeCompiler:
         # Skip_default label (value was not undefined, keep it)
         # No actual label instruction needed - JUMP_IF_FALSE jumps here
 
-    def _compile_variable_declaration(self, decl: VariableDeclaration) -> None:
+    def _compile_variable_declaration(
+        self, decl: VariableDeclaration, is_last_statement: bool = False
+    ) -> None:
         """
         Compile a variable declaration (var, let, or const).
 
@@ -666,11 +703,14 @@ class BytecodeCompiler:
 
         Args:
             decl: VariableDeclaration AST node with kind ("var", "let", or "const")
+            is_last_statement: True if this is the last statement in the program
         """
         # Phase 1: Treat all kinds the same (function-scoped)
         # kind = decl.kind  # "var", "let", or "const" - stored for future use
 
-        for declarator in decl.declarations:
+        for i, declarator in enumerate(decl.declarations):
+            is_last_declarator = is_last_statement and i == len(decl.declarations) - 1
+
             # Check if declarator.id is a simple string or a destructuring pattern
             if isinstance(declarator.id, str):
                 # Simple identifier: const x = value
@@ -685,11 +725,17 @@ class BytecodeCompiler:
                 # Compile initializer if present
                 if declarator.init:
                     self._compile_expression(declarator.init)
+                    # If this is the last declarator in the last statement,
+                    # duplicate the value so it remains on stack after STORE_LOCAL
+                    if is_last_declarator:
+                        self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
                 else:
                     # let/const without init → undefined (const without init is parser error)
                     self.bytecode.add_instruction(
                         Instruction(opcode=Opcode.LOAD_UNDEFINED)
                     )
+                    if is_last_declarator:
+                        self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
 
                 # Store to local
                 # Phase 2 TODO: Use different opcodes for let/const
@@ -701,14 +747,19 @@ class BytecodeCompiler:
                 # Compile initializer first (must be present for destructuring)
                 if declarator.init:
                     self._compile_expression(declarator.init)
+                    # Duplicate for last declarator
+                    if is_last_declarator:
+                        self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
                 else:
                     # Destructuring without initializer - should be caught by parser
                     # but handle gracefully
                     self.bytecode.add_instruction(
                         Instruction(opcode=Opcode.LOAD_UNDEFINED)
                     )
+                    if is_last_declarator:
+                        self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
 
-                # Compile the destructuring pattern
+                # Compile the destructuring pattern (this pops the value)
                 self._compile_pattern(declarator.id)
 
     def _compile_call_expression(self, expr: CallExpression) -> None:
