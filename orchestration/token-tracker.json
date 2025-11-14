@@ -1,0 +1,66 @@
+{
+  "timestamp": "2025-11-14T11:58:33.455729",
+  "components": {
+    "memory_gc": {
+      "tokens": 37590,
+      "lines": 1659,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 18.795
+    },
+    "runtime_cli": {
+      "tokens": 35340,
+      "lines": 1434,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 17.669999999999998
+    },
+    "bytecode": {
+      "tokens": 38230,
+      "lines": 1723,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 19.115
+    },
+    "shared_types": {
+      "tokens": 38050,
+      "lines": 1705,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 19.025
+    },
+    "value_system": {
+      "tokens": 38770,
+      "lines": 1777,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 19.384999999999998
+    },
+    "interpreter": {
+      "tokens": 36280,
+      "lines": 1528,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 18.14
+    },
+    "object_runtime": {
+      "tokens": 38460,
+      "lines": 1746,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 19.23
+    },
+    "parser": {
+      "tokens": 54520,
+      "lines": 3352,
+      "status": "green",
+      "tier": "optimal",
+      "percentage": 27.26
+    }
+  },
+  "summary": {
+    "total_components": 8,
+    "components_near_limit": 0,
+    "components_over_limit": 0
+  }
+}

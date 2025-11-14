@@ -303,8 +303,11 @@ class Interpreter:
                     frame.push(Value.from_object(obj))
 
                 case Opcode.STORE_PROPERTY:
-                    # Get property name from operand
-                    key = instruction.operand1
+                    # Get property name (either from constant pool or direct)
+                    if isinstance(instruction.operand1, int):
+                        key = bytecode.constant_pool[instruction.operand1]
+                    else:
+                        key = instruction.operand1  # Direct property name (for tests)
                     # Pop value from stack
                     value = frame.pop()
                     # Peek object from stack (don't pop - keep for next property)
@@ -314,8 +317,11 @@ class Interpreter:
                     obj.set_property(key, value)
 
                 case Opcode.LOAD_PROPERTY:
-                    # Get property name from operand
-                    key = instruction.operand1
+                    # Get property name (either from constant pool or direct)
+                    if isinstance(instruction.operand1, int):
+                        key = bytecode.constant_pool[instruction.operand1]
+                    else:
+                        key = instruction.operand1  # Direct property name (for tests)
                     # Pop object from stack
                     obj_value = frame.pop()
                     obj = obj_value.to_object()
@@ -323,6 +329,28 @@ class Interpreter:
                     prop_value = obj.get_property(key)
                     # Push property value to stack
                     frame.push(prop_value)
+
+                case Opcode.LOAD_ELEMENT:
+                    # Pop index from stack
+                    index_value = frame.pop()
+                    # Pop array from stack
+                    array_value = frame.pop()
+                    array = array_value.to_object()
+                    # Get element at index
+                    element = array.get_element(index_value.to_smi())
+                    # Push element to stack
+                    frame.push(element)
+
+                case Opcode.STORE_ELEMENT:
+                    # Pop value to store
+                    value = frame.pop()
+                    # Pop index from stack
+                    index_value = frame.pop()
+                    # Peek array from stack (don't pop - keep for chaining)
+                    array_value = frame.peek()
+                    array = array_value.to_object()
+                    # Store element at index
+                    array.set_element(index_value.to_smi(), value)
 
                 # Function operations
                 case Opcode.CREATE_CLOSURE:
