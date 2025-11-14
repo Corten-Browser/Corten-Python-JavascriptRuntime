@@ -87,6 +87,9 @@ class Opcode(Enum):
     CALL_FUNCTION = auto()  # Call function
     NEW = auto()  # Create instance: stack[constructor, ...args] -> instance
 
+    # Async/Await operations
+    CREATE_ASYNC_FUNCTION = auto()  # Create async function (returns Promise)
+
     # Stack manipulation
     POP = auto()  # Pop value from stack
     DUP = auto()  # Duplicate top of stack

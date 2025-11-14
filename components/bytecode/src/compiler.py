@@ -50,6 +50,10 @@ from components.parser.src.ast_nodes import (
     ForOfStatement,
     SpreadElement,
     RestElement,
+    AsyncFunctionDeclaration,
+    AsyncFunctionExpression,
+    AsyncArrowFunctionExpression,
+    AwaitExpression,
 )
 
 
@@ -160,6 +164,9 @@ class BytecodeCompiler:
         elif isinstance(stmt, FunctionDeclaration):
             self._compile_function_declaration(stmt)
 
+        elif isinstance(stmt, AsyncFunctionDeclaration):
+            self._compile_async_function_declaration(stmt)
+
         elif isinstance(stmt, ClassDeclaration):
             self._compile_class_declaration(stmt)
 
@@ -209,6 +216,15 @@ class BytecodeCompiler:
 
         elif isinstance(expr, ArrowFunctionExpression):
             self._compile_arrow_function_expression(expr)
+
+        elif isinstance(expr, AsyncFunctionExpression):
+            self._compile_async_function_expression(expr)
+
+        elif isinstance(expr, AsyncArrowFunctionExpression):
+            self._compile_async_arrow_function(expr)
+
+        elif isinstance(expr, AwaitExpression):
+            self._compile_await_expression(expr)
 
         elif isinstance(expr, MemberExpression):
             self._compile_member_expression(expr)
@@ -272,7 +288,7 @@ class BytecodeCompiler:
                 # Member expression assignment: obj.property = value
                 # Compile: object, value, then STORE_PROPERTY
                 self._compile_expression(expr.left.object)  # Stack: [obj]
-                self._compile_expression(expr.right)        # Stack: [obj, value]
+                self._compile_expression(expr.right)  # Stack: [obj, value]
 
                 # Get property name
                 if not expr.left.computed:
@@ -281,15 +297,21 @@ class BytecodeCompiler:
                     property_index = self.bytecode.add_constant(property_name)
                     # STORE_PROPERTY pops value, peeks object
                     self.bytecode.add_instruction(
-                        Instruction(opcode=Opcode.STORE_PROPERTY, operand1=property_index)
+                        Instruction(
+                            opcode=Opcode.STORE_PROPERTY, operand1=property_index
+                        )
                     )
                 else:
                     # obj[expr] - computed property
-                    self._compile_expression(expr.left.property)  # Stack: [obj, value, key]
+                    self._compile_expression(
+                        expr.left.property
+                    )  # Stack: [obj, value, key]
                     # Need STORE_ELEMENT which expects [obj, key, value]
                     # But we have [obj, value, key]
                     # TODO: Implement STORE_ELEMENT or swap stack order
-                    raise CompileError("Computed property assignment not yet fully supported")
+                    raise CompileError(
+                        "Computed property assignment not yet fully supported"
+                    )
 
                 # Assignment returns the value, so we need to push it back
                 # But STORE_PROPERTY already leaves the object on stack
@@ -329,7 +351,9 @@ class BytecodeCompiler:
                     )
                 return
             else:
-                raise CompileError(f"Assignment to {type(expr.left).__name__} not supported")
+                raise CompileError(
+                    f"Assignment to {type(expr.left).__name__} not supported"
+                )
 
         # For non-assignment operators, compile normally
         self._compile_expression(expr.left)
@@ -898,7 +922,9 @@ class BytecodeCompiler:
                     # Computed property: [expr]: value
                     # Compile the key expression and use STORE_ELEMENT
                     self._compile_expression(prop.key)
-                    self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_ELEMENT))
+                    self.bytecode.add_instruction(
+                        Instruction(opcode=Opcode.STORE_ELEMENT)
+                    )
                 else:
                     # Normal property: key: value or shorthand {key}
                     # Extract key name from Identifier or Literal
@@ -1341,6 +1367,199 @@ class BytecodeCompiler:
                 operand2=constructor_bytecode,
             )
         )
+
+    def _compile_async_function_declaration(
+        self, node: AsyncFunctionDeclaration
+    ) -> None:
+        """
+        Compile async function declaration.
+
+        Async functions are compiled as regular functions that return a Promise.
+        The function body is wrapped in Promise executor.
+
+        Args:
+            node: AsyncFunctionDeclaration AST node
+        """
+        # Compile function body
+        function_bytecode = BytecodeArray()
+
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for function body
+        self.bytecode = function_bytecode
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Add parameters to local scope
+        for i, param in enumerate(node.params):
+            self.locals[param] = i
+            self.next_local_index += 1
+
+        # Compile body statements
+        for stmt in node.body.body:
+            self._compile_statement(stmt)
+
+        # Add RETURN_UNDEFINED if no explicit return
+        if (
+            not function_bytecode.instructions
+            or function_bytecode.instructions[-1].opcode != Opcode.RETURN
+        ):
+            function_bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+            function_bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        # Store function metadata
+        function_bytecode.local_count = self.next_local_index
+        function_bytecode.parameter_count = len(node.params)
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # CREATE_ASYNC_FUNCTION wraps function in Promise-returning wrapper
+        self.bytecode.add_instruction(
+            Instruction(opcode=Opcode.CREATE_ASYNC_FUNCTION, operand2=function_bytecode)
+        )
+
+        # Store in variable
+        name_index = self.bytecode.add_constant(node.id.name)
+        if node.id.name in self.locals:
+            local_index = self.locals[node.id.name]
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+            )
+        else:
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index)
+            )
+
+    def _compile_async_function_expression(self, node: AsyncFunctionExpression) -> None:
+        """
+        Compile async function expression.
+
+        Args:
+            node: AsyncFunctionExpression AST node
+        """
+        # Similar to async function declaration but don't store in variable
+        function_bytecode = BytecodeArray()
+
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for function body
+        self.bytecode = function_bytecode
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Add parameters
+        for i, param in enumerate(node.params):
+            self.locals[param] = i
+            self.next_local_index += 1
+
+        # Compile body
+        for stmt in node.body.body:
+            self._compile_statement(stmt)
+
+        # Add return if needed
+        if (
+            not function_bytecode.instructions
+            or function_bytecode.instructions[-1].opcode != Opcode.RETURN
+        ):
+            function_bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+            function_bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        function_bytecode.local_count = self.next_local_index
+        function_bytecode.parameter_count = len(node.params)
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # CREATE_ASYNC_FUNCTION (result left on stack)
+        self.bytecode.add_instruction(
+            Instruction(opcode=Opcode.CREATE_ASYNC_FUNCTION, operand2=function_bytecode)
+        )
+
+    def _compile_async_arrow_function(self, node: AsyncArrowFunctionExpression) -> None:
+        """
+        Compile async arrow function.
+
+        Args:
+            node: AsyncArrowFunctionExpression AST node
+        """
+        function_bytecode = BytecodeArray()
+
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for function body
+        self.bytecode = function_bytecode
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Add parameters
+        for i, param in enumerate(node.params):
+            param_name = param.name if isinstance(param, Identifier) else param
+            self.locals[param_name] = i
+            self.next_local_index += 1
+
+        # Compile body
+        if isinstance(node.body, BlockStatement):
+            # Block body
+            for stmt in node.body.body:
+                self._compile_statement(stmt)
+
+            # Add return if needed
+            if (
+                not function_bytecode.instructions
+                or function_bytecode.instructions[-1].opcode != Opcode.RETURN
+            ):
+                function_bytecode.add_instruction(
+                    Instruction(opcode=Opcode.LOAD_UNDEFINED)
+                )
+                function_bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+        else:
+            # Expression body - implicit return
+            self._compile_expression(node.body)
+            function_bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        function_bytecode.local_count = self.next_local_index
+        function_bytecode.parameter_count = len(node.params)
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # CREATE_ASYNC_FUNCTION
+        self.bytecode.add_instruction(
+            Instruction(opcode=Opcode.CREATE_ASYNC_FUNCTION, operand2=function_bytecode)
+        )
+
+    def _compile_await_expression(self, node: AwaitExpression) -> None:
+        """
+        Compile await expression.
+
+        For Phase 2.6.2, we'll compile the argument and leave a marker.
+        Full state machine transformation comes in Phase 2.6.3.
+
+        Args:
+            node: AwaitExpression AST node
+        """
+        # Compile the expression being awaited
+        self._compile_expression(node.argument)
+
+        # For now, just compile as regular expression
+        # Full AWAIT opcode implementation comes later
+        # This allows tests to pass for async functions without await
 
     def _compile_if_statement(self, node: IfStatement) -> None:
         """

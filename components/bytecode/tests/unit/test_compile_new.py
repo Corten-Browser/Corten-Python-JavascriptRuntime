@@ -33,7 +33,9 @@ class TestNewExpressionCompilation:
         assert Opcode.NEW in opcodes, "Should have NEW opcode"
 
         # Find NEW instruction and check argument count
-        new_instr = [instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW][0]
+        new_instr = [
+            instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW
+        ][0]
         assert new_instr.operand1 == 0, "NEW should have 0 arguments"
 
     def test_compile_new_with_one_arg(self):
@@ -55,7 +57,9 @@ class TestNewExpressionCompilation:
         assert Opcode.NEW in opcodes, "Should have NEW opcode"
 
         # Find NEW instruction and check argument count
-        new_instr = [instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW][0]
+        new_instr = [
+            instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW
+        ][0]
         assert new_instr.operand1 == 1, "NEW should have 1 argument"
 
     def test_compile_new_with_arrow_function(self):
@@ -74,11 +78,15 @@ class TestNewExpressionCompilation:
         # Then
         opcodes = [instr.opcode for instr in bytecode.instructions]
         assert Opcode.LOAD_GLOBAL in opcodes, "Should load Promise constructor"
-        assert Opcode.CREATE_CLOSURE in opcodes, "Should create closure for arrow function"
+        assert (
+            Opcode.CREATE_CLOSURE in opcodes
+        ), "Should create closure for arrow function"
         assert Opcode.NEW in opcodes, "Should have NEW opcode"
 
         # NEW should follow CREATE_CLOSURE
-        new_instr = [instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW][0]
+        new_instr = [
+            instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW
+        ][0]
         assert new_instr.operand1 == 1, "NEW should have 1 argument (the closure)"
 
     def test_compile_new_with_multiple_args(self):
@@ -100,11 +108,15 @@ class TestNewExpressionCompilation:
         assert Opcode.NEW in opcodes, "Should have NEW opcode"
 
         # Check we load 3 constants
-        load_constant_count = sum(1 for instr in bytecode.instructions if instr.opcode == Opcode.LOAD_CONSTANT)
+        load_constant_count = sum(
+            1 for instr in bytecode.instructions if instr.opcode == Opcode.LOAD_CONSTANT
+        )
         assert load_constant_count >= 3, "Should load 3 literal arguments"
 
         # Find NEW instruction and check argument count
-        new_instr = [instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW][0]
+        new_instr = [
+            instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW
+        ][0]
         assert new_instr.operand1 == 3, "NEW should have 3 arguments"
 
     def test_compile_new_in_assignment(self):
@@ -123,8 +135,9 @@ class TestNewExpressionCompilation:
         # Then
         opcodes = [instr.opcode for instr in bytecode.instructions]
         assert Opcode.NEW in opcodes, "Should have NEW opcode"
-        assert Opcode.STORE_LOCAL in opcodes or Opcode.STORE_GLOBAL in opcodes, \
-            "Should store result of new expression"
+        assert (
+            Opcode.STORE_LOCAL in opcodes or Opcode.STORE_GLOBAL in opcodes
+        ), "Should store result of new expression"
 
     def test_compile_new_bytecode_order(self):
         """
@@ -179,7 +192,9 @@ class TestNewExpressionCompilation:
         assert Opcode.NEW in opcodes, "Should have NEW opcode"
 
         # NEW should have 1 argument (result of getExecutor())
-        new_instr = [instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW][0]
+        new_instr = [
+            instr for instr in bytecode.instructions if instr.opcode == Opcode.NEW
+        ][0]
         assert new_instr.operand1 == 1, "NEW should have 1 argument"
 
     def test_new_expression_integrated_with_parser(self):
