@@ -148,6 +148,23 @@ class Lexer:
         if char == "`":
             return self._scan_template_literal()
 
+        # Three-character operators
+        if self.position + 2 < len(self.source):
+            three_char = self.source[self.position : self.position + 3]
+            if three_char == "...":
+                self.position += 3
+                self.column += 3
+                return Token(
+                    type=TokenType.SPREAD,
+                    value=None,
+                    location=SourceLocation(
+                        filename=self.filename,
+                        line=start_line,
+                        column=start_column,
+                        offset=start_offset,
+                    ),
+                )
+
         # Two-character operators
         if self.position + 1 < len(self.source):
             two_char = self.source[self.position : self.position + 2]

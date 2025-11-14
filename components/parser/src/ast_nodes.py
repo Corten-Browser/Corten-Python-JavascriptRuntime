@@ -281,6 +281,28 @@ class ArrowFunctionExpression(Expression):
 
 
 @dataclass
+class SpreadElement(Expression):
+    """
+    Spread element expression.
+
+    Represents spread operator in arrays and function calls.
+    Examples: [...arr], ...items in function calls
+
+    Attributes:
+        argument: Expression to spread
+        location: Source location
+
+    Example:
+        >>> SpreadElement(
+        ...     argument=Identifier(name="arr", location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    argument: Expression
+
+
+@dataclass
 class ArrayExpression(Expression):
     """
     Array literal expression.
@@ -403,6 +425,29 @@ class Pattern(ASTNode):
     Patterns are used in destructuring assignments and declarations.
     Examples: {x, y} in const {x, y} = obj, [a, b] in const [a, b] = arr
     """
+
+
+@dataclass
+class RestElement(Pattern):
+    """
+    Rest element pattern.
+
+    Represents rest (...) operator in destructuring patterns and function parameters.
+    Examples: const {x, ...rest} = obj, const [a, ...rest] = arr, function f(...args)
+
+    Attributes:
+        argument: Pattern or Identifier receiving remaining elements
+        location: Source location
+
+    Example:
+        >>> # const [a, ...rest] = arr
+        >>> RestElement(
+        ...     argument=Identifier(name="rest", location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    argument: any  # Union[Identifier, Pattern]
 
 
 @dataclass

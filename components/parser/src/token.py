@@ -68,6 +68,7 @@ class TokenType(Enum):
     DOT = auto()
     COLON = auto()
     ARROW = auto()  # => for arrow functions
+    SPREAD = auto()  # ... for spread/rest operators
 
     # Special
     EOF = auto()

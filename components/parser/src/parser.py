@@ -24,6 +24,7 @@ from .ast_nodes import (
     MemberExpression,
     FunctionExpression,
     ArrowFunctionExpression,
+    SpreadElement,
     ArrayExpression,
     ObjectExpression,
     Property,
@@ -32,6 +33,7 @@ from .ast_nodes import (
     ArrayPattern,
     PropertyPattern,
     AssignmentPattern,
+    RestElement,
     ExpressionStatement,
     VariableDeclarator,
     VariableDeclaration,
@@ -166,7 +168,7 @@ class Parser:
         """
         Parse object destructuring pattern.
 
-        Handles: {x, y}, {x: a, y: b}, {x, y: {z}}, {x = 10}
+        Handles: {x, y}, {x: a, y: b}, {x, y: {z}}, {x = 10}, {x, ...rest}
 
         Returns:
             ObjectPattern: Parsed object pattern
@@ -178,6 +180,34 @@ class Parser:
 
         while self.current_token.type != TokenType.RBRACE:
             prop_start = self.current_token.location
+
+            # Check for rest property: {...rest}
+            if self.current_token.type == TokenType.SPREAD:
+                rest_location = self.current_token.location
+                self._advance()  # skip ...
+                # Parse the rest argument (must be identifier)
+                if self.current_token.type != TokenType.IDENTIFIER:
+                    raise SyntaxError(
+                        f"Expected identifier after ... in object pattern "
+                        f"at {self.current_token.location.filename}:"
+                        f"{self.current_token.location.line}:{self.current_token.location.column}"
+                    )
+                argument = Identifier(
+                    name=self.current_token.value,
+                    location=self.current_token.location
+                )
+                self._advance()
+                element = RestElement(argument=argument, location=rest_location)
+                properties.append(element)
+
+                # Rest element must be last
+                if self.current_token.type == TokenType.COMMA:
+                    raise SyntaxError(
+                        f"Rest element must be last element in object pattern "
+                        f"at {self.current_token.location.filename}:"
+                        f"{self.current_token.location.line}:{self.current_token.location.column}"
+                    )
+                break  # Rest element ends the pattern
 
             # Parse property key (identifier or computed)
             if self.current_token.type == TokenType.IDENTIFIER:
@@ -238,7 +268,7 @@ class Parser:
         """
         Parse array destructuring pattern.
 
-        Handles: [a, b], [a, , c], [[x, y], z], [a = 5]
+        Handles: [a, b], [a, , c], [[x, y], z], [a = 5], [a, ...rest]
 
         Returns:
             ArrayPattern: Parsed array pattern
@@ -254,6 +284,24 @@ class Parser:
                 elements.append(None)
                 self._advance()
                 continue
+
+            # Check for rest element: [...rest]
+            if self.current_token.type == TokenType.SPREAD:
+                rest_location = self.current_token.location
+                self._advance()  # skip ...
+                # Parse the rest argument (can be identifier or pattern)
+                argument = self._parse_pattern_or_identifier()
+                element = RestElement(argument=argument, location=rest_location)
+                elements.append(element)
+
+                # Rest element must be last
+                if self.current_token.type == TokenType.COMMA:
+                    raise SyntaxError(
+                        f"Rest element must be last element in array pattern "
+                        f"at {self.current_token.location.filename}:"
+                        f"{self.current_token.location.line}:{self.current_token.location.column}"
+                    )
+                break  # Rest element ends the pattern
 
             # Parse element (can be identifier, nested pattern, or assignment pattern)
             element = self._parse_pattern_or_identifier()
@@ -463,19 +511,49 @@ class Parser:
         )
 
     def _parse_parameter_list(self) -> List[str]:
-        """Parse function parameter list."""
+        """
+        Parse function parameter list.
+
+        Supports regular parameters and rest parameters (...param).
+        Rest parameters are stored with "..." prefix for now.
+        """
         parameters = []
 
         if self.current_token.type != TokenType.RPAREN:
             # Parse first parameter
-            param_token = self._expect(TokenType.IDENTIFIER)
-            parameters.append(param_token.value)
+            if self.current_token.type == TokenType.SPREAD:
+                self._advance()  # skip ...
+                param_token = self._expect(TokenType.IDENTIFIER)
+                parameters.append(f"...{param_token.value}")  # Mark as rest parameter
+                # Rest parameter must be last
+                if self.current_token.type == TokenType.COMMA:
+                    raise SyntaxError(
+                        f"Rest parameter must be last formal parameter "
+                        f"at {self.current_token.location.filename}:"
+                        f"{self.current_token.location.line}:{self.current_token.location.column}"
+                    )
+            else:
+                param_token = self._expect(TokenType.IDENTIFIER)
+                parameters.append(param_token.value)
 
             # Parse additional parameters
             while self.current_token.type == TokenType.COMMA:
                 self._advance()  # skip comma
-                param_token = self._expect(TokenType.IDENTIFIER)
-                parameters.append(param_token.value)
+
+                if self.current_token.type == TokenType.SPREAD:
+                    self._advance()  # skip ...
+                    param_token = self._expect(TokenType.IDENTIFIER)
+                    parameters.append(f"...{param_token.value}")  # Mark as rest parameter
+                    # Rest parameter must be last
+                    if self.current_token.type == TokenType.COMMA:
+                        raise SyntaxError(
+                            f"Rest parameter must be last formal parameter "
+                            f"at {self.current_token.location.filename}:"
+                            f"{self.current_token.location.line}:{self.current_token.location.column}"
+                        )
+                else:
+                    param_token = self._expect(TokenType.IDENTIFIER)
+                    parameters.append(param_token.value)
 
         return parameters
 
@@ -770,7 +848,7 @@ class Parser:
             )
             self._advance()
         elif self.current_token.type == TokenType.LPAREN:
-            # Parameters with parens: (x), (x, y), or ()
+            # Parameters with parens: (x), (x, y), (), or (...rest)
             self._advance()  # skip (
 
             # Parse parameter list
@@ -778,11 +856,32 @@ class Parser:
                 self.current_token.type != TokenType.RPAREN
                 and self.current_token.type != TokenType.EOF
             ):
-                # Parse parameter identifier
-                param_token = self._expect(TokenType.IDENTIFIER)
-                params.append(
-                    Identifier(name=param_token.value, location=param_token.location)
-                )
+                # Check for rest parameter
+                if self.current_token.type == TokenType.SPREAD:
+                    rest_location = self.current_token.location
+                    self._advance()  # skip ...
+                    param_token = self._expect(TokenType.IDENTIFIER)
+                    params.append(
+                        RestElement(
+                            argument=Identifier(
+                                name=param_token.value, location=param_token.location
+                            ),
+                            location=rest_location,
+                        )
+                    )
+                    # Rest parameter must be last
+                    if self.current_token.type == TokenType.COMMA:
+                        raise SyntaxError(
+                            f"Rest parameter must be last formal parameter "
+                            f"at {self.current_token.location.filename}:"
+                            f"{self.current_token.location.line}:{self.current_token.location.column}"
+                        )
+                else:
+                    # Parse parameter identifier
+                    param_token = self._expect(TokenType.IDENTIFIER)
+                    params.append(
+                        Identifier(name=param_token.value, location=param_token.location)
+                    )
 
                 # Check for comma (more parameters)
                 if self.current_token.type == TokenType.COMMA:
@@ -1038,7 +1137,7 @@ class Parser:
         """
         Parse array literal expression.
 
-        Syntax: [element1, element2, ...]
+        Syntax: [element1, element2, ...] or [element1, ...spread, element2]
 
         Returns:
             ArrayExpression: Parsed array literal
@@ -1053,8 +1152,16 @@ class Parser:
             self.current_token.type != TokenType.RBRACKET
             and self.current_token.type != TokenType.EOF
         ):
-            # Parse element expression
-            elements.append(self._parse_expression())
+            # Check for spread element
+            if self.current_token.type == TokenType.SPREAD:
+                spread_location = self.current_token.location
+                self._advance()  # skip ...
+                # Parse the spread argument
+                argument = self._parse_expression()
+                elements.append(SpreadElement(argument=argument, location=spread_location))
+            else:
+                # Parse normal element expression
+                elements.append(self._parse_expression())
 
             # Check for comma or closing bracket
             if self.current_token.type == TokenType.COMMA:
@@ -1077,7 +1184,7 @@ class Parser:
         """
         Parse object literal expression.
 
-        Syntax: {key: value, ...} or {key, ...} or {method() {...}}
+        Syntax: {key: value, ...} or {key, ...} or {method() {...}} or {...spread}
 
         Returns:
             ObjectExpression: Parsed object literal
@@ -1092,9 +1199,18 @@ class Parser:
             self.current_token.type != TokenType.RBRACE
             and self.current_token.type != TokenType.EOF
         ):
-            # Parse property
-            prop = self._parse_object_property()
-            properties.append(prop)
+            # Check for spread property
+            if self.current_token.type == TokenType.SPREAD:
+                spread_location = self.current_token.location
+                self._advance()  # skip ...
+                # Parse the spread argument
+                argument = self._parse_expression()
+                # Use SpreadElement for object spread as well
+                properties.append(SpreadElement(argument=argument, location=spread_location))
+            else:
+                # Parse normal property
+                prop = self._parse_object_property()
+                properties.append(prop)
 
             # Check for comma or closing brace
             if self.current_token.type == TokenType.COMMA:
