@@ -460,6 +460,14 @@ class Parser:
             self._expect(TokenType.RPAREN)
             return expr
 
+        # Array literal
+        if self.current_token.type == TokenType.LBRACKET:
+            return self._parse_array_literal()
+
+        # Object literal
+        if self.current_token.type == TokenType.LBRACE:
+            return self._parse_object_literal()
+
         # Number literal
         if self.current_token.type == TokenType.NUMBER:
             token = self.current_token
@@ -506,4 +514,177 @@ class Parser:
             f"Unexpected token {self.current_token.type} "
             f"at {self.current_token.location.filename}:"
             f"{self.current_token.location.line}:{self.current_token.location.column}"
+        )
+
+    def _parse_array_literal(self) -> ArrayExpression:
+        """
+        Parse array literal expression.
+
+        Syntax: [element1, element2, ...]
+
+        Returns:
+            ArrayExpression: Parsed array literal
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.LBRACKET)
+
+        elements = []
+
+        # Parse elements until closing bracket
+        while (
+            self.current_token.type != TokenType.RBRACKET
+            and self.current_token.type != TokenType.EOF
+        ):
+            # Parse element expression
+            elements.append(self._parse_expression())
+
+            # Check for comma or closing bracket
+            if self.current_token.type == TokenType.COMMA:
+                self._advance()  # skip comma
+                # Allow trailing comma
+                if self.current_token.type == TokenType.RBRACKET:
+                    break
+            elif self.current_token.type != TokenType.RBRACKET:
+                raise SyntaxError(
+                    f"Expected ',' or ']' in array literal, got {self.current_token.type} "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+
+        self._expect(TokenType.RBRACKET)
+
+        return ArrayExpression(elements=elements, location=start_location)
+
+    def _parse_object_literal(self) -> ObjectExpression:
+        """
+        Parse object literal expression.
+
+        Syntax: {key: value, ...} or {key, ...} or {method() {...}}
+
+        Returns:
+            ObjectExpression: Parsed object literal
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.LBRACE)
+
+        properties = []
+
+        # Parse properties until closing brace
+        while (
+            self.current_token.type != TokenType.RBRACE
+            and self.current_token.type != TokenType.EOF
+        ):
+            # Parse property
+            prop = self._parse_object_property()
+            properties.append(prop)
+
+            # Check for comma or closing brace
+            if self.current_token.type == TokenType.COMMA:
+                self._advance()  # skip comma
+                # Allow trailing comma
+                if self.current_token.type == TokenType.RBRACE:
+                    break
+            elif self.current_token.type != TokenType.RBRACE:
+                raise SyntaxError(
+                    f"Expected ',' or '}}' in object literal, got {self.current_token.type} "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+
+        self._expect(TokenType.RBRACE)
+
+        return ObjectExpression(properties=properties, location=start_location)
+
+    def _parse_object_property(self) -> Property:
+        """
+        Parse object property.
+
+        Handles:
+        - key: value (normal property)
+        - key (shorthand property)
+        - method() { ... } (method definition)
+        - [computed]: value (computed property name)
+
+        Returns:
+            Property: Parsed property
+        """
+        prop_start_location = self.current_token.location
+
+        # Computed property name: [expr]
+        computed = False
+        if self.current_token.type == TokenType.LBRACKET:
+            computed = True
+            self._advance()  # skip [
+            key = self._parse_expression()
+            self._expect(TokenType.RBRACKET)
+        # String literal key
+        elif self.current_token.type == TokenType.STRING:
+            key_token = self.current_token
+            key = Literal(value=key_token.value, location=key_token.location)
+            self._advance()
+        # Identifier key
+        elif self.current_token.type == TokenType.IDENTIFIER:
+            key_token = self.current_token
+            key = Identifier(name=key_token.value, location=key_token.location)
+            self._advance()
+        else:
+            raise SyntaxError(
+                f"Expected property key, got {self.current_token.type} "
+                f"at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
+
+        # Method definition: method() { ... }
+        if self.current_token.type == TokenType.LPAREN:
+            # Parse as method
+            self._expect(TokenType.LPAREN)
+            parameters = self._parse_parameter_list()
+            self._expect(TokenType.RPAREN)
+            body = self._parse_block_statement()
+
+            value = FunctionExpression(
+                name=None,
+                parameters=parameters,
+                body=body,
+                location=prop_start_location,
+            )
+
+            return Property(
+                key=key,
+                value=value,
+                kind="method",
+                computed=computed,
+                location=prop_start_location,
+            )
+
+        # Shorthand property: {x} expands to {x: x}
+        if self.current_token.type != TokenType.COLON:
+            # Must be identifier for shorthand
+            if not isinstance(key, Identifier):
+                raise SyntaxError(
+                    f"Shorthand property must be identifier "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+            # Shorthand: use same identifier for value
+            value = Identifier(name=key.name, location=key.location)
+
+            return Property(
+                key=key,
+                value=value,
+                kind="init",
+                computed=False,
+                location=prop_start_location,
+            )
+
+        # Normal property: key: value
+        self._expect(TokenType.COLON)
+        value = self._parse_expression()
+
+        return Property(
+            key=key,
+            value=value,
+            kind="init",
+            computed=computed,
+            location=prop_start_location,
         )

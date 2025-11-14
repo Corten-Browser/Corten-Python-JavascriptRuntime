@@ -212,6 +212,94 @@ class FunctionExpression(Expression):
     body: "BlockStatement"
 
 
+@dataclass
+class ArrayExpression(Expression):
+    """
+    Array literal expression.
+
+    Represents array literals with comma-separated elements.
+    Examples: [1, 2, 3], [x, y + 1, fn()], [[1, 2], [3, 4]]
+
+    Attributes:
+        elements: List of element expressions
+        location: Source location
+
+    Example:
+        >>> ArrayExpression(
+        ...     elements=[
+        ...         Literal(value=1, location=loc),
+        ...         Literal(value=2, location=loc),
+        ...         Literal(value=3, location=loc)
+        ...     ],
+        ...     location=loc
+        ... )
+    """
+
+    elements: List[Expression]
+
+
+@dataclass
+class Property:
+    """
+    Object property definition.
+
+    Represents a property in an object literal.
+    Examples: x: 1, "key": value, method() {}, [expr]: value
+
+    Attributes:
+        key: Property key (Identifier or Literal)
+        value: Property value expression
+        kind: Property kind ("init" for normal properties, "method" for methods)
+        computed: True for computed property names [expr], False for normal keys
+        location: Source location
+
+    Example:
+        >>> Property(
+        ...     key=Identifier(name="x", location=loc),
+        ...     value=Literal(value=1, location=loc),
+        ...     kind="init",
+        ...     computed=False,
+        ...     location=loc
+        ... )
+    """
+
+    key: Expression
+    value: Expression
+    kind: str
+    computed: bool
+    location: SourceLocation
+
+
+@dataclass
+class ObjectExpression(Expression):
+    """
+    Object literal expression.
+
+    Represents object literals with comma-separated properties.
+    Examples: {x: 1, y: 2}, {name, age: 25}, {greet() { return "hi"; }}
+
+    Attributes:
+        properties: List of property definitions
+        location: Source location
+
+    Example:
+        >>> ObjectExpression(
+        ...     properties=[
+        ...         Property(
+        ...             key=Identifier(name="x", location=loc),
+        ...             value=Literal(value=1, location=loc),
+        ...             kind="init",
+        ...             computed=False,
+        ...             location=loc
+        ...         )
+        ...     ],
+        ...     location=loc
+        ... )
+    """
+
+    properties: List[Property]
+
+
 # ============================================================================
 # STATEMENTS
 # ============================================================================
