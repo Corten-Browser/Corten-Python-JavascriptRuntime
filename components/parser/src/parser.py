@@ -9,7 +9,32 @@ from typing import List, Optional
 
 from .lexer import Lexer
 from .token import Token, TokenType
-from .ast_nodes import *
+from .ast_nodes import (
+    ForStatement,
+    ForInStatement,
+    ForOfStatement,
+    Program,
+    Statement,
+    Expression,
+    Literal,
+    Identifier,
+    BinaryExpression,
+    CallExpression,
+    MemberExpression,
+    FunctionExpression,
+    ArrowFunctionExpression,
+    ArrayExpression,
+    ObjectExpression,
+    Property,
+    ExpressionStatement,
+    VariableDeclarator,
+    VariableDeclaration,
+    FunctionDeclaration,
+    IfStatement,
+    WhileStatement,
+    ReturnStatement,
+    BlockStatement,
+)
 
 
 class Parser:
@@ -116,6 +141,10 @@ class Parser:
         if self.current_token.type == TokenType.WHILE:
             return self._parse_while_statement()
 
+        # For statement (traditional, for-in, for-of)
+        if self.current_token.type == TokenType.FOR:
+            return self._parse_for_statement()
+
         # Return statement
         if self.current_token.type == TokenType.RETURN:
             return self._parse_return_statement()
@@ -166,6 +195,48 @@ class Parser:
         # Expect semicolon
         if self.current_token.type == TokenType.SEMICOLON:
             self._advance()
+
+        return VariableDeclaration(
+            kind=kind, declarations=declarations, location=start_location
+        )
+
+    def _parse_variable_declaration_for_loop(self) -> VariableDeclaration:
+        """
+        Parse variable declaration for for-loop context.
+
+        Like _parse_variable_declaration() but does NOT consume trailing semicolon.
+        Used in for loop headers where semicolons are part of for loop syntax.
+        """
+        start_location = self.current_token.location
+
+        # Determine declaration kind
+        if self.current_token.type == TokenType.VAR:
+            kind = "var"
+            self._expect(TokenType.VAR)
+        elif self.current_token.type == TokenType.LET:
+            kind = "let"
+            self._expect(TokenType.LET)
+        elif self.current_token.type == TokenType.CONST:
+            kind = "const"
+            self._expect(TokenType.CONST)
+        else:
+            raise SyntaxError(
+                f"Expected var, let, or const, got {self.current_token.type} "
+                f"at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
+
+        declarations = []
+
+        # Parse first declarator
+        declarations.append(self._parse_variable_declarator(kind))
+
+        # Parse additional declarators (comma-separated)
+        while self.current_token.type == TokenType.COMMA:
+            self._advance()  # skip comma
+            declarations.append(self._parse_variable_declarator(kind))
+
+        # Do NOT consume semicolon (for-loop will handle it)
 
         return VariableDeclaration(
             kind=kind, declarations=declarations, location=start_location
@@ -280,6 +351,95 @@ class Parser:
         body = self._parse_statement()
 
         return WhileStatement(test=test, body=body, location=start_location)
+
+    def _parse_for_statement(self):
+        """
+        Parse for statement (traditional, for-in, or for-of).
+
+        Handles three types:
+        - Traditional: for (init; test; update) { ... }
+        - For-in: for (var key in obj) { ... }
+        - For-of: for (var value of array) { ... }
+
+        Returns:
+            ForStatement, ForInStatement, or ForOfStatement
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.FOR)
+        self._expect(TokenType.LPAREN)
+
+        # Parse the left side (init for traditional, left for for-in/for-of)
+        # This can be:
+        # - VariableDeclaration (var/let/const)
+        # - Identifier
+        # - Expression
+        # - Nothing (empty init in traditional for)
+
+        left_or_init = None
+
+        if self.current_token.type == TokenType.SEMICOLON:
+            # Empty init in traditional for loop: for (;;)
+            left_or_init = None
+        elif self.current_token.type in (TokenType.VAR, TokenType.LET, TokenType.CONST):
+            # Variable declaration (without semicolon consumption for for loop context)
+            left_or_init = self._parse_variable_declaration_for_loop()
+        elif self.current_token.type == TokenType.RPAREN:
+            # Empty loop header (shouldn't happen, but handle gracefully)
+            raise SyntaxError(
+                f"Unexpected ) in for loop at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
+        else:
+            # Expression or identifier
+            left_or_init = self._parse_assignment_expression()
+
+        # Check what comes next to determine loop type
+        if self.current_token.type == TokenType.IN:
+            # For-in loop
+            self._expect(TokenType.IN)
+            right = self._parse_expression()
+            self._expect(TokenType.RPAREN)
+            body = self._parse_statement()
+            return ForInStatement(left=left_or_init, right=right, body=body, location=start_location)
+
+        elif self.current_token.type == TokenType.OF:
+            # For-of loop
+            self._expect(TokenType.OF)
+            right = self._parse_expression()
+            self._expect(TokenType.RPAREN)
+            body = self._parse_statement()
+            return ForOfStatement(left=left_or_init, right=right, body=body, location=start_location)
+
+        else:
+            # Traditional for loop
+            init = left_or_init
+
+            # Expect semicolon after init
+            self._expect(TokenType.SEMICOLON)
+
+            # Test condition (optional)
+            test = None
+            if self.current_token.type != TokenType.SEMICOLON:
+                test = self._parse_expression()
+            self._expect(TokenType.SEMICOLON)
+
+            # Update expression (optional)
+            update = None
+            if self.current_token.type != TokenType.RPAREN:
+                update = self._parse_expression()
+
+            self._expect(TokenType.RPAREN)
+
+            # Body
+            body = self._parse_statement()
+
+            return ForStatement(
+                init=init,
+                test=test,
+                update=update,
+                body=body,
+                location=start_location
+            )
 
     def _parse_return_statement(self) -> ReturnStatement:
         """Parse return statement."""

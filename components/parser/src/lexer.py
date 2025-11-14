@@ -43,6 +43,8 @@ class Lexer:
         "else": TokenType.ELSE,
         "while": TokenType.WHILE,
         "for": TokenType.FOR,
+        "in": TokenType.IN,
+        "of": TokenType.OF,
         "return": TokenType.RETURN,
         "break": TokenType.BREAK,
         "continue": TokenType.CONTINUE,

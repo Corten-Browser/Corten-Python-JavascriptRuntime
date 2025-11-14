@@ -29,6 +29,8 @@ class TokenType(Enum):
     ELSE = auto()
     WHILE = auto()
     FOR = auto()
+    IN = auto()
+    OF = auto()
     RETURN = auto()
     BREAK = auto()
     CONTINUE = auto()

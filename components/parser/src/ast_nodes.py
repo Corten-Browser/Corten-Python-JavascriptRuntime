@@ -499,6 +499,93 @@ class WhileStatement(Statement):
 
 
 @dataclass
+class ForStatement(Statement):
+    """
+    Traditional for loop statement.
+
+    Represents traditional for loops with init, test, and update.
+    Example: for (var i = 0; i < 10; i++) { ... }
+
+    Attributes:
+        init: Initialization (VariableDeclaration or Expression, optional)
+        test: Loop condition expression (optional)
+        update: Update expression (optional)
+        body: Loop body statement
+        location: Source location
+
+    Example:
+        >>> ForStatement(
+        ...     init=VariableDeclaration(...),
+        ...     test=BinaryExpression(operator="<", left=..., right=...),
+        ...     update=CallExpression(...),
+        ...     body=BlockStatement(body=[...], location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    init: Optional[any]  # Union[VariableDeclaration, Expression, None]
+    test: Optional[Expression]
+    update: Optional[Expression]
+    body: Statement
+
+
+@dataclass
+class ForInStatement(Statement):
+    """
+    For-in loop statement.
+
+    Represents for-in loops that iterate over object properties.
+    Example: for (var key in obj) { ... }
+
+    Attributes:
+        left: Loop variable (VariableDeclaration or Identifier)
+        right: Object to iterate over (Expression)
+        body: Loop body statement
+        location: Source location
+
+    Example:
+        >>> ForInStatement(
+        ...     left=VariableDeclaration(...),
+        ...     right=Identifier(name="obj", location=loc),
+        ...     body=BlockStatement(body=[...], location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    left: any  # Union[VariableDeclaration, Identifier]
+    right: Expression
+    body: Statement
+
+
+@dataclass
+class ForOfStatement(Statement):
+    """
+    For-of loop statement.
+
+    Represents for-of loops that iterate over iterable objects (arrays).
+    Example: for (var value of array) { ... }
+
+    Attributes:
+        left: Loop variable (VariableDeclaration or Identifier)
+        right: Iterable to iterate over (Expression)
+        body: Loop body statement
+        location: Source location
+
+    Example:
+        >>> ForOfStatement(
+        ...     left=VariableDeclaration(...),
+        ...     right=Identifier(name="array", location=loc),
+        ...     body=BlockStatement(body=[...], location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    left: any  # Union[VariableDeclaration, Identifier]
+    right: Expression
+    body: Statement
+
+
+@dataclass
 class ReturnStatement(Statement):
     """
     Return statement.
