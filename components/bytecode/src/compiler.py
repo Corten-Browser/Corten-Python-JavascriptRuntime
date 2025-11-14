@@ -32,6 +32,9 @@ from components.parser.src.ast_nodes import (
     Property,
     ArrowFunctionExpression,
     BlockStatement,
+    MemberExpression,
+    IfStatement,
+    WhileStatement,
 )
 
 
@@ -134,6 +137,17 @@ class BytecodeCompiler:
         elif isinstance(stmt, FunctionDeclaration):
             self._compile_function_declaration(stmt)
 
+        elif isinstance(stmt, IfStatement):
+            self._compile_if_statement(stmt)
+
+        elif isinstance(stmt, WhileStatement):
+            self._compile_while_statement(stmt)
+
+        elif isinstance(stmt, BlockStatement):
+            # Compile each statement in the block
+            for statement in stmt.body:
+                self._compile_statement(statement)
+
         else:
             raise CompileError(f"Unsupported statement type: {type(stmt).__name__}")
 
@@ -160,6 +174,9 @@ class BytecodeCompiler:
 
         elif isinstance(expr, ArrowFunctionExpression):
             self._compile_arrow_function_expression(expr)
+
+        elif isinstance(expr, MemberExpression):
+            self._compile_member_expression(expr)
 
         else:
             raise CompileError(f"Unsupported expression type: {type(expr).__name__}")
@@ -546,3 +563,142 @@ class BytecodeCompiler:
             self.bytecode.add_instruction(
                 Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index)
             )
+
+    def _compile_member_expression(self, node: MemberExpression) -> None:
+        """
+        Compile a member expression (property access).
+
+        Member expressions represent property access on objects.
+        Two forms:
+        - obj.property (computed=False): Direct property access
+        - obj[expr] (computed=True): Computed property access
+
+        Args:
+            node: MemberExpression AST node
+
+        Bytecode sequence for obj.property:
+            <compile obj>          # Evaluate object expression
+            LOAD_PROPERTY "property"  # Get property from object
+
+        Bytecode sequence for obj[expr]:
+            <compile obj>          # Evaluate object expression
+            <compile expr>         # Evaluate property expression
+            LOAD_ELEMENT           # Get element from object
+        """
+        # Compile object (e.g., identifier 'obj')
+        self._compile_expression(node.object)
+
+        # Compile property access
+        if node.computed:
+            # obj[expr] - computed property
+            self._compile_expression(node.property)
+            self._emit(Opcode.LOAD_ELEMENT)
+        else:
+            # obj.property - direct property
+            property_name = node.property.name
+            property_index = self.bytecode.add_constant(property_name)
+            self._emit(Opcode.LOAD_PROPERTY, property_index)
+
+    def _compile_if_statement(self, node: IfStatement) -> None:
+        """
+        Compile an if statement.
+
+        If statements conditionally execute code based on a test expression.
+
+        Args:
+            node: IfStatement AST node
+
+        Bytecode sequence without else:
+            <compile condition>
+            JUMP_IF_FALSE :end_label
+            <compile consequent>
+            :end_label
+
+        Bytecode sequence with else:
+            <compile condition>
+            JUMP_IF_FALSE :else_label
+            <compile consequent>
+            JUMP :end_label
+            :else_label
+            <compile alternate>
+            :end_label
+        """
+        # Compile condition
+        self._compile_expression(node.test)
+
+        # Reserve slot for JUMP_IF_FALSE (we'll patch it later)
+        jump_to_else = len(self.bytecode.instructions)
+        self._emit(Opcode.JUMP_IF_FALSE, 0)  # Placeholder
+
+        # Compile consequent (then branch)
+        self._compile_statement(node.consequent)
+
+        if node.alternate:
+            # Reserve slot for JUMP over else
+            jump_to_end = len(self.bytecode.instructions)
+            self._emit(Opcode.JUMP, 0)  # Placeholder
+
+            # Patch JUMP_IF_FALSE to point here (start of else)
+            else_start = len(self.bytecode.instructions)
+            self.bytecode.instructions[jump_to_else].operand1 = else_start
+
+            # Compile alternate (else branch)
+            self._compile_statement(node.alternate)
+
+            # Patch JUMP to point here (end)
+            end_label = len(self.bytecode.instructions)
+            self.bytecode.instructions[jump_to_end].operand1 = end_label
+        else:
+            # No else branch - patch JUMP_IF_FALSE to point to end
+            end_label = len(self.bytecode.instructions)
+            self.bytecode.instructions[jump_to_else].operand1 = end_label
+
+    def _compile_while_statement(self, node: WhileStatement) -> None:
+        """
+        Compile a while statement.
+
+        While statements repeatedly execute code while a condition is true.
+
+        Args:
+            node: WhileStatement AST node
+
+        Bytecode sequence:
+            :loop_start
+            <compile condition>
+            JUMP_IF_FALSE :loop_end
+            <compile body>
+            JUMP :loop_start
+            :loop_end
+        """
+        # Mark loop start
+        loop_start = len(self.bytecode.instructions)
+
+        # Compile condition
+        self._compile_expression(node.test)
+
+        # Reserve slot for JUMP_IF_FALSE to end
+        jump_to_end = len(self.bytecode.instructions)
+        self._emit(Opcode.JUMP_IF_FALSE, 0)  # Placeholder
+
+        # Compile body
+        self._compile_statement(node.body)
+
+        # Jump back to loop start
+        self._emit(Opcode.JUMP, loop_start)
+
+        # Patch JUMP_IF_FALSE to point here (loop end)
+        loop_end = len(self.bytecode.instructions)
+        self.bytecode.instructions[jump_to_end].operand1 = loop_end
+
+    def _emit(self, opcode: Opcode, operand1=None, operand2=None) -> None:
+        """
+        Helper method to emit an instruction.
+
+        Args:
+            opcode: The opcode to emit
+            operand1: First operand (optional)
+            operand2: Second operand (optional)
+        """
+        self.bytecode.add_instruction(
+            Instruction(opcode=opcode, operand1=operand1, operand2=operand2)
+        )
