@@ -8,9 +8,9 @@ prototypes (Object.prototype, Array.prototype, Function.prototype).
 from typing import Optional
 from components.memory_gc.src import GarbageCollector
 from components.value_system.src import Value
-from js_object import JSObject
-from js_array import JSArray
-from js_function import JSFunction
+from .js_object import JSObject
+from .js_array import JSArray
+from .js_function import JSFunction
 
 
 def CreateObjectPrototype(gc: GarbageCollector) -> JSObject:

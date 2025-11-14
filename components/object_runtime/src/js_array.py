@@ -8,7 +8,7 @@ to implement JavaScript array semantics.
 from typing import Dict, List
 from components.memory_gc.src import GarbageCollector, HeapObject
 from components.value_system.src import Value
-from js_object import JSObject, UNDEFINED_VALUE
+from .js_object import JSObject, UNDEFINED_VALUE
 
 
 class JSArray(JSObject):

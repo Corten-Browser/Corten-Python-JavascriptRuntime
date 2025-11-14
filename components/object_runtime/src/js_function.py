@@ -9,7 +9,7 @@ from typing import List, Callable, Optional
 import inspect
 from components.memory_gc.src import GarbageCollector
 from components.value_system.src import Value
-from js_object import JSObject, UNDEFINED_VALUE
+from .js_object import JSObject, UNDEFINED_VALUE
 
 
 class JSFunction(JSObject):

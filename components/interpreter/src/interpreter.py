@@ -7,11 +7,12 @@ using a register-based virtual machine with opcode dispatch loop.
 
 from typing import List, Optional
 from components.memory_gc.src import GarbageCollector
-from components.value_system.src import Value, ToNumber, ToBoolean
-from components.bytecode.src import BytecodeArray, Instruction, Opcode
+from components.value_system.src import Value
+from components.bytecode.src import BytecodeArray, Opcode
 from components.interpreter.src.execution_context import ExecutionContext
 from components.interpreter.src.call_frame import CallFrame
 from components.interpreter.src.evaluation_result import EvaluationResult
+from components.object_runtime.src import JSArray, JSObject
 
 
 class Interpreter:
@@ -263,6 +264,51 @@ class Interpreter:
                 case Opcode.DUP:
                     value = frame.peek()
                     frame.push(value)
+
+                # Array operations
+                case Opcode.CREATE_ARRAY:
+                    count = instruction.operand1 or 0
+                    elements = []
+                    # Pop elements in reverse order (last pushed = first element)
+                    for _ in range(count):
+                        elements.insert(0, frame.pop())
+
+                    # Create JSArray
+                    array = JSArray(self.gc)
+                    for elem in elements:
+                        array.push(elem)
+
+                    # Push array to stack as Value
+                    frame.push(Value.from_object(array))
+
+                # Object operations
+                case Opcode.CREATE_OBJECT:
+                    # Create empty JSObject
+                    obj = JSObject(self.gc)
+                    # Push object to stack as Value
+                    frame.push(Value.from_object(obj))
+
+                case Opcode.STORE_PROPERTY:
+                    # Get property name from operand
+                    key = instruction.operand1
+                    # Pop value from stack
+                    value = frame.pop()
+                    # Peek object from stack (don't pop - keep for next property)
+                    obj_value = frame.peek()
+                    obj = obj_value.to_object()
+                    # Set property
+                    obj.set_property(key, value)
+
+                case Opcode.LOAD_PROPERTY:
+                    # Get property name from operand
+                    key = instruction.operand1
+                    # Pop object from stack
+                    obj_value = frame.pop()
+                    obj = obj_value.to_object()
+                    # Get property value
+                    prop_value = obj.get_property(key)
+                    # Push property value to stack
+                    frame.push(prop_value)
 
                 # Placeholder for unimplemented opcodes
                 case _:
