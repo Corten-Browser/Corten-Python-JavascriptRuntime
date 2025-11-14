@@ -9,7 +9,7 @@ Public API:
     - CompileError: Compilation error exception
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 from .opcode import Opcode
 from .instruction import Instruction
@@ -27,6 +27,9 @@ from components.parser.src.ast_nodes import (
     ReturnStatement,
     FunctionDeclaration,
     CallExpression,
+    ArrayExpression,
+    ObjectExpression,
+    Property,
 )
 
 
@@ -148,6 +151,12 @@ class BytecodeCompiler:
             # Simplified: Basic function call
             self._compile_call_expression(expr)
 
+        elif isinstance(expr, ArrayExpression):
+            self._compile_array_expression(expr)
+
+        elif isinstance(expr, ObjectExpression):
+            self._compile_object_expression(expr)
+
         else:
             raise CompileError(f"Unsupported expression type: {type(expr).__name__}")
 
@@ -254,3 +263,96 @@ class BytecodeCompiler:
         self.bytecode.add_instruction(
             Instruction(opcode=Opcode.CALL_FUNCTION, operand1=arg_count)
         )
+
+    def _compile_array_expression(self, expr: ArrayExpression) -> None:
+        """
+        Compile an array literal expression.
+
+        Generates bytecode to create an array and populate it with elements.
+        Array remains on stack after compilation.
+
+        Args:
+            expr: ArrayExpression AST node
+
+        Bytecode sequence:
+            CREATE_ARRAY          # Create empty array, push to stack
+            For each element at index i:
+                DUP               # Duplicate array reference
+                LOAD_CONSTANT i   # Push index
+                <element>         # Compile element expression
+                STORE_ELEMENT     # Store element at index
+        """
+        # Create empty array
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.CREATE_ARRAY))
+
+        # Add each element to the array
+        for index, element in enumerate(expr.elements):
+            # Duplicate array reference (so it stays on stack)
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+
+            # Push index
+            index_const = self.bytecode.add_constant(index)
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.LOAD_CONSTANT, operand1=index_const)
+            )
+
+            # Compile element expression (pushes value to stack)
+            self._compile_expression(element)
+
+            # Store element at index in array
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_ELEMENT))
+
+    def _compile_object_expression(self, expr: ObjectExpression) -> None:
+        """
+        Compile an object literal expression.
+
+        Generates bytecode to create an object and populate it with properties.
+        Object remains on stack after compilation.
+
+        Args:
+            expr: ObjectExpression AST node
+
+        Bytecode sequence:
+            CREATE_OBJECT         # Create empty object, push to stack
+            For each property:
+                DUP               # Duplicate object reference
+                <value>           # Compile value expression
+                <key>             # Load or compute property key
+                STORE_PROPERTY    # Store property in object
+        """
+        # Create empty object
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.CREATE_OBJECT))
+
+        # Add each property to the object
+        for prop in expr.properties:
+            # Duplicate object reference (so it stays on stack)
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+
+            # Compile property value
+            self._compile_expression(prop.value)
+
+            # Get property key
+            if prop.computed:
+                # Computed property: [expr]: value
+                # Compile the key expression
+                self._compile_expression(prop.key)
+            else:
+                # Normal property: key: value or shorthand {key}
+                # Extract key name from Identifier or Literal
+                if isinstance(prop.key, Identifier):
+                    key_name = prop.key.name
+                elif isinstance(prop.key, Literal):
+                    key_name = str(prop.key.value)
+                else:
+                    raise CompileError(
+                        f"Unsupported property key type: {type(prop.key).__name__}"
+                    )
+
+                # Load key as constant
+                key_index = self.bytecode.add_constant(key_name)
+                self.bytecode.add_instruction(
+                    Instruction(opcode=Opcode.LOAD_CONSTANT, operand1=key_index)
+                )
+
+            # Store property in object
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_PROPERTY))
