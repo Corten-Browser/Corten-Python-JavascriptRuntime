@@ -476,6 +476,38 @@ class ClassExpression(Expression):
     body: List[MethodDefinition]
 
 
+@dataclass
+class NewExpression(Expression):
+    """
+    New expression.
+
+    Represents 'new Constructor(args)' expression for creating instances.
+    Examples: new Promise(), new Promise(executor), new Date()
+
+    Attributes:
+        callee: Constructor function (Identifier or MemberExpression)
+        arguments: List of arguments to constructor
+        location: Source location
+
+    Example:
+        >>> # new Promise(executor)
+        >>> NewExpression(
+        ...     callee=Identifier(name="Promise", location=loc),
+        ...     arguments=[Identifier(name="executor", location=loc)],
+        ...     location=loc
+        ... )
+        >>> # new Array()
+        >>> NewExpression(
+        ...     callee=Identifier(name="Array", location=loc),
+        ...     arguments=[],
+        ...     location=loc
+        ... )
+    """
+
+    callee: Expression
+    arguments: List[Expression]
+
+
 # ============================================================================
 # STATEMENTS
 # ============================================================================

@@ -41,6 +41,7 @@ from .ast_nodes import (
     ClassDeclaration,
     ClassExpression,
     MethodDefinition,
+    NewExpression,
     IfStatement,
     WhileStatement,
     ReturnStatement,
@@ -1272,6 +1273,10 @@ class Parser:
         if self.current_token.type == TokenType.CLASS:
             return self._parse_class_expression()
 
+        # New expression
+        if self.current_token.type == TokenType.NEW:
+            return self._parse_new_expression()
+
         # Identifier
         if self.current_token.type == TokenType.IDENTIFIER:
             token = self.current_token
@@ -1539,4 +1544,45 @@ class Parser:
             quasis=quasis,
             expressions=expressions,
             location=location,
+        )
+
+    def _parse_new_expression(self) -> NewExpression:
+        """
+        Parse new Constructor(args) expression.
+
+        Syntax: new Constructor(arg1, arg2, ...)
+
+        Returns:
+            NewExpression: Parsed new expression
+
+        Example:
+            >>> parser._parse_new_expression()  # parses "new Promise(executor)"
+            NewExpression(callee=Identifier("Promise"), arguments=[...])
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.NEW)  # Consume 'new' keyword
+
+        # Parse constructor (can be Identifier or MemberExpression)
+        # Use _parse_member_expression to handle both cases
+        callee = self._parse_member_expression()
+
+        # Parse arguments
+        self._expect(TokenType.LPAREN)
+        arguments = []
+
+        if self.current_token.type != TokenType.RPAREN:
+            # Parse first argument
+            arguments.append(self._parse_assignment_expression())
+
+            # Parse remaining arguments
+            while self.current_token.type == TokenType.COMMA:
+                self._advance()  # skip comma
+                arguments.append(self._parse_assignment_expression())
+
+        self._expect(TokenType.RPAREN)
+
+        return NewExpression(
+            callee=callee,
+            arguments=arguments,
+            location=start_location,
         )

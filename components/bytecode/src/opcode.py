@@ -85,6 +85,7 @@ class Opcode(Enum):
     # Function operations
     CREATE_CLOSURE = auto()  # Create function closure
     CALL_FUNCTION = auto()  # Call function
+    NEW = auto()  # Create instance: stack[constructor, ...args] -> instance
 
     # Stack manipulation
     POP = auto()  # Pop value from stack

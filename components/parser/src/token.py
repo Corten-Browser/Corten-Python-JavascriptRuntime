@@ -40,6 +40,7 @@ class TokenType(Enum):
     RETURN = auto()
     BREAK = auto()
     CONTINUE = auto()
+    NEW = auto()
 
     # Literals
     IDENTIFIER = auto()

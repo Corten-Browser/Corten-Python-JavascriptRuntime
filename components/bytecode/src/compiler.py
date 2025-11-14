@@ -31,6 +31,7 @@ from components.parser.src.ast_nodes import (
     ClassExpression,
     MethodDefinition,
     CallExpression,
+    NewExpression,
     ArrayExpression,
     ObjectExpression,
     Property,
@@ -217,6 +218,9 @@ class BytecodeCompiler:
 
         elif isinstance(expr, ClassExpression):
             self._compile_class_expression(expr)
+
+        elif isinstance(expr, NewExpression):
+            self._compile_new_expression(expr)
 
         else:
             raise CompileError(f"Unsupported expression type: {type(expr).__name__}")
@@ -750,6 +754,40 @@ class BytecodeCompiler:
 
             # Call with 0 args (simplified - would need runtime support)
             self._emit(Opcode.CALL_FUNCTION, 0)
+
+    def _compile_new_expression(self, expr: NewExpression) -> None:
+        """
+        Compile a new Constructor(args) expression.
+
+        Generates bytecode to:
+        1. Load the constructor function
+        2. Load all arguments onto the stack
+        3. Emit NEW opcode with argument count
+
+        Result: Instance pushed onto stack
+
+        Args:
+            expr: NewExpression AST node
+
+        Example:
+            new Promise(executor)
+            Bytecode:
+              LOAD_GLOBAL "Promise"    # constructor
+              LOAD_LOCAL 0             # executor argument
+              NEW 1                    # create instance with 1 arg
+        """
+        # Compile constructor (callee)
+        self._compile_expression(expr.callee)
+
+        # Compile arguments
+        for arg in expr.arguments:
+            self._compile_expression(arg)
+
+        # Emit NEW with argument count
+        arg_count = len(expr.arguments)
+        self.bytecode.add_instruction(
+            Instruction(opcode=Opcode.NEW, operand1=arg_count)
+        )
 
     def _compile_array_expression(self, expr: ArrayExpression) -> None:
         """
