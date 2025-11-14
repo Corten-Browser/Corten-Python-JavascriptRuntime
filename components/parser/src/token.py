@@ -41,6 +41,8 @@ class TokenType(Enum):
     BREAK = auto()
     CONTINUE = auto()
     NEW = auto()
+    ASYNC = auto()
+    AWAIT = auto()
 
     # Literals
     IDENTIFIER = auto()

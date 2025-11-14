@@ -59,6 +59,8 @@ class Lexer:
         "false": TokenType.FALSE,
         "null": TokenType.NULL,
         "undefined": TokenType.UNDEFINED,
+        "async": TokenType.ASYNC,
+        "await": TokenType.AWAIT,
     }
 
     def __init__(self, source: str, filename: str = "<stdin>"):

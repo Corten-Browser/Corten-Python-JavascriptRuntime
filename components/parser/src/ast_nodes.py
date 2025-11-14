@@ -239,6 +239,34 @@ class FunctionExpression(Expression):
 
 
 @dataclass
+class AsyncFunctionExpression(Expression):
+    """
+    Async function expression.
+
+    Represents async function expressions (anonymous or named).
+    Examples: async function() { await x; }, async function foo() { await x; }
+
+    Attributes:
+        id: Function identifier (optional, None for anonymous)
+        params: List of parameter names
+        body: Function body (BlockStatement)
+        location: Source location
+
+    Example:
+        >>> AsyncFunctionExpression(
+        ...     id=None,
+        ...     params=["x"],
+        ...     body=BlockStatement(body=[...], location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    id: Optional[Identifier]
+    params: List[str]
+    body: "BlockStatement"
+
+
+@dataclass
 class ArrowFunctionExpression(Expression):
     """
     Arrow function expression.
@@ -278,6 +306,32 @@ class ArrowFunctionExpression(Expression):
     params: List[Identifier]
     body: any  # Union[Expression, BlockStatement]
     is_async: bool = False
+
+
+@dataclass
+class AsyncArrowFunctionExpression(Expression):
+    """
+    Async arrow function expression.
+
+    Represents ES6 async arrow functions.
+    Examples: async x => await x, async (x, y) => await foo(x, y)
+
+    Attributes:
+        params: List of parameter identifiers
+        body: Function body (Expression or BlockStatement)
+        location: Source location
+
+    Example:
+        >>> # async x => await x
+        >>> AsyncArrowFunctionExpression(
+        ...     params=[Identifier(name="x", location=loc)],
+        ...     body=AwaitExpression(argument=Identifier(name="x", location=loc), location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    params: List[Identifier]
+    body: any  # Union[Expression, BlockStatement]
 
 
 @dataclass
@@ -506,6 +560,32 @@ class NewExpression(Expression):
 
     callee: Expression
     arguments: List[Expression]
+
+
+@dataclass
+class AwaitExpression(Expression):
+    """
+    Await expression.
+
+    Represents await expressions in async functions.
+    Example: await Promise.resolve(42)
+
+    Attributes:
+        argument: Expression to await
+        location: Source location
+
+    Example:
+        >>> AwaitExpression(
+        ...     argument=CallExpression(
+        ...         callee=MemberExpression(...),
+        ...         arguments=[Literal(value=42, location=loc)],
+        ...         location=loc
+        ...     ),
+        ...     location=loc
+        ... )
+    """
+
+    argument: Expression
 
 
 # ============================================================================
@@ -770,6 +850,34 @@ class FunctionDeclaration(Statement):
 
     name: str
     parameters: List[str]
+    body: "BlockStatement"
+
+
+@dataclass
+class AsyncFunctionDeclaration(Statement):
+    """
+    Async function declaration statement.
+
+    Represents async function declarations.
+    Example: async function fetchData() { return await fetch(); }
+
+    Attributes:
+        id: Function identifier
+        params: List of parameter names
+        body: Function body (BlockStatement)
+        location: Source location
+
+    Example:
+        >>> AsyncFunctionDeclaration(
+        ...     id=Identifier(name="fetchData", location=loc),
+        ...     params=["url"],
+        ...     body=BlockStatement(body=[...], location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    id: Identifier
+    params: List[str]
     body: "BlockStatement"
 
 

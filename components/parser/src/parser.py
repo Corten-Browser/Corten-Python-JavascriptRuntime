@@ -24,6 +24,10 @@ from .ast_nodes import (
     MemberExpression,
     FunctionExpression,
     ArrowFunctionExpression,
+    AsyncFunctionDeclaration,
+    AsyncFunctionExpression,
+    AsyncArrowFunctionExpression,
+    AwaitExpression,
     SpreadElement,
     ArrayExpression,
     ObjectExpression,
@@ -137,6 +141,13 @@ class Parser:
         Returns:
             Statement: Parsed statement node or None
         """
+        # Async function declaration
+        if self.current_token.type == TokenType.ASYNC:
+            # Look ahead to see if it's 'async function'
+            next_token = self.lexer.peek_token(0)
+            if next_token.type == TokenType.FUNCTION:
+                return self._parse_async_function_declaration()
+
         # Variable declaration (var, let, const)
         if self.current_token.type in (TokenType.VAR, TokenType.LET, TokenType.CONST):
             return self._parse_variable_declaration()
@@ -518,6 +529,28 @@ class Parser:
             name=name, parameters=parameters, body=body, location=start_location
         )
 
+    def _parse_async_function_declaration(self) -> AsyncFunctionDeclaration:
+        """Parse async function declaration."""
+        start_location = self.current_token.location
+        self._expect(TokenType.ASYNC)
+        self._expect(TokenType.FUNCTION)
+
+        # Function name
+        name_token = self._expect(TokenType.IDENTIFIER)
+        func_id = Identifier(name=name_token.value, location=name_token.location)
+
+        # Parameters
+        self._expect(TokenType.LPAREN)
+        parameters = self._parse_parameter_list()
+        self._expect(TokenType.RPAREN)
+
+        # Body
+        body = self._parse_block_statement()
+
+        return AsyncFunctionDeclaration(
+            id=func_id, params=parameters, body=body, location=start_location
+        )
+
     def _parse_parameter_list(self) -> List[str]:
         """
         Parse function parameter list.
@@ -706,6 +739,55 @@ class Parser:
 
         return methods
 
+    def _parse_function_expression(self) -> FunctionExpression:
+        """Parse function expression (anonymous or named)."""
+        start_location = self.current_token.location
+        self._expect(TokenType.FUNCTION)
+
+        # Function name (optional for expressions)
+        name = None
+        if self.current_token.type == TokenType.IDENTIFIER:
+            name_token = self.current_token
+            name = name_token.value
+            self._advance()
+
+        # Parameters
+        self._expect(TokenType.LPAREN)
+        parameters = self._parse_parameter_list()
+        self._expect(TokenType.RPAREN)
+
+        # Body
+        body = self._parse_block_statement()
+
+        return FunctionExpression(
+            name=name, parameters=parameters, body=body, location=start_location
+        )
+
+    def _parse_async_function_expression(self) -> AsyncFunctionExpression:
+        """Parse async function expression (anonymous or named)."""
+        start_location = self.current_token.location
+        self._expect(TokenType.ASYNC)
+        self._expect(TokenType.FUNCTION)
+
+        # Function name (optional for expressions)
+        func_id = None
+        if self.current_token.type == TokenType.IDENTIFIER:
+            id_token = self.current_token
+            func_id = Identifier(name=id_token.value, location=id_token.location)
+            self._advance()
+
+        # Parameters
+        self._expect(TokenType.LPAREN)
+        parameters = self._parse_parameter_list()
+        self._expect(TokenType.RPAREN)
+
+        # Body
+        body = self._parse_block_statement()
+
+        return AsyncFunctionExpression(
+            id=func_id, params=parameters, body=body, location=start_location
+        )
+
     def _parse_if_statement(self) -> IfStatement:
         """Parse if statement."""
         start_location = self.current_token.location
@@ -889,10 +971,31 @@ class Parser:
         return self._parse_assignment_expression()
 
     def _parse_assignment_expression(self) -> Expression:
-        """Parse assignment expression or arrow function."""
-        # Try to parse arrow function first
+        """Parse assignment expression or arrow function (async or sync)."""
+        # Check for async arrow function
+        if self.current_token.type == TokenType.ASYNC:
+            # Look ahead to see if it's an async arrow function
+            next_token = self.lexer.peek_token(0)
+            if next_token.type in (TokenType.LPAREN, TokenType.IDENTIFIER):
+                # Could be async arrow function
+                # Save position to restore if not arrow
+                saved_pos = self.current_token
+                self._advance()  # consume 'async'
+
+                if self._is_arrow_function():
+                    # It's an async arrow function
+                    return self._parse_arrow_function(is_async=True)
+                else:
+                    # Not an async arrow, this was an error - async must be followed by function or arrow
+                    raise SyntaxError(
+                        f"Unexpected 'async' keyword "
+                        f"at {saved_pos.location.filename}:"
+                        f"{saved_pos.location.line}:{saved_pos.location.column}"
+                    )
+
+        # Try to parse regular arrow function
         if self._is_arrow_function():
-            return self._parse_arrow_function()
+            return self._parse_arrow_function(is_async=False)
 
         # Otherwise parse normal assignment
         left = self._parse_equality_expression()
@@ -969,9 +1072,9 @@ class Parser:
             if offset > 100:
                 return False
 
-    def _parse_arrow_function(self) -> ArrowFunctionExpression:
+    def _parse_arrow_function(self, is_async: bool = False):
         """
-        Parse arrow function expression.
+        Parse arrow function expression (sync or async).
 
         Handles:
         - x => expr (single param without parens)
@@ -980,9 +1083,14 @@ class Parser:
         - () => expr (no params)
         - x => { block } (block body)
         - x => expr (expression body)
+        - async x => expr (async arrow)
+        - async (x) => expr (async arrow with parens)
+
+        Args:
+            is_async: Whether this is an async arrow function
 
         Returns:
-            ArrowFunctionExpression: Parsed arrow function
+            ArrowFunctionExpression or AsyncArrowFunctionExpression
         """
         start_location = self.current_token.location
 
@@ -1063,9 +1171,15 @@ class Parser:
             # Expression body: expr (implicit return)
             body = self._parse_assignment_expression()
 
-        return ArrowFunctionExpression(
-            params=params, body=body, is_async=False, location=start_location
-        )
+        # Return appropriate type based on is_async
+        if is_async:
+            return AsyncArrowFunctionExpression(
+                params=params, body=body, location=start_location
+            )
+        else:
+            return ArrowFunctionExpression(
+                params=params, body=body, is_async=False, location=start_location
+            )
 
     def _parse_equality_expression(self) -> Expression:
         """Parse equality expression (==, !=)."""
@@ -1126,7 +1240,7 @@ class Parser:
 
     def _parse_multiplicative_expression(self) -> Expression:
         """Parse multiplicative expression (*, /)."""
-        left = self._parse_call_expression()
+        left = self._parse_unary_expression()
 
         while self.current_token.type in (TokenType.MULTIPLY, TokenType.DIVIDE):
             if self.current_token.type == TokenType.MULTIPLY:
@@ -1136,12 +1250,26 @@ class Parser:
 
             op_token = self.current_token
             self._advance()
-            right = self._parse_call_expression()
+            right = self._parse_unary_expression()
             left = BinaryExpression(
                 operator=op, left=left, right=right, location=op_token.location
             )
 
         return left
+
+    def _parse_unary_expression(self) -> Expression:
+        """Parse unary expression (await, etc.)."""
+        # Await expression
+        if self.current_token.type == TokenType.AWAIT:
+            start_location = self.current_token.location
+            self._advance()  # consume 'await'
+            argument = self._parse_unary_expression()
+            return AwaitExpression(argument=argument, location=start_location)
+
+        # Other unary operators can be added here in the future
+
+        # Fall through to call expression
+        return self._parse_call_expression()
 
     def _parse_call_expression(self) -> Expression:
         """Parse call and member expressions."""
@@ -1272,6 +1400,17 @@ class Parser:
         # Class expression
         if self.current_token.type == TokenType.CLASS:
             return self._parse_class_expression()
+
+        # Async function expression
+        if self.current_token.type == TokenType.ASYNC:
+            # Look ahead to see if it's 'async function'
+            next_token = self.lexer.peek_token(0)
+            if next_token.type == TokenType.FUNCTION:
+                return self._parse_async_function_expression()
+
+        # Function expression
+        if self.current_token.type == TokenType.FUNCTION:
+            return self._parse_function_expression()
 
         # New expression
         if self.current_token.type == TokenType.NEW:
