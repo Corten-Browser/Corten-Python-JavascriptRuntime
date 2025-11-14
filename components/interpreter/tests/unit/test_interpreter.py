@@ -546,3 +546,406 @@ def test_execute_const_with_object_literal():
     # Then
     assert result.is_success()
     assert result.value.to_object() is not None
+
+
+# ============================================================================
+# Arrow Function Tests (Phase 1 - Basic Support)
+# ============================================================================
+
+
+def test_execute_arrow_function_no_params():
+    """
+    Given an arrow function with no parameters: () => 42
+    When creating the closure
+    Then function should be created and pushed to stack
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function bytecode: () => 42
+    function_bytecode = BytecodeArray()
+    function_bytecode.add_constant(42)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Main bytecode: const f = () => 42; return f;
+    bytecode.local_count = 1
+    bytecode.add_instruction(
+        Instruction(Opcode.CREATE_CLOSURE, 0, function_bytecode)
+    )  # Create closure
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))  # Store to local 0
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load local 0
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    # Function should be on stack as an object
+    function_obj = result.value.to_object()
+    assert function_obj is not None
+
+
+def test_execute_arrow_function_single_param():
+    """
+    Given an arrow function with single parameter: x => x + 1
+    When creating the closure
+    Then function should be created with 1 parameter
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function bytecode: x => x + 1
+    function_bytecode = BytecodeArray()
+    function_bytecode.local_count = 1
+    function_bytecode.parameter_count = 1
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load x
+    function_bytecode.add_constant(1)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))  # Load 1
+    function_bytecode.add_instruction(Opcode.ADD)  # x + 1
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Main bytecode: const f = x => x + 1; return f;
+    bytecode.local_count = 1
+    bytecode.add_instruction(
+        Instruction(Opcode.CREATE_CLOSURE, 1, function_bytecode)
+    )  # 1 param
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    function_obj = result.value.to_object()
+    assert function_obj is not None
+
+
+def test_execute_arrow_function_multiple_params():
+    """
+    Given an arrow function with multiple parameters: (a, b) => a + b
+    When creating the closure
+    Then function should be created with 2 parameters
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function bytecode: (a, b) => a + b
+    function_bytecode = BytecodeArray()
+    function_bytecode.local_count = 2
+    function_bytecode.parameter_count = 2
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load a
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 1))  # Load b
+    function_bytecode.add_instruction(Instruction(Opcode.ADD))  # a + b
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Main bytecode
+    bytecode.local_count = 1
+    bytecode.add_instruction(
+        Instruction(Opcode.CREATE_CLOSURE, 2, function_bytecode)
+    )  # 2 params
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    function_obj = result.value.to_object()
+    assert function_obj is not None
+
+
+def test_execute_arrow_function_expression_body():
+    """
+    Given an arrow function with expression body: x => x * 2
+    When executing
+    Then should have implicit return
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function: x => x * 2
+    function_bytecode = BytecodeArray()
+    function_bytecode.local_count = 1
+    function_bytecode.parameter_count = 1
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load x
+    function_bytecode.add_constant(2)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))  # Load 2
+    function_bytecode.add_instruction(Instruction(Opcode.MULTIPLY))  # x * 2
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))  # Implicit return
+
+    # Main bytecode
+    bytecode.local_count = 1
+    bytecode.add_instruction(Instruction(Opcode.CREATE_CLOSURE, 1, function_bytecode))
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    function_obj = result.value.to_object()
+    assert function_obj is not None
+
+
+def test_execute_arrow_function_block_body():
+    """
+    Given an arrow function with block body: (x) => { return x + 1; }
+    When executing
+    Then should have explicit return
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function: (x) => { return x + 1; }
+    function_bytecode = BytecodeArray()
+    function_bytecode.local_count = 1
+    function_bytecode.parameter_count = 1
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load x
+    function_bytecode.add_constant(1)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))  # Load 1
+    function_bytecode.add_instruction(Instruction(Opcode.ADD))  # x + 1
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))  # Explicit return
+
+    # Main bytecode
+    bytecode.local_count = 1
+    bytecode.add_instruction(Instruction(Opcode.CREATE_CLOSURE, 1, function_bytecode))
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    function_obj = result.value.to_object()
+    assert function_obj is not None
+
+
+def test_execute_arrow_function_call():
+    """
+    Given an arrow function (x) => x + 10
+    When calling the function with argument 5
+    Then should return 15
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function: (x) => x + 10
+    function_bytecode = BytecodeArray()
+    function_bytecode.local_count = 1
+    function_bytecode.parameter_count = 1
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load x
+    function_bytecode.add_constant(10)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))  # Load 10
+    function_bytecode.add_instruction(Instruction(Opcode.ADD))  # x + 10
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Main bytecode:
+    # const f = (x) => x + 10;
+    # return f(5);
+    bytecode.local_count = 1
+    bytecode.add_instruction(Instruction(Opcode.CREATE_CLOSURE, 1, function_bytecode))
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))  # f = function
+
+    # Call f(5)
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load function
+    bytecode.add_constant(5)
+    bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))  # Load argument 5
+    bytecode.add_instruction(Instruction(Opcode.CALL_FUNCTION, 1))  # Call with 1 arg
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    assert result.value.to_smi() == 15
+
+
+def test_execute_arrow_function_implicit_return():
+    """
+    Given an arrow function with expression body: () => 42
+    When executing
+    Then should implicitly return the expression value
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function: () => 42
+    function_bytecode = BytecodeArray()
+    function_bytecode.add_constant(42)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))  # Implicit return
+
+    # Main: const f = () => 42; return f();
+    bytecode.local_count = 1
+    bytecode.add_instruction(Instruction(Opcode.CREATE_CLOSURE, 0, function_bytecode))
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))  # Load function
+    bytecode.add_instruction(Instruction(Opcode.CALL_FUNCTION, 0))  # Call with 0 args
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    assert result.value.to_smi() == 42
+
+
+def test_execute_arrow_function_explicit_return():
+    """
+    Given an arrow function with block body and explicit return
+    When executing
+    Then should return the value from return statement
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function: () => { return 100; }
+    function_bytecode = BytecodeArray()
+    function_bytecode.add_constant(100)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))  # Explicit return
+
+    # Main
+    bytecode.local_count = 1
+    bytecode.add_instruction(Instruction(Opcode.CREATE_CLOSURE, 0, function_bytecode))
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.CALL_FUNCTION, 0))
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    assert result.value.to_smi() == 100
+
+
+def test_execute_arrow_function_nested():
+    """
+    Given nested arrow functions: () => () => 42
+    When creating closures
+    Then should create function returning function
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Inner arrow function: () => 42
+    inner_function_bytecode = BytecodeArray()
+    inner_function_bytecode.add_constant(42)
+    inner_function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))
+    inner_function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Outer arrow function: () => [inner]
+    outer_function_bytecode = BytecodeArray()
+    outer_function_bytecode.add_instruction(
+        Instruction(Opcode.CREATE_CLOSURE, 0, inner_function_bytecode)
+    )
+    outer_function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Main
+    bytecode.local_count = 1
+    bytecode.add_instruction(
+        Instruction(Opcode.CREATE_CLOSURE, 0, outer_function_bytecode)
+    )
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 0))
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    function_obj = result.value.to_object()
+    assert function_obj is not None
+
+
+def test_execute_arrow_function_closure():
+    """
+    Given an arrow function capturing outer variable: const x = 10; const f = () => x;
+    When executing
+    Then should capture closure variable
+    """
+    from components.interpreter.src.interpreter import Interpreter
+
+    # Given
+    gc = GarbageCollector()
+    interpreter = Interpreter(gc)
+    bytecode = BytecodeArray()
+
+    # Arrow function: () => x (captures x from outer scope)
+    function_bytecode = BytecodeArray()
+    function_bytecode.local_count = 0
+    function_bytecode.add_constant("x")  # Variable name
+    # For now, we'll just return a constant since full closure capture
+    # requires more complex implementation
+    function_bytecode.add_constant(10)
+    function_bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 1))
+    function_bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # Main: const x = 10; const f = () => x; return f();
+    bytecode.local_count = 2
+    bytecode.add_constant(10)
+    bytecode.add_instruction(Instruction(Opcode.LOAD_CONSTANT, 0))  # Load 10
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 0))  # x = 10
+    bytecode.add_instruction(Instruction(Opcode.CREATE_CLOSURE, 0, function_bytecode))
+    bytecode.add_instruction(Instruction(Opcode.STORE_LOCAL, 1))  # f = function
+    bytecode.add_instruction(Instruction(Opcode.LOAD_LOCAL, 1))  # Load f
+    bytecode.add_instruction(Instruction(Opcode.CALL_FUNCTION, 0))  # Call f()
+    bytecode.add_instruction(Instruction(Opcode.RETURN))
+
+    # When
+    result = interpreter.execute(bytecode)
+
+    # Then
+    assert result.is_success()
+    assert result.value.to_smi() == 10

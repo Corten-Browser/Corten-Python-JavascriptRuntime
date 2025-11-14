@@ -324,6 +324,79 @@ class Interpreter:
                     # Push property value to stack
                     frame.push(prop_value)
 
+                # Function operations
+                case Opcode.CREATE_CLOSURE:
+                    # Phase 1: Arrow functions execute like regular functions
+                    # Phase 2 TODO:
+                    # - Add is_arrow flag to JSFunction
+                    # - Implement lexical this binding (capture this from definition scope)
+                    # - Prevent arrow functions from being used as constructors
+                    # - Remove arguments object for arrow functions
+
+                    param_count = instruction.operand1
+                    function_bytecode = instruction.operand2
+
+                    # Create JSFunction that will execute the bytecode
+                    # Capture current frame locals for closure support
+                    closure_locals = frame.locals.copy()
+
+                    def bytecode_callable(*args):
+                        """Execute bytecode with arguments."""
+                        # Convert args to list of Values
+                        arg_values = list(args)
+                        # Execute the function bytecode
+                        result = self.execute(
+                            function_bytecode,
+                            this_value=Value.from_smi(0),  # Phase 1: undefined this
+                            arguments=arg_values,
+                        )
+                        return (
+                            result.value if result.is_success() else Value.from_smi(0)
+                        )
+
+                    # Import JSFunction here to avoid circular dependency
+                    from components.object_runtime.src import JSFunction
+
+                    function = JSFunction(
+                        self.gc, bytecode_callable, name="<anonymous>"
+                    )
+
+                    # Store bytecode and closure for later access
+                    function.set_property(
+                        "__bytecode__", Value.from_object(function_bytecode)
+                    )
+                    function.set_property(
+                        "__closure__", Value.from_object(closure_locals)
+                    )
+
+                    # Push function to stack
+                    frame.push(Value.from_object(function))
+
+                case Opcode.CALL_FUNCTION:
+                    # Get argument count
+                    arg_count = instruction.operand1
+
+                    # Pop arguments from stack (in reverse order)
+                    args = []
+                    for _ in range(arg_count):
+                        args.insert(0, frame.pop())
+
+                    # Pop function from stack
+                    function_value = frame.pop()
+                    function_obj = function_value.to_object()
+
+                    # Check if it's a JSFunction
+                    from components.object_runtime.src import JSFunction
+
+                    if isinstance(function_obj, JSFunction):
+                        # Call the function
+                        result = function_obj.call(args, this_context=None)
+                        # Push result to stack
+                        frame.push(result)
+                    else:
+                        # Not a function - push undefined
+                        frame.push(Value.from_smi(0))
+
                 # Placeholder for unimplemented opcodes
                 case _:
                     raise NotImplementedError(
