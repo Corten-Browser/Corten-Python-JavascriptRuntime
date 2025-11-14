@@ -229,11 +229,32 @@ class BytecodeCompiler:
             raise CompileError(f"Unsupported binary operator: {op}")
 
     def _compile_variable_declaration(self, decl: VariableDeclaration) -> None:
-        """Compile a variable declaration."""
+        """
+        Compile a variable declaration (var, let, or const).
+
+        Phase 1: All declaration kinds (var/let/const) are compiled identically
+        as function-scoped variables. This provides basic functionality without
+        the complexity of lexical environments.
+
+        Phase 2 TODO:
+        - Add ENTER_BLOCK / EXIT_BLOCK opcodes for block scope tracking
+        - Add DECLARE_LET / DECLARE_CONST opcodes (distinct from DECLARE_VAR)
+        - Implement lexical environments in interpreter (scope chain)
+        - Enforce TDZ (Temporal Dead Zone) for let/const
+        - Prevent const reassignment at compile-time or runtime
+        - Track scope depth for proper variable resolution
+
+        Args:
+            decl: VariableDeclaration AST node with kind ("var", "let", or "const")
+        """
+        # Phase 1: Treat all kinds the same (function-scoped)
+        # kind = decl.kind  # "var", "let", or "const" - stored for future use
+
         for declarator in decl.declarations:
             name = declarator.name
 
             # Allocate local variable
+            # Phase 2 TODO: Allocate in appropriate scope (function vs block)
             local_index = self.next_local_index
             self.locals[name] = local_index
             self.next_local_index += 1
@@ -242,9 +263,11 @@ class BytecodeCompiler:
             if declarator.init:
                 self._compile_expression(declarator.init)
             else:
+                # let/const without init → undefined (const without init is parser error)
                 self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
 
             # Store to local
+            # Phase 2 TODO: Use different opcodes for let/const
             self.bytecode.add_instruction(
                 Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
             )

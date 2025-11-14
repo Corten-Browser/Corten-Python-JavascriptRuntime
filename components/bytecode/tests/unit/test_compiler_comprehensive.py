@@ -28,6 +28,7 @@ def test_compile_variable_declaration():
         body=[
             VariableDeclaration(
                 location=loc,
+                kind="var",
                 declarations=[
                     VariableDeclarator(
                         name="x",
@@ -67,6 +68,7 @@ def test_compile_variable_declaration_without_init():
         body=[
             VariableDeclaration(
                 location=loc,
+                kind="var",
                 declarations=[
                     VariableDeclarator(
                         name="x",
