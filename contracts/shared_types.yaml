@@ -1,0 +1,85 @@
+component: shared_types
+version: 0.1.0
+type: base
+description: Common types, enums, and utilities used across all components
+level: 0
+dependencies: []
+
+exports:
+  # Enums
+  - name: TypeTag
+    type: enum
+    description: JavaScript value type tags for tagged pointer representation
+    values:
+      - SMI           # Small integer (31-bit signed)
+      - OBJECT        # JavaScript object
+      - STRING        # String
+      - NUMBER        # Heap-allocated number (double)
+      - BOOLEAN       # Boolean (true/false)
+      - UNDEFINED     # Undefined value
+      - NULL          # Null value
+      - FUNCTION      # Function object
+      - ARRAY         # Array object
+
+  - name: ErrorType
+    type: enum
+    description: JavaScript error types per ECMAScript specification
+    values:
+      - SYNTAX_ERROR
+      - TYPE_ERROR
+      - REFERENCE_ERROR
+      - RANGE_ERROR
+      - ERROR         # Generic Error
+
+  # Data structures
+  - name: SourceLocation
+    type: dataclass
+    description: Source code location for error reporting and debugging
+    fields:
+      - name: filename
+        type: str
+        description: Source file name
+      - name: line
+        type: int
+        description: Line number (1-indexed)
+      - name: column
+        type: int
+        description: Column number (1-indexed)
+      - name: offset
+        type: int
+        description: Byte offset from start of file
+
+  # Utility functions
+  - name: assert_type
+    type: function
+    description: Assert value has expected type tag
+    params:
+      - name: value
+        type: Any
+        description: Value to check
+      - name: expected_tag
+        type: TypeTag
+        description: Expected type tag
+      - name: message
+        type: str
+        description: Error message if assertion fails
+        optional: true
+    returns: None
+    raises:
+      - TypeError: If value doesn't have expected tag
+
+  - name: format_error
+    type: function
+    description: Format error message with source location
+    params:
+      - name: error_type
+        type: ErrorType
+        description: Type of error
+      - name: message
+        type: str
+        description: Error message
+      - name: location
+        type: SourceLocation
+        description: Location where error occurred
+        optional: true
+    returns: str

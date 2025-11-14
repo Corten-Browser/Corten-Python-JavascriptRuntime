@@ -1,0 +1,106 @@
+component: memory_gc
+version: 0.1.0
+type: core
+description: Memory allocation and simple mark-and-sweep garbage collection
+level: 1
+dependencies:
+  - shared_types
+  - value_system
+
+exports:
+  - name: HeapObject
+    type: class
+    description: Base class for all heap-allocated objects
+    fields:
+      - name: marked
+        type: bool
+        description: GC mark bit
+      - name: size
+        type: int
+        description: Object size in bytes
+    methods:
+      - name: get_references
+        params: []
+        returns: List[HeapObject]
+        description: Return list of objects referenced by this object
+
+  - name: GarbageCollector
+    type: class
+    description: Simple mark-and-sweep garbage collector
+    methods:
+      - name: __init__
+        params:
+          - name: heap_size_mb
+            type: int
+            description: Initial heap size in megabytes
+            default: 64
+        returns: GarbageCollector
+
+      - name: allocate
+        params:
+          - name: size
+            type: int
+            description: Size in bytes
+        returns: HeapObject
+        description: Allocate object on heap, triggering GC if needed
+        raises:
+          - MemoryError: If allocation fails after GC
+
+      - name: collect
+        params: []
+        returns: dict
+        description: Perform mark-and-sweep collection
+        returns_dict:
+          objects_before: int
+          objects_after: int
+          bytes_freed: int
+          duration_ms: float
+
+      - name: add_root
+        params:
+          - name: obj
+            type: HeapObject
+        returns: None
+        description: Add GC root (global variables, stack references)
+
+      - name: remove_root
+        params:
+          - name: obj
+            type: HeapObject
+        returns: None
+        description: Remove GC root
+
+  # Allocation functions
+  - name: AllocateObject
+    type: function
+    params:
+      - name: gc
+        type: GarbageCollector
+      - name: property_count
+        type: int
+        description: Initial property count estimate
+        default: 4
+    returns: HeapObject
+    description: Allocate JavaScript object
+
+  - name: AllocateArray
+    type: function
+    params:
+      - name: gc
+        type: GarbageCollector
+      - name: length
+        type: int
+        description: Array length
+    returns: HeapObject
+    description: Allocate JavaScript array
+
+  - name: AllocateString
+    type: function
+    params:
+      - name: gc
+        type: GarbageCollector
+      - name: value
+        type: str
+        description: String value
+    returns: HeapObject
+    description: Allocate JavaScript string

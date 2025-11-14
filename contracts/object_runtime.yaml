@@ -1,0 +1,188 @@
+component: object_runtime
+version: 0.1.0
+type: core
+description: Object model, property storage, built-in objects (Object, Array, Function, String, Number)
+level: 1
+dependencies:
+  - shared_types
+  - value_system
+  - memory_gc
+
+exports:
+  - name: JSObject
+    type: class
+    description: JavaScript object representation with property storage
+    inherits: HeapObject
+    methods:
+      - name: __init__
+        params:
+          - name: gc
+            type: GarbageCollector
+          - name: prototype
+            type: JSObject
+            optional: true
+        returns: JSObject
+
+      - name: get_property
+        params:
+          - name: key
+            type: str
+        returns: Value
+        description: Get property value (searches prototype chain)
+
+      - name: set_property
+        params:
+          - name: key
+            type: str
+          - name: value
+            type: Value
+        returns: None
+
+      - name: has_property
+        params:
+          - name: key
+            type: str
+        returns: bool
+        description: Check if property exists (searches prototype chain)
+
+      - name: delete_property
+        params:
+          - name: key
+            type: str
+        returns: bool
+        description: Delete property, returns true if property existed
+
+      - name: get_prototype
+        params: []
+        returns: JSObject
+        description: Get prototype object
+
+      - name: set_prototype
+        params:
+          - name: prototype
+            type: JSObject
+        returns: None
+
+  - name: JSArray
+    type: class
+    description: JavaScript array implementation
+    inherits: JSObject
+    methods:
+      - name: __init__
+        params:
+          - name: gc
+            type: GarbageCollector
+          - name: length
+            type: int
+            default: 0
+        returns: JSArray
+
+      - name: get_element
+        params:
+          - name: index
+            type: int
+        returns: Value
+
+      - name: set_element
+        params:
+          - name: index
+            type: int
+          - name: value
+            type: Value
+        returns: None
+
+      - name: push
+        params:
+          - name: value
+            type: Value
+        returns: int
+        description: Push element, return new length
+
+      - name: pop
+        params: []
+        returns: Value
+        description: Pop element from end
+
+  - name: JSFunction
+    type: class
+    description: JavaScript function representation
+    inherits: JSObject
+    methods:
+      - name: __init__
+        params:
+          - name: gc
+            type: GarbageCollector
+          - name: bytecode
+            type: BytecodeArray
+            description: Compiled function bytecode
+          - name: closure_scope
+            type: dict
+            description: Captured variables for closures
+        returns: JSFunction
+
+      - name: call
+        params:
+          - name: interpreter
+            type: Interpreter
+          - name: this_value
+            type: Value
+          - name: arguments
+            type: List[Value]
+        returns: Value
+        description: Call function with arguments
+
+  - name: JSString
+    type: class
+    description: JavaScript string implementation
+    inherits: HeapObject
+    methods:
+      - name: __init__
+        params:
+          - name: gc
+            type: GarbageCollector
+          - name: value
+            type: str
+        returns: JSString
+
+      - name: get_value
+        params: []
+        returns: str
+
+      - name: length
+        params: []
+        returns: int
+
+      - name: char_at
+        params:
+          - name: index
+            type: int
+        returns: str
+
+  # Built-in constructors
+  - name: CreateObjectPrototype
+    type: function
+    params:
+      - name: gc
+        type: GarbageCollector
+    returns: JSObject
+    description: Create Object.prototype with built-in methods
+
+  - name: CreateArrayPrototype
+    type: function
+    params:
+      - name: gc
+        type: GarbageCollector
+      - name: object_prototype
+        type: JSObject
+    returns: JSObject
+    description: Create Array.prototype with built-in methods
+
+  - name: CreateFunctionPrototype
+    type: function
+    params:
+      - name: gc
+        type: GarbageCollector
+      - name: object_prototype
+        type: JSObject
+    returns: JSObject
+    description: Create Function.prototype

@@ -1,0 +1,275 @@
+component: parser
+version: 0.1.0
+type: feature
+description: Lexical analysis, syntax parsing, AST generation, scope analysis (ES5 core)
+level: 2
+dependencies:
+  - shared_types
+  - object_runtime
+
+exports:
+  # Lexer
+  - name: Token
+    type: dataclass
+    description: Lexical token
+    fields:
+      - name: type
+        type: TokenType
+        description: Token type
+      - name: value
+        type: Any
+        description: Token value (for literals, identifiers)
+      - name: location
+        type: SourceLocation
+        description: Source location
+
+  - name: TokenType
+    type: enum
+    values:
+      - IDENTIFIER
+      - NUMBER
+      - STRING
+      - TRUE
+      - FALSE
+      - NULL
+      - UNDEFINED
+      - VAR
+      - FUNCTION
+      - IF
+      - ELSE
+      - WHILE
+      - FOR
+      - RETURN
+      - BREAK
+      - CONTINUE
+      - PLUS
+      - MINUS
+      - MULTIPLY
+      - DIVIDE
+      - ASSIGN
+      - EQUAL
+      - NOT_EQUAL
+      - LESS_THAN
+      - GREATER_THAN
+      - LPAREN
+      - RPAREN
+      - LBRACE
+      - RBRACE
+      - LBRACKET
+      - RBRACKET
+      - SEMICOLON
+      - COMMA
+      - DOT
+      - EOF
+
+  - name: Lexer
+    type: class
+    methods:
+      - name: __init__
+        params:
+          - name: source
+            type: str
+          - name: filename
+            type: str
+            default: "<stdin>"
+        returns: Lexer
+
+      - name: next_token
+        params: []
+        returns: Token
+        description: Get next token from source
+
+      - name: peek_token
+        params:
+          - name: offset
+            type: int
+            default: 0
+        returns: Token
+        description: Peek ahead without consuming
+
+  # AST nodes
+  - name: ASTNode
+    type: class
+    description: Base class for all AST nodes
+    fields:
+      - name: location
+        type: SourceLocation
+
+  - name: Expression
+    type: class
+    inherits: ASTNode
+    description: Base class for expressions
+
+  - name: Statement
+    type: class
+    inherits: ASTNode
+    description: Base class for statements
+
+  - name: Literal
+    type: class
+    inherits: Expression
+    fields:
+      - name: value
+        type: Any
+        description: Literal value (number, string, boolean, null, undefined)
+
+  - name: Identifier
+    type: class
+    inherits: Expression
+    fields:
+      - name: name
+        type: str
+
+  - name: BinaryExpression
+    type: class
+    inherits: Expression
+    fields:
+      - name: operator
+        type: str
+        description: Operator (+, -, *, /, ==, !=, <, >, etc.)
+      - name: left
+        type: Expression
+      - name: right
+        type: Expression
+
+  - name: CallExpression
+    type: class
+    inherits: Expression
+    fields:
+      - name: callee
+        type: Expression
+      - name: arguments
+        type: List[Expression]
+
+  - name: MemberExpression
+    type: class
+    inherits: Expression
+    fields:
+      - name: object
+        type: Expression
+      - name: property
+        type: Expression
+      - name: computed
+        type: bool
+        description: True for obj[prop], False for obj.prop
+
+  - name: FunctionExpression
+    type: class
+    inherits: Expression
+    fields:
+      - name: name
+        type: str
+        optional: true
+      - name: parameters
+        type: List[str]
+      - name: body
+        type: BlockStatement
+
+  - name: ExpressionStatement
+    type: class
+    inherits: Statement
+    fields:
+      - name: expression
+        type: Expression
+
+  - name: VariableDeclaration
+    type: class
+    inherits: Statement
+    fields:
+      - name: declarations
+        type: List[VariableDeclarator]
+
+  - name: VariableDeclarator
+    type: class
+    fields:
+      - name: name
+        type: str
+      - name: init
+        type: Expression
+        optional: true
+
+  - name: FunctionDeclaration
+    type: class
+    inherits: Statement
+    fields:
+      - name: name
+        type: str
+      - name: parameters
+        type: List[str]
+      - name: body
+        type: BlockStatement
+
+  - name: IfStatement
+    type: class
+    inherits: Statement
+    fields:
+      - name: test
+        type: Expression
+      - name: consequent
+        type: Statement
+      - name: alternate
+        type: Statement
+        optional: true
+
+  - name: WhileStatement
+    type: class
+    inherits: Statement
+    fields:
+      - name: test
+        type: Expression
+      - name: body
+        type: Statement
+
+  - name: ReturnStatement
+    type: class
+    inherits: Statement
+    fields:
+      - name: argument
+        type: Expression
+        optional: true
+
+  - name: BlockStatement
+    type: class
+    inherits: Statement
+    fields:
+      - name: body
+        type: List[Statement]
+
+  - name: Program
+    type: class
+    inherits: ASTNode
+    description: Root AST node
+    fields:
+      - name: body
+        type: List[Statement]
+
+  # Parser
+  - name: Parser
+    type: class
+    methods:
+      - name: __init__
+        params:
+          - name: lexer
+            type: Lexer
+        returns: Parser
+
+      - name: parse
+        params: []
+        returns: Program
+        description: Parse source into AST
+        raises:
+          - SyntaxError: If syntax is invalid
+
+  # Main entry point
+  - name: Parse
+    type: function
+    params:
+      - name: source
+        type: str
+      - name: filename
+        type: str
+        default: "<stdin>"
+    returns: Program
+    description: Parse JavaScript source into AST
+    raises:
+      - SyntaxError: If syntax is invalid

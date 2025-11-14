@@ -1,0 +1,178 @@
+component: interpreter
+version: 0.1.0
+type: integration
+description: Bytecode interpreter, execution engine, runtime services
+level: 3
+dependencies:
+  - shared_types
+  - value_system
+  - memory_gc
+  - object_runtime
+  - bytecode
+
+exports:
+  - name: ExecutionContext
+    type: class
+    description: Execution state for JavaScript code
+    fields:
+      - name: global_scope
+        type: dict
+        description: Global variable bindings
+      - name: call_stack
+        type: List[CallFrame]
+        description: Function call stack
+      - name: gc
+        type: GarbageCollector
+        description: Garbage collector instance
+    methods:
+      - name: __init__
+        params:
+          - name: gc
+            type: GarbageCollector
+        returns: ExecutionContext
+
+      - name: push_frame
+        params:
+          - name: frame
+            type: CallFrame
+        returns: None
+
+      - name: pop_frame
+        params: []
+        returns: CallFrame
+
+      - name: current_frame
+        params: []
+        returns: CallFrame
+
+  - name: CallFrame
+    type: class
+    description: Function call frame
+    fields:
+      - name: bytecode
+        type: BytecodeArray
+      - name: locals
+        type: List[Value]
+        description: Local variables
+      - name: stack
+        type: List[Value]
+        description: Operand stack
+      - name: pc
+        type: int
+        description: Program counter (instruction pointer)
+      - name: this_value
+        type: Value
+        description: 'this' binding for function call
+    methods:
+      - name: __init__
+        params:
+          - name: bytecode
+            type: BytecodeArray
+          - name: local_count
+            type: int
+          - name: this_value
+            type: Value
+        returns: CallFrame
+
+      - name: push
+        params:
+          - name: value
+            type: Value
+        returns: None
+        description: Push value onto operand stack
+
+      - name: pop
+        params: []
+        returns: Value
+        description: Pop value from operand stack
+
+      - name: peek
+        params: []
+        returns: Value
+        description: Peek at top of operand stack
+
+  - name: EvaluationResult
+    type: class
+    description: Result of bytecode execution
+    fields:
+      - name: value
+        type: Value
+        optional: true
+        description: Return value if successful
+      - name: exception
+        type: Exception
+        optional: true
+        description: Exception if execution failed
+    methods:
+      - name: is_success
+        params: []
+        returns: bool
+
+      - name: is_exception
+        params: []
+        returns: bool
+
+  - name: Interpreter
+    type: class
+    description: Bytecode interpreter and execution engine
+    methods:
+      - name: __init__
+        params:
+          - name: gc
+            type: GarbageCollector
+        returns: Interpreter
+
+      - name: execute
+        params:
+          - name: bytecode
+            type: BytecodeArray
+          - name: this_value
+            type: Value
+            optional: true
+          - name: arguments
+            type: List[Value]
+            default: []
+        returns: EvaluationResult
+        description: Execute bytecode and return result
+
+      - name: call_function
+        params:
+          - name: function
+            type: JSFunction
+          - name: this_value
+            type: Value
+          - name: arguments
+            type: List[Value]
+        returns: EvaluationResult
+        description: Call JavaScript function
+
+      - name: get_global
+        params:
+          - name: name
+            type: str
+        returns: Value
+        description: Get global variable
+        raises:
+          - ReferenceError: If variable not defined
+
+      - name: set_global
+        params:
+          - name: name
+            type: str
+          - name: value
+            type: Value
+        returns: None
+        description: Set global variable
+
+  # Main entry point
+  - name: Execute
+    type: function
+    params:
+      - name: bytecode
+        type: BytecodeArray
+      - name: gc
+        type: GarbageCollector
+        optional: true
+        description: GC instance (creates new one if not provided)
+    returns: EvaluationResult
+    description: Execute bytecode and return result

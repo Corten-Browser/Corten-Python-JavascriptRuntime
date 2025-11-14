@@ -1,0 +1,127 @@
+component: value_system
+version: 0.1.0
+type: core
+description: Value representation using tagged pointers, SMI optimization, type checking
+level: 1
+dependencies:
+  - shared_types
+
+exports:
+  - name: Value
+    type: class
+    description: Tagged value representation supporting SMI and pointer types
+    methods:
+      - name: __init__
+        params:
+          - name: raw
+            type: int
+            description: Raw tagged pointer value
+        returns: Value
+
+      - name: from_smi
+        static: true
+        params:
+          - name: value
+            type: int
+            description: Integer value (-2^30 to 2^30-1)
+        returns: Value
+        description: Create SMI value from integer
+
+      - name: from_object
+        static: true
+        params:
+          - name: obj
+            type: object
+            description: Python object reference
+        returns: Value
+        description: Create object value from heap reference
+
+      - name: is_smi
+        params: []
+        returns: bool
+        description: Check if value is SMI
+
+      - name: is_object
+        params: []
+        returns: bool
+        description: Check if value is heap object
+
+      - name: to_smi
+        params: []
+        returns: int
+        description: Extract SMI integer value
+        raises:
+          - TypeError: If value is not SMI
+
+      - name: to_object
+        params: []
+        returns: object
+        description: Extract heap object reference
+        raises:
+          - TypeError: If value is not object
+
+  # Type checking functions
+  - name: IsNumber
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: bool
+    description: Check if value is number (SMI or boxed double)
+
+  - name: IsString
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: bool
+    description: Check if value is string
+
+  - name: IsObject
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: bool
+    description: Check if value is object
+
+  - name: IsUndefined
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: bool
+
+  - name: IsNull
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: bool
+
+  # Conversion functions
+  - name: ToNumber
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: float
+    description: Convert value to number per ECMAScript ToNumber
+    raises:
+      - TypeError: If conversion fails
+
+  - name: ToString
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: str
+    description: Convert value to string per ECMAScript ToString
+
+  - name: ToBoolean
+    type: function
+    params:
+      - name: value
+        type: Value
+    returns: bool
+    description: Convert value to boolean per ECMAScript ToBoolean
