@@ -14,18 +14,16 @@ sys.path.insert(0, str(project_root))
 import pytest
 from components.parser.src import Parse
 from components.bytecode.src.compiler import BytecodeCompiler
-from components.interpreter.src.interpreter import Interpreter
-from components.value_system.src.value import JSValue
+from components.interpreter.src import Execute
 
 
 def execute(source: str):
     """Helper to parse, compile, and execute JavaScript code."""
-    ast = Parse(source, "test.js")
+    ast = Parse(source)
     compiler = BytecodeCompiler(ast)
     bytecode = compiler.compile()
-    interpreter = Interpreter(bytecode)
-    result = interpreter.run()
-    return result.value if result else None
+    result = Execute(bytecode)
+    return result.value.to_smi() if result.is_success() else None
 
 
 class TestObjectDestructuringIntegration:
