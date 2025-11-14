@@ -144,7 +144,28 @@ class Interpreter:
         # Create callable for Promise constructor
         def promise_constructor(executor):
             """new Promise(executor)"""
-            return JSPromise(executor, interpreter.event_loop)
+            # Unwrap executor from Value if needed
+            if hasattr(executor, 'to_object'):
+                executor_obj = executor.to_object()
+            else:
+                executor_obj = executor
+
+            # Create wrapper that adapts JSFunction.call() to Python callable
+            from components.object_runtime.src import JSFunction
+            if isinstance(executor_obj, JSFunction):
+                # Create Python callable that calls JSFunction properly
+                def executor_fn(resolve, reject):
+                    # Wrap resolve/reject as Values for JSFunction.call
+                    from components.value_system.src import Value
+                    resolve_value = Value.from_object(resolve)
+                    reject_value = Value.from_object(reject)
+                    # Call JSFunction with proper Value arguments
+                    executor_obj.call([resolve_value, reject_value], this_context=None)
+                    return None  # Executor doesn't return anything meaningful
+            else:
+                executor_fn = executor_obj
+
+            return JSPromise(executor_fn, interpreter.event_loop)
 
         # Create JSObject for Promise constructor
         from components.object_runtime.src import JSObject
@@ -156,22 +177,104 @@ class Interpreter:
 
         # Add static methods as properties
         def resolve_method(value):
+            # Value can be passed as-is - JSPromise.resolve handles both Value and raw values
             return JSPromise.resolve(value, interpreter.event_loop)
 
         def reject_method(reason):
+            # Reason can be passed as-is - JSPromise.reject handles both Value and raw values
             return JSPromise.reject(reason, interpreter.event_loop)
 
         def all_method(promises):
-            return JSPromise.all(promises, interpreter.event_loop)
+            # Unwrap Value to get JSArray
+            if hasattr(promises, 'to_object'):
+                array = promises.to_object()
+            else:
+                array = promises
+
+            # Convert JSArray elements to Python list of promises
+            from components.object_runtime.src import JSArray
+            if isinstance(array, JSArray):
+                promise_list = []
+                for i in range(array._length):
+                    elem = array.get_element(i)
+                    # Unwrap Value to get actual promise
+                    if hasattr(elem, 'to_object'):
+                        promise_list.append(elem.to_object())
+                    else:
+                        promise_list.append(elem)
+                return JSPromise.all(promise_list, interpreter.event_loop)
+            else:
+                # If it's already a list, use it directly
+                return JSPromise.all(array, interpreter.event_loop)
 
         def race_method(promises):
-            return JSPromise.race(promises, interpreter.event_loop)
+            # Unwrap Value to get JSArray
+            if hasattr(promises, 'to_object'):
+                array = promises.to_object()
+            else:
+                array = promises
+
+            # Convert JSArray elements to Python list of promises
+            from components.object_runtime.src import JSArray
+            if isinstance(array, JSArray):
+                promise_list = []
+                for i in range(array._length):
+                    elem = array.get_element(i)
+                    # Unwrap Value to get actual promise
+                    if hasattr(elem, 'to_object'):
+                        promise_list.append(elem.to_object())
+                    else:
+                        promise_list.append(elem)
+                return JSPromise.race(promise_list, interpreter.event_loop)
+            else:
+                # If it's already a list, use it directly
+                return JSPromise.race(array, interpreter.event_loop)
 
         def any_method(promises):
-            return JSPromise.any(promises, interpreter.event_loop)
+            # Unwrap Value to get JSArray
+            if hasattr(promises, 'to_object'):
+                array = promises.to_object()
+            else:
+                array = promises
+
+            # Convert JSArray elements to Python list of promises
+            from components.object_runtime.src import JSArray
+            if isinstance(array, JSArray):
+                promise_list = []
+                for i in range(array._length):
+                    elem = array.get_element(i)
+                    # Unwrap Value to get actual promise
+                    if hasattr(elem, 'to_object'):
+                        promise_list.append(elem.to_object())
+                    else:
+                        promise_list.append(elem)
+                return JSPromise.any(promise_list, interpreter.event_loop)
+            else:
+                # If it's already a list, use it directly
+                return JSPromise.any(array, interpreter.event_loop)
 
         def allSettled_method(promises):
-            return JSPromise.allSettled(promises, interpreter.event_loop)
+            # Unwrap Value to get JSArray
+            if hasattr(promises, 'to_object'):
+                array = promises.to_object()
+            else:
+                array = promises
+
+            # Convert JSArray elements to Python list of promises
+            from components.object_runtime.src import JSArray
+            if isinstance(array, JSArray):
+                promise_list = []
+                for i in range(array._length):
+                    elem = array.get_element(i)
+                    # Unwrap Value to get actual promise
+                    if hasattr(elem, 'to_object'):
+                        promise_list.append(elem.to_object())
+                    else:
+                        promise_list.append(elem)
+                return JSPromise.allSettled(promise_list, interpreter.event_loop)
+            else:
+                # If it's already a list, use it directly
+                return JSPromise.allSettled(array, interpreter.event_loop)
 
         # Store static methods as properties
         promise_obj.set_property("resolve", Value.from_object(resolve_method))
