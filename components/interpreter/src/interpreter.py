@@ -289,7 +289,11 @@ class Interpreter:
 
                 # Stack manipulation
                 case Opcode.POP:
-                    frame.pop()
+                    # Safe pop: only pop if stack has items
+                    # This handles cases where destructuring leaves no items on stack
+                    # (e.g., destructuring function returns vs object literals)
+                    if len(frame.stack) > 0:
+                        frame.pop()
 
                 case Opcode.DUP:
                     value = frame.peek()
@@ -362,8 +366,8 @@ class Interpreter:
                     value = frame.pop()
                     # Pop index from stack
                     index_value = frame.pop()
-                    # Peek array from stack (don't pop - keep for chaining)
-                    array_value = frame.peek()
+                    # Pop array from stack (compiler uses DUP to keep reference)
+                    array_value = frame.pop()
                     array = array_value.to_object()
                     # Store element at index
                     array.set_element(index_value.to_smi(), value)
