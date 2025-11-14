@@ -1546,20 +1546,26 @@ class BytecodeCompiler:
 
     def _compile_await_expression(self, node: AwaitExpression) -> None:
         """
-        Compile await expression.
+        Compile await expression (Phase 2.6.2).
 
-        For Phase 2.6.2, we'll compile the argument and leave a marker.
-        Full state machine transformation comes in Phase 2.6.3.
+        Compiles to:
+        1. Evaluate the expression being awaited
+        2. Emit AWAIT opcode to suspend execution
 
         Args:
             node: AwaitExpression AST node
         """
         # Compile the expression being awaited
+        # This leaves the value to await on the stack
         self._compile_expression(node.argument)
 
-        # For now, just compile as regular expression
-        # Full AWAIT opcode implementation comes later
-        # This allows tests to pass for async functions without await
+        # Emit AWAIT opcode (Phase 2.6.2)
+        # The interpreter will:
+        # 1. Pop the value from stack
+        # 2. Convert to Promise if needed
+        # 3. Suspend execution
+        # 4. Resume when Promise settles and push resolved value
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.AWAIT))
 
     def _compile_if_statement(self, node: IfStatement) -> None:
         """

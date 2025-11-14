@@ -122,8 +122,7 @@ class Interpreter:
 
         except _AsyncSuspension:
             # Async suspension - propagate up to caller (don't wrap in EvaluationResult)
-            if len(self.context.call_stack) > 0:
-                self.context.pop_frame()
+            # Note: Frame already popped by AWAIT opcode, don't pop again
             raise  # Re-raise to let _start_async_function catch it
 
         except Exception as e:
@@ -538,7 +537,7 @@ class Interpreter:
                         # Push result to stack
                         frame.push(result)
                     elif callable(function_obj):
-                        # Plain Python callable (e.g., Promise static methods)
+                        # Plain Python callable (e.g., Promise static methods, async function wrappers)
                         result = function_obj(*args)
                         # Wrap result in Value if it's not already
                         if isinstance(result, Value):
@@ -648,7 +647,10 @@ class Interpreter:
                         f"Opcode {instruction.opcode} not yet implemented"
                     )
 
-        # If we reach here without return, return undefined
+        # If we reach here without return, return top of stack if present
+        # This allows expression statements at top level to return their value
+        if len(frame.stack) > 0:
+            return frame.pop()
         return Value.from_smi(0)
 
     def get_global(self, name: str) -> Value:
@@ -809,9 +811,20 @@ class Interpreter:
                 # state.promise is PromiseHandlers
                 state.promise.resolve(result_value)
 
+        except _AsyncSuspension:
+            # Another await encountered during resumption - this is normal for multiple awaits
+            # Frame already popped by AWAIT opcode, don't pop again
+            # Restore promise context
+            self.current_async_promise = old_promise
+            # Don't reject - suspension is normal, continuation will be queued
+
         except Exception as e:
             # Restore context on error
             self.current_async_promise = old_promise
+
+            # Pop frame if still on stack (exception before AWAIT could pop it)
+            if len(self.context.call_stack) > 0:
+                self.context.pop_frame()
 
             # Reject the async function's Promise
             if hasattr(state.promise, 'reject'):
