@@ -132,8 +132,7 @@ class BytecodeCompiler:
             self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
 
         elif isinstance(stmt, FunctionDeclaration):
-            # Simplified: Skip function declarations for now
-            pass
+            self._compile_function_declaration(stmt)
 
         else:
             raise CompileError(f"Unsupported statement type: {type(stmt).__name__}")
@@ -464,3 +463,86 @@ class BytecodeCompiler:
                 operand2=function_bytecode,
             )
         )
+
+    def _compile_function_declaration(self, node: FunctionDeclaration) -> None:
+        """
+        Compile a function declaration.
+
+        Function declarations create a function and store it in a variable
+        with the function's name. Unlike arrow functions, they have a name
+        and must be stored as a variable.
+
+        Example:
+            function add(a, b) { return a + b; }
+
+        Compiles to:
+            CREATE_CLOSURE param_count, function_bytecode
+            STORE_GLOBAL "add"  (or STORE_LOCAL if in function scope)
+
+        Args:
+            node: FunctionDeclaration AST node
+        """
+        # Extract function details
+        function_name = node.name
+        param_names = node.parameters
+        param_count = len(param_names)
+        function_body = node.body
+
+        # Save current bytecode context
+        saved_bytecode = self.bytecode
+        saved_locals = self.locals.copy()
+        saved_next_local_index = self.next_local_index
+
+        # Create new bytecode for function body
+        self.bytecode = BytecodeArray(local_count=param_count)
+        self.locals = {}
+        self.next_local_index = 0
+
+        # Declare parameters as local variables
+        for param_name in param_names:
+            local_index = self.next_local_index
+            self.locals[param_name] = local_index
+            self.next_local_index += 1
+
+        # Compile function body (always a BlockStatement)
+        for statement in function_body.body:
+            self._compile_statement(statement)
+
+        # Add implicit return undefined at end (in case no explicit return)
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.RETURN))
+
+        # Get compiled function bytecode
+        function_bytecode = self.bytecode
+
+        # Set local count for function
+        function_bytecode.local_count = self.next_local_index
+
+        # Restore parent context
+        self.bytecode = saved_bytecode
+        self.locals = saved_locals
+        self.next_local_index = saved_next_local_index
+
+        # Emit CREATE_CLOSURE instruction to create the function
+        self.bytecode.add_instruction(
+            Instruction(
+                opcode=Opcode.CREATE_CLOSURE,
+                operand1=param_count,
+                operand2=function_bytecode,
+            )
+        )
+
+        # CRITICAL FIX: Store the function in a variable with its name
+        # This makes the function accessible for later calls
+        if function_name in self.locals:
+            # Function declared inside another function - use local storage
+            local_index = self.locals[function_name]
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+            )
+        else:
+            # Function declared at top level - use global storage
+            name_index = self.bytecode.add_constant(function_name)
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index)
+            )
