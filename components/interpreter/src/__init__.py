@@ -35,6 +35,7 @@ Example:
 from typing import Optional
 from components.memory_gc.src import GarbageCollector
 from components.bytecode.src import BytecodeArray
+from components.event_loop.src import EventLoop
 
 # Import all public classes
 from .interpreter import Interpreter
@@ -47,10 +48,12 @@ def Execute(
     bytecode: BytecodeArray, gc: Optional[GarbageCollector] = None
 ) -> EvaluationResult:
     """
-    Execute bytecode and return result.
+    Execute bytecode with event loop support.
 
     This is the main entry point for bytecode execution. Creates an
-    interpreter instance and executes the provided bytecode.
+    interpreter instance with an event loop, executes the provided bytecode,
+    and runs the event loop to process any queued microtasks (such as
+    Promise reactions).
 
     Args:
         bytecode: Compiled bytecode to execute
@@ -75,8 +78,19 @@ def Execute(
     if gc is None:
         gc = GarbageCollector()
 
-    interpreter = Interpreter(gc)
-    return interpreter.execute(bytecode)
+    # Create event loop for asynchronous operations
+    event_loop = EventLoop()
+
+    # Create interpreter with event loop
+    interpreter = Interpreter(gc, event_loop)
+
+    # Execute main script
+    result = interpreter.execute(bytecode)
+
+    # Run event loop to process any queued microtasks
+    event_loop.run()
+
+    return result
 
 
 __all__ = [

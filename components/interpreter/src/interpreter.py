@@ -13,6 +13,8 @@ from components.interpreter.src.execution_context import ExecutionContext
 from components.interpreter.src.call_frame import CallFrame
 from components.interpreter.src.evaluation_result import EvaluationResult
 from components.object_runtime.src import JSArray, JSObject
+from components.event_loop.src import EventLoop
+from components.promise.src import JSPromise
 
 
 class Interpreter:
@@ -27,15 +29,21 @@ class Interpreter:
         context: Current execution context
     """
 
-    def __init__(self, gc: GarbageCollector):
+    def __init__(self, gc: GarbageCollector, event_loop: Optional[EventLoop] = None):
         """
         Create a new interpreter.
 
         Args:
             gc: Garbage collector for memory management
+            event_loop: Event loop for asynchronous operations (optional)
         """
         self.gc = gc
+        self.event_loop = event_loop if event_loop is not None else EventLoop()
         self.context = ExecutionContext(gc)
+
+        # Add Promise constructor to global scope (wrapped in Value)
+        promise_constructor = self._create_promise_constructor()
+        self.context.global_scope['Promise'] = Value.from_object(promise_constructor)
 
     def execute(
         self,
@@ -84,6 +92,55 @@ class Interpreter:
             if len(self.context.call_stack) > 0:
                 self.context.pop_frame()
             return EvaluationResult(exception=e)
+
+    def _create_promise_constructor(self):
+        """Create Promise constructor with static methods.
+
+        Returns:
+            JSObject that acts as Promise constructor with static methods
+        """
+        interpreter = self
+
+        # Create callable for Promise constructor
+        def promise_constructor(executor):
+            """new Promise(executor)"""
+            return JSPromise(executor, interpreter.event_loop)
+
+        # Create JSObject for Promise constructor
+        from components.object_runtime.src import JSObject
+        promise_obj = JSObject(self.gc)
+
+        # Store the callable in the object (for NEW opcode)
+        promise_obj._callable = promise_constructor
+
+        # Add static methods as properties
+        def resolve_method(value):
+            return JSPromise.resolve(value, interpreter.event_loop)
+
+        def reject_method(reason):
+            return JSPromise.reject(reason, interpreter.event_loop)
+
+        def all_method(promises):
+            return JSPromise.all(promises, interpreter.event_loop)
+
+        def race_method(promises):
+            return JSPromise.race(promises, interpreter.event_loop)
+
+        def any_method(promises):
+            return JSPromise.any(promises, interpreter.event_loop)
+
+        def allSettled_method(promises):
+            return JSPromise.allSettled(promises, interpreter.event_loop)
+
+        # Store static methods as properties
+        promise_obj.set_property("resolve", Value.from_object(resolve_method))
+        promise_obj.set_property("reject", Value.from_object(reject_method))
+        promise_obj.set_property("all", Value.from_object(all_method))
+        promise_obj.set_property("race", Value.from_object(race_method))
+        promise_obj.set_property("any", Value.from_object(any_method))
+        promise_obj.set_property("allSettled", Value.from_object(allSettled_method))
+
+        return promise_obj
 
     def _execute_frame(self, frame: CallFrame) -> Value:
         """
@@ -441,9 +498,46 @@ class Interpreter:
                         result = function_obj.call(args, this_context=None)
                         # Push result to stack
                         frame.push(result)
+                    elif callable(function_obj):
+                        # Plain Python callable (e.g., Promise static methods)
+                        result = function_obj(*args)
+                        # Wrap result in Value if it's not already
+                        if isinstance(result, Value):
+                            frame.push(result)
+                        else:
+                            frame.push(Value.from_object(result))
                     else:
                         # Not a function - push undefined
                         frame.push(Value.from_smi(0))
+
+                case Opcode.NEW:
+                    # Get argument count
+                    arg_count = instruction.operand1 or 0
+
+                    # Pop arguments in reverse order (last arg first)
+                    arguments = []
+                    for _ in range(arg_count):
+                        arg_value = frame.pop()
+                        arguments.insert(0, arg_value)  # Insert at beginning to maintain order
+
+                    # Pop constructor function
+                    constructor_value = frame.pop()
+
+                    # Extract callable from Value
+                    if hasattr(constructor_value, 'to_object'):
+                        constructor = constructor_value.to_object()
+                    else:
+                        constructor = constructor_value
+
+                    # Check if constructor is a JSObject with _callable attribute
+                    if hasattr(constructor, '_callable') and callable(constructor._callable):
+                        instance = constructor._callable(*arguments)
+                        frame.push(Value.from_object(instance))
+                    elif callable(constructor):
+                        instance = constructor(*arguments)
+                        frame.push(Value.from_object(instance))
+                    else:
+                        raise RuntimeError(f"Cannot construct non-callable: {type(constructor)}")
 
                 # Placeholder for unimplemented opcodes
                 case _:
