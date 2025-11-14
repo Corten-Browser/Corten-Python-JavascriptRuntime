@@ -80,7 +80,7 @@ class TestPromiseStaticMethods:
         promise = result.value.to_object()
         assert isinstance(promise, JSPromise)
         assert promise.state == PromiseState.FULFILLED
-        assert promise.value == 42
+        assert promise.value.to_smi() == 42
 
     def test_promise_reject(self):
         """Test Promise.reject().
@@ -97,7 +97,8 @@ class TestPromiseStaticMethods:
         promise = result.value.to_object()
         assert isinstance(promise, JSPromise)
         assert promise.state == PromiseState.REJECTED
-        assert promise.value == "error"
+        # Promise.value is a Value object for all types
+        assert promise.value.to_object() == "error"
 
     def test_promise_all_basic(self):
         """Test Promise.all() with array literal.
@@ -110,6 +111,8 @@ class TestPromiseStaticMethods:
         bytecode = Compile(ast)
         result = Execute(bytecode)
 
+        if not result.is_success():
+            print(f"Exception: {result.exception}")
         assert result.is_success()
         promise = result.value.to_object()
         assert isinstance(promise, JSPromise)
@@ -176,6 +179,8 @@ class TestEventLoopIntegration:
         # If event loop ran, Promise should be settled
         assert result.is_success()
         promise = result.value.to_object()
+        if promise.state != PromiseState.FULFILLED:
+            print(f"Promise state: {promise.state}, value: {promise.value}")
         assert promise.state == PromiseState.FULFILLED
 
     def test_promise_reactions_execute(self):
@@ -194,4 +199,4 @@ class TestEventLoopIntegration:
         promise = result.value.to_object()
         # Promise should be immediately fulfilled
         assert promise.state == PromiseState.FULFILLED
-        assert promise.value == 100
+        assert promise.value.to_smi() == 100
