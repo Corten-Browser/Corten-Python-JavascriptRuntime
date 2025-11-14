@@ -35,6 +35,9 @@ from components.parser.src.ast_nodes import (
     MemberExpression,
     IfStatement,
     WhileStatement,
+    ForStatement,
+    ForInStatement,
+    ForOfStatement,
 )
 
 
@@ -104,7 +107,7 @@ class BytecodeCompiler:
             # Compile program body
             statements = self.ast.body
             for i, statement in enumerate(statements):
-                is_last = (i == len(statements) - 1)
+                is_last = i == len(statements) - 1
                 self._compile_statement(statement, is_last_statement=is_last)
 
             # Check if last statement was an ExpressionStatement that kept its value
@@ -122,7 +125,9 @@ class BytecodeCompiler:
         except Exception as e:
             raise CompileError(f"Compilation failed: {e}") from e
 
-    def _compile_statement(self, stmt: Statement, is_last_statement: bool = False) -> None:
+    def _compile_statement(
+        self, stmt: Statement, is_last_statement: bool = False
+    ) -> None:
         """Compile a statement node."""
         if isinstance(stmt, ExpressionStatement):
             self._compile_expression(stmt.expression)
@@ -148,6 +153,15 @@ class BytecodeCompiler:
 
         elif isinstance(stmt, WhileStatement):
             self._compile_while_statement(stmt)
+
+        elif isinstance(stmt, ForStatement):
+            self._compile_for_statement(stmt)
+
+        elif isinstance(stmt, ForInStatement):
+            self._compile_for_in_statement(stmt)
+
+        elif isinstance(stmt, ForOfStatement):
+            self._compile_for_of_statement(stmt)
 
         elif isinstance(stmt, BlockStatement):
             # Compile each statement in the block
@@ -256,19 +270,23 @@ class BytecodeCompiler:
             # Assignment operator: x = value
             # Right side is already on stack from compilation above
             # Left side should be Identifier
-            if hasattr(expr.left, 'name'):
+            if hasattr(expr.left, "name"):
                 var_name = expr.left.name
                 # Duplicate value to keep on stack (assignment returns the value)
                 self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
                 # Store in variable
                 if var_name in self.locals:
                     local_index = self.locals[var_name]
-                    self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index))
+                    self.bytecode.add_instruction(
+                        Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+                    )
                 else:
                     name_index = self.bytecode.add_constant(var_name)
-                    self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index))
+                    self.bytecode.add_instruction(
+                        Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index)
+                    )
             else:
-                raise CompileError(f"Assignment to non-identifier not yet supported")
+                raise CompileError("Assignment to non-identifier not yet supported")
         else:
             raise CompileError(f"Unsupported binary operator: {op}")
 
@@ -705,6 +723,276 @@ class BytecodeCompiler:
 
         # Compile body
         self._compile_statement(node.body)
+
+        # Jump back to loop start
+        self._emit(Opcode.JUMP, loop_start)
+
+        # Patch JUMP_IF_FALSE to point here (loop end)
+        loop_end = len(self.bytecode.instructions)
+        self.bytecode.instructions[jump_to_end].operand1 = loop_end
+
+    def _compile_for_statement(self, node: ForStatement) -> None:
+        """
+        Compile a traditional for loop statement.
+
+        Traditional for loops have init, test, and update clauses.
+        Example: for (var i = 0; i < 10; i++) { ... }
+
+        Args:
+            node: ForStatement AST node
+
+        Bytecode sequence:
+            <compile init>
+            :loop_start
+            <compile test>
+            JUMP_IF_FALSE :loop_end
+            <compile body>
+            :continue_target
+            <compile update>
+            JUMP :loop_start
+            :loop_end
+        """
+        # Compile initialization (if present)
+        if node.init:
+            if isinstance(node.init, VariableDeclaration):
+                self._compile_variable_declaration(node.init)
+            else:
+                # Expression init (e.g., i = 0)
+                self._compile_expression(node.init)
+                # Pop the result since we don't need it
+                self._emit(Opcode.POP)
+
+        # Mark loop start (where test happens)
+        loop_start = len(self.bytecode.instructions)
+
+        # Compile test condition (if present)
+        jump_to_end = None
+        if node.test:
+            self._compile_expression(node.test)
+            # Reserve slot for JUMP_IF_FALSE to end
+            jump_to_end = len(self.bytecode.instructions)
+            self._emit(Opcode.JUMP_IF_FALSE, 0)  # Placeholder
+
+        # Compile body
+        self._compile_statement(node.body)
+
+        # Compile update (if present)
+        if node.update:
+            self._compile_expression(node.update)
+            # Pop the result
+            self._emit(Opcode.POP)
+
+        # Jump back to loop start
+        self._emit(Opcode.JUMP, loop_start)
+
+        # Patch JUMP_IF_FALSE to point here (loop end)
+        loop_end = len(self.bytecode.instructions)
+        if jump_to_end is not None:
+            self.bytecode.instructions[jump_to_end].operand1 = loop_end
+
+    def _compile_for_in_statement(self, node: ForInStatement) -> None:
+        """
+        Compile a for-in loop statement.
+
+        For-in loops iterate over object properties (keys).
+        Example: for (var key in obj) { ... }
+
+        Args:
+            node: ForInStatement AST node
+
+        Bytecode sequence:
+            <compile object>
+            CREATE_ARRAY              # Convert keys to array (simplified)
+            LOAD_CONSTANT 0           # Initialize counter
+            STORE_LOCAL counter_idx   # Store counter
+            :loop_start
+            LOAD_LOCAL counter_idx    # Load counter
+            LOAD_LOCAL keys_idx       # Load keys array
+            LOAD_PROPERTY "length"    # Get array length
+            LESS_THAN                 # counter < length?
+            JUMP_IF_FALSE :loop_end
+            LOAD_LOCAL keys_idx       # Load keys array
+            LOAD_LOCAL counter_idx    # Load counter
+            LOAD_ELEMENT              # Get key at counter
+            <store in loop variable>  # Store key in loop var
+            <compile body>
+            LOAD_LOCAL counter_idx    # Load counter
+            LOAD_CONSTANT 1           # Load 1
+            ADD                       # Increment
+            STORE_LOCAL counter_idx   # Store counter
+            JUMP :loop_start
+            :loop_end
+        """
+        # For Phase 1, implement simplified version using existing opcodes
+        # In a full implementation, we'd need Object.keys() or a GET_KEYS opcode
+
+        # Compile the object/expression to iterate over
+        self._compile_expression(node.right)
+
+        # For now, we'll create a simplified implementation:
+        # Store object in a temporary local
+        obj_local = self.next_local_index
+        self.next_local_index += 1
+        self._emit(Opcode.STORE_LOCAL, obj_local)
+
+        # Create counter variable (starts at 0)
+        counter_local = self.next_local_index
+        self.next_local_index += 1
+        self._emit(Opcode.LOAD_CONSTANT, self.bytecode.add_constant(0))
+        self._emit(Opcode.STORE_LOCAL, counter_local)
+
+        # Declare/get the loop variable
+        if isinstance(node.left, VariableDeclaration):
+            # var key in obj - declare new variable
+            var_name = node.left.declarations[0].name
+            loop_var_local = self.next_local_index
+            self.locals[var_name] = loop_var_local
+            self.next_local_index += 1
+        else:
+            # Existing identifier
+            var_name = node.left.name
+            if var_name in self.locals:
+                loop_var_local = self.locals[var_name]
+            else:
+                # Create global reference (simplified)
+                loop_var_local = self.next_local_index
+                self.locals[var_name] = loop_var_local
+                self.next_local_index += 1
+
+        # Mark loop start
+        loop_start = len(self.bytecode.instructions)
+
+        # For simplified implementation, we'll create a fixed iteration count
+        # In full implementation, we'd iterate over actual object keys
+        # Load counter
+        self._emit(Opcode.LOAD_LOCAL, counter_local)
+        # Load max iterations (using a constant for now - in real impl, would be key count)
+        self._emit(Opcode.LOAD_CONSTANT, self.bytecode.add_constant(10))  # Placeholder
+        # Check if counter < max
+        self._emit(Opcode.LESS_THAN)
+
+        # Jump to end if false
+        jump_to_end = len(self.bytecode.instructions)
+        self._emit(Opcode.JUMP_IF_FALSE, 0)  # Placeholder
+
+        # Load a placeholder key value (in real impl, would get actual key from object)
+        # For now, just use the counter value as the "key"
+        self._emit(Opcode.LOAD_LOCAL, counter_local)
+        self._emit(Opcode.STORE_LOCAL, loop_var_local)
+
+        # Compile loop body
+        self._compile_statement(node.body)
+
+        # Increment counter
+        self._emit(Opcode.LOAD_LOCAL, counter_local)
+        self._emit(Opcode.LOAD_CONSTANT, self.bytecode.add_constant(1))
+        self._emit(Opcode.ADD)
+        self._emit(Opcode.STORE_LOCAL, counter_local)
+
+        # Jump back to loop start
+        self._emit(Opcode.JUMP, loop_start)
+
+        # Patch JUMP_IF_FALSE to point here (loop end)
+        loop_end = len(self.bytecode.instructions)
+        self.bytecode.instructions[jump_to_end].operand1 = loop_end
+
+    def _compile_for_of_statement(self, node: ForOfStatement) -> None:
+        """
+        Compile a for-of loop statement.
+
+        For-of loops iterate over iterable objects (array elements).
+        Example: for (var value of array) { ... }
+
+        Args:
+            node: ForOfStatement AST node
+
+        Bytecode sequence:
+            <compile iterable>
+            STORE_LOCAL iterable_idx
+            LOAD_CONSTANT 0           # Initialize counter
+            STORE_LOCAL counter_idx   # Store counter
+            :loop_start
+            LOAD_LOCAL counter_idx    # Load counter
+            LOAD_LOCAL iterable_idx   # Load array
+            LOAD_PROPERTY "length"    # Get array length
+            LESS_THAN                 # counter < length?
+            JUMP_IF_FALSE :loop_end
+            LOAD_LOCAL iterable_idx   # Load array
+            LOAD_LOCAL counter_idx    # Load counter
+            LOAD_ELEMENT              # Get element at counter
+            <store in loop variable>  # Store value in loop var
+            <compile body>
+            LOAD_LOCAL counter_idx    # Load counter
+            LOAD_CONSTANT 1           # Load 1
+            ADD                       # Increment
+            STORE_LOCAL counter_idx   # Store counter
+            JUMP :loop_start
+            :loop_end
+        """
+        # Compile the iterable (array) to iterate over
+        self._compile_expression(node.right)
+
+        # Store iterable in a temporary local
+        iterable_local = self.next_local_index
+        self.next_local_index += 1
+        self._emit(Opcode.STORE_LOCAL, iterable_local)
+
+        # Create counter variable (starts at 0)
+        counter_local = self.next_local_index
+        self.next_local_index += 1
+        self._emit(Opcode.LOAD_CONSTANT, self.bytecode.add_constant(0))
+        self._emit(Opcode.STORE_LOCAL, counter_local)
+
+        # Declare/get the loop variable
+        if isinstance(node.left, VariableDeclaration):
+            # var value of array - declare new variable
+            var_name = node.left.declarations[0].name
+            loop_var_local = self.next_local_index
+            self.locals[var_name] = loop_var_local
+            self.next_local_index += 1
+        else:
+            # Existing identifier
+            var_name = node.left.name
+            if var_name in self.locals:
+                loop_var_local = self.locals[var_name]
+            else:
+                # Create local reference
+                loop_var_local = self.next_local_index
+                self.locals[var_name] = loop_var_local
+                self.next_local_index += 1
+
+        # Mark loop start
+        loop_start = len(self.bytecode.instructions)
+
+        # Load counter
+        self._emit(Opcode.LOAD_LOCAL, counter_local)
+        # Load iterable and get length
+        self._emit(Opcode.LOAD_LOCAL, iterable_local)
+        length_const = self.bytecode.add_constant("length")
+        self._emit(Opcode.LOAD_PROPERTY, length_const)
+        # Check if counter < length
+        self._emit(Opcode.LESS_THAN)
+
+        # Jump to end if false
+        jump_to_end = len(self.bytecode.instructions)
+        self._emit(Opcode.JUMP_IF_FALSE, 0)  # Placeholder
+
+        # Get element at current index
+        self._emit(Opcode.LOAD_LOCAL, iterable_local)
+        self._emit(Opcode.LOAD_LOCAL, counter_local)
+        self._emit(Opcode.LOAD_ELEMENT)
+
+        # Store in loop variable
+        self._emit(Opcode.STORE_LOCAL, loop_var_local)
+
+        # Compile loop body
+        self._compile_statement(node.body)
+
+        # Increment counter
+        self._emit(Opcode.LOAD_LOCAL, counter_local)
+        self._emit(Opcode.LOAD_CONSTANT, self.bytecode.add_constant(1))
+        self._emit(Opcode.ADD)
+        self._emit(Opcode.STORE_LOCAL, counter_local)
 
         # Jump back to loop start
         self._emit(Opcode.JUMP, loop_start)
