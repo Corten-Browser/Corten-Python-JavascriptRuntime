@@ -31,6 +31,11 @@ from components.parser.src.ast_nodes import (
     ArrayExpression,
     ObjectExpression,
     Property,
+    Pattern,
+    ObjectPattern,
+    ArrayPattern,
+    PropertyPattern,
+    AssignmentPattern,
     ArrowFunctionExpression,
     BlockStatement,
     MemberExpression,
@@ -294,9 +299,231 @@ class BytecodeCompiler:
         else:
             raise CompileError(f"Unsupported binary operator: {op}")
 
+    def _compile_pattern(self, pattern, keep_value=False):
+        """
+        Compile a destructuring pattern.
+
+        Expands destructuring into individual assignments.
+        Stack should have the value to destructure on top.
+
+        Args:
+            pattern: ObjectPattern, ArrayPattern, or Identifier
+            keep_value: If True, keep the value on stack after destructuring
+        """
+        if isinstance(pattern, ObjectPattern):
+            self._compile_object_pattern(pattern, keep_value)
+        elif isinstance(pattern, ArrayPattern):
+            self._compile_array_pattern(pattern, keep_value)
+        elif isinstance(pattern, Identifier):
+            # Simple identifier - allocate and store
+            name = pattern.name
+            if name not in self.locals:
+                local_index = self.next_local_index
+                self.locals[name] = local_index
+                self.next_local_index += 1
+            else:
+                local_index = self.locals[name]
+
+            if not keep_value:
+                self.bytecode.add_instruction(
+                    Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+                )
+            else:
+                # DUP and store
+                self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+                self.bytecode.add_instruction(
+                    Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+                )
+                self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
+        else:
+            raise CompileError(f"Unsupported pattern type: {type(pattern)}")
+
+    def _compile_object_pattern(self, pattern: ObjectPattern, keep_value=False):
+        """
+        Compile object destructuring pattern.
+
+        Strategy: const {x, y} = obj
+        Compiles to:
+        - obj is already on stack
+        - DUP (keep obj for next property)
+        - LOAD_CONST "x"
+        - LOAD_PROPERTY
+        - STORE_LOCAL x
+        - DUP
+        - LOAD_CONST "y"
+        - LOAD_PROPERTY
+        - STORE_LOCAL y
+        - POP (remove obj)
+
+        Args:
+            pattern: ObjectPattern AST node
+            keep_value: If True, keep the object on stack
+        """
+        properties = pattern.properties
+
+        for i, prop in enumerate(properties):
+            is_last = i == len(properties) - 1
+
+            # Duplicate object for property access (unless last and not keeping)
+            if not (is_last and not keep_value):
+                self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+
+            # Load property key
+            if isinstance(prop.key, Identifier):
+                const_index = self.bytecode.add_constant(prop.key.name)
+                self.bytecode.add_instruction(
+                    Instruction(opcode=Opcode.LOAD_CONSTANT, operand1=const_index)
+                )
+            else:
+                # Computed property
+                self._compile_expression(prop.key)
+
+            # Load property value from object
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_PROPERTY))
+
+            # Handle default value if present
+            if isinstance(prop.value, AssignmentPattern):
+                # Property has default: {x = 10}
+                # Stack: [value]
+                # Check if undefined, if so use default
+                self._compile_assignment_pattern_default(prop.value)
+                # Now compile the target (left side)
+                self._compile_pattern_target(prop.value.left)
+            else:
+                # No default, compile target directly
+                self._compile_pattern_target(prop.value)
+
+        # If not keeping the original value, pop it
+        if not keep_value:
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
+
+    def _compile_array_pattern(self, pattern: ArrayPattern, keep_value=False):
+        """
+        Compile array destructuring pattern.
+
+        Strategy: const [a, b] = arr
+        Compiles to:
+        - arr is already on stack
+        - DUP (keep arr for next element)
+        - LOAD_CONST 0
+        - LOAD_ELEMENT
+        - STORE_LOCAL a
+        - DUP
+        - LOAD_CONST 1
+        - LOAD_ELEMENT
+        - STORE_LOCAL b
+        - POP (remove arr)
+
+        Args:
+            pattern: ArrayPattern AST node
+            keep_value: If True, keep the array on stack
+        """
+        elements = pattern.elements
+        index = 0
+
+        for elem in elements:
+            if elem is None:
+                # Hole in array pattern: [a, , c]
+                index += 1
+                continue
+
+            # Duplicate array for element access
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+
+            # Load index
+            const_index = self.bytecode.add_constant(index)
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.LOAD_CONSTANT, operand1=const_index)
+            )
+
+            # Load element from array
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_ELEMENT))
+
+            # Handle default value if present
+            if isinstance(elem, AssignmentPattern):
+                # Element has default: [a = 5]
+                self._compile_assignment_pattern_default(elem)
+                self._compile_pattern_target(elem.left)
+            else:
+                # No default, compile target directly
+                self._compile_pattern_target(elem)
+
+            index += 1
+
+        # If not keeping the original value, pop it
+        if not keep_value:
+            self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
+
+    def _compile_pattern_target(self, target):
+        """
+        Compile the target of a destructuring pattern (what to assign to).
+
+        Target can be:
+        - Identifier: simple variable
+        - ObjectPattern: nested object destructuring
+        - ArrayPattern: nested array destructuring
+
+        Stack: value to assign is on top
+        """
+        if isinstance(target, Identifier):
+            # Allocate local if not exists
+            name = target.name
+            if name not in self.locals:
+                local_index = self.next_local_index
+                self.locals[name] = local_index
+                self.next_local_index += 1
+            else:
+                local_index = self.locals[name]
+
+            # Store to local
+            self.bytecode.add_instruction(
+                Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+            )
+        elif isinstance(target, ObjectPattern):
+            # Nested object destructuring
+            self._compile_object_pattern(target, keep_value=False)
+        elif isinstance(target, ArrayPattern):
+            # Nested array destructuring
+            self._compile_array_pattern(target, keep_value=False)
+        else:
+            raise CompileError(f"Unsupported pattern target: {type(target)}")
+
+    def _compile_assignment_pattern_default(self, pattern: AssignmentPattern):
+        """
+        Compile default value handling for assignment pattern.
+
+        Stack on entry: [value]
+        Stack on exit: [value or default]
+
+        If value is undefined, replace with default value.
+        """
+        # Duplicate value to check if undefined
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+
+        # Load undefined for comparison
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+
+        # Compare with ==
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.EQUAL))
+
+        # If not undefined, jump over default value
+        skip_default_label = len(self.bytecode.instructions) + 3
+        self.bytecode.add_instruction(
+            Instruction(opcode=Opcode.JUMP_IF_FALSE, operand1=skip_default_label)
+        )
+
+        # Value is undefined, pop it and use default
+        self.bytecode.add_instruction(Instruction(opcode=Opcode.POP))
+        self._compile_expression(pattern.right)
+
+        # Skip_default label (value was not undefined, keep it)
+        # No actual label instruction needed - JUMP_IF_FALSE jumps here
+
     def _compile_variable_declaration(self, decl: VariableDeclaration) -> None:
         """
         Compile a variable declaration (var, let, or const).
+
+        Supports both simple identifiers and destructuring patterns.
 
         Phase 1: All declaration kinds (var/let/const) are compiled identically
         as function-scoped variables. This provides basic functionality without
@@ -317,26 +544,41 @@ class BytecodeCompiler:
         # kind = decl.kind  # "var", "let", or "const" - stored for future use
 
         for declarator in decl.declarations:
-            name = declarator.name
+            # Check if declarator.id is a simple string or a destructuring pattern
+            if isinstance(declarator.id, str):
+                # Simple identifier: const x = value
+                name = declarator.id
 
-            # Allocate local variable
-            # Phase 2 TODO: Allocate in appropriate scope (function vs block)
-            local_index = self.next_local_index
-            self.locals[name] = local_index
-            self.next_local_index += 1
+                # Allocate local variable
+                # Phase 2 TODO: Allocate in appropriate scope (function vs block)
+                local_index = self.next_local_index
+                self.locals[name] = local_index
+                self.next_local_index += 1
 
-            # Compile initializer if present
-            if declarator.init:
-                self._compile_expression(declarator.init)
+                # Compile initializer if present
+                if declarator.init:
+                    self._compile_expression(declarator.init)
+                else:
+                    # let/const without init → undefined (const without init is parser error)
+                    self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+
+                # Store to local
+                # Phase 2 TODO: Use different opcodes for let/const
+                self.bytecode.add_instruction(
+                    Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
+                )
             else:
-                # let/const without init → undefined (const without init is parser error)
-                self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
+                # Destructuring pattern: const {x, y} = obj or const [a, b] = arr
+                # Compile initializer first (must be present for destructuring)
+                if declarator.init:
+                    self._compile_expression(declarator.init)
+                else:
+                    # Destructuring without initializer - should be caught by parser
+                    # but handle gracefully
+                    self.bytecode.add_instruction(Instruction(opcode=Opcode.LOAD_UNDEFINED))
 
-            # Store to local
-            # Phase 2 TODO: Use different opcodes for let/const
-            self.bytecode.add_instruction(
-                Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index)
-            )
+                # Compile the destructuring pattern
+                self._compile_pattern(declarator.id)
 
     def _compile_call_expression(self, expr: CallExpression) -> None:
         """Compile a function call expression."""

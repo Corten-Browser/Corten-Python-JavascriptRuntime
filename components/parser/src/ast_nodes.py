@@ -396,23 +396,162 @@ class ExpressionStatement(Statement):
 
 
 @dataclass
+class Pattern(ASTNode):
+    """
+    Base class for destructuring pattern nodes.
+
+    Patterns are used in destructuring assignments and declarations.
+    Examples: {x, y} in const {x, y} = obj, [a, b] in const [a, b] = arr
+    """
+
+
+@dataclass
+class ObjectPattern(Pattern):
+    """
+    Object destructuring pattern.
+
+    Represents object destructuring in variable declarations or assignments.
+    Examples: {x, y}, {x: a, y: b}, {x, y: {z}}
+
+    Attributes:
+        properties: List of property patterns
+        location: Source location
+
+    Example:
+        >>> # {x, y}
+        >>> ObjectPattern(
+        ...     properties=[
+        ...         PropertyPattern(
+        ...             key=Identifier(name="x", location=loc),
+        ...             value=Identifier(name="x", location=loc),
+        ...             computed=False,
+        ...             location=loc
+        ...         ),
+        ...         PropertyPattern(
+        ...             key=Identifier(name="y", location=loc),
+        ...             value=Identifier(name="y", location=loc),
+        ...             computed=False,
+        ...             location=loc
+        ...         )
+        ...     ],
+        ...     location=loc
+        ... )
+    """
+
+    properties: List["PropertyPattern"]
+
+
+@dataclass
+class PropertyPattern:
+    """
+    Property pattern in object destructuring.
+
+    Represents a single property in object destructuring.
+    Examples: x (shorthand), x: newName (with renaming), x: {y} (nested)
+
+    Attributes:
+        key: Property key (Identifier or Literal)
+        value: Pattern or Identifier for the binding
+        computed: True for computed property names [expr]
+        location: Source location
+    """
+
+    key: Expression
+    value: any  # Union[Identifier, Pattern]
+    computed: bool
+    location: SourceLocation
+
+
+@dataclass
+class ArrayPattern(Pattern):
+    """
+    Array destructuring pattern.
+
+    Represents array destructuring in variable declarations or assignments.
+    Examples: [a, b], [a, , c], [[x, y], z]
+
+    Attributes:
+        elements: List of element patterns (None for holes)
+        location: Source location
+
+    Example:
+        >>> # [a, b]
+        >>> ArrayPattern(
+        ...     elements=[
+        ...         Identifier(name="a", location=loc),
+        ...         Identifier(name="b", location=loc)
+        ...     ],
+        ...     location=loc
+        ... )
+    """
+
+    elements: List[Optional[any]]  # Union[Identifier, Pattern, None]
+
+
+@dataclass
+class AssignmentPattern(Pattern):
+    """
+    Assignment pattern with default value.
+
+    Represents destructuring with default values.
+    Examples: x = 10 (in {x = 10} = obj), a = 5 (in [a = 5] = arr)
+
+    Attributes:
+        left: Pattern or Identifier being assigned
+        right: Default value expression
+        location: Source location
+
+    Example:
+        >>> # x = 10
+        >>> AssignmentPattern(
+        ...     left=Identifier(name="x", location=loc),
+        ...     right=Literal(value=10, location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    left: any  # Union[Identifier, Pattern]
+    right: Expression
+
+
+@dataclass
 class VariableDeclarator:
     """
     Single variable declarator in a variable declaration.
 
     Represents one variable in a var statement.
     Example: x = 5 (in var x = 5, y = 10;)
+    With destructuring: {x, y} = obj (in const {x, y} = obj)
 
     Attributes:
-        name: Variable name
+        id: Variable identifier or destructuring pattern (new, preferred)
+        name: Variable name (deprecated, use id instead)
         init: Initializer expression (optional)
 
     Example:
+        >>> # Simple (new way): x = 5
+        >>> VariableDeclarator(id="x", init=Literal(value=5, location=loc))
+        >>> # Simple (old way, deprecated): x = 5
         >>> VariableDeclarator(name="x", init=Literal(value=5, location=loc))
+        >>> # Destructuring: {x, y} = obj
+        >>> VariableDeclarator(
+        ...     id=ObjectPattern(properties=[...], location=loc),
+        ...     init=Identifier(name="obj", location=loc)
+        ... )
     """
 
-    name: str
-    init: Optional[Expression]
+    id: any = None  # Union[str, Pattern] - str for simple, Pattern for destructuring
+    init: Optional[Expression] = None
+    name: str = None  # Deprecated, for backward compatibility
+
+    def __post_init__(self):
+        """Handle backward compatibility between name and id."""
+        # If name is provided but id is not, use name as id
+        if self.name is not None and self.id is None:
+            self.id = self.name
+        # If id is a simple string and name is not set, sync name with id
+        elif isinstance(self.id, str) and self.name is None:
+            self.name = self.id
 
 
 @dataclass

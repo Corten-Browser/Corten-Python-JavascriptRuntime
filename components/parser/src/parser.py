@@ -27,6 +27,11 @@ from .ast_nodes import (
     ArrayExpression,
     ObjectExpression,
     Property,
+    Pattern,
+    ObjectPattern,
+    ArrayPattern,
+    PropertyPattern,
+    AssignmentPattern,
     ExpressionStatement,
     VariableDeclarator,
     VariableDeclaration,
@@ -157,6 +162,155 @@ class Parser:
         # Expression statement
         return self._parse_expression_statement()
 
+    def _parse_object_pattern(self) -> ObjectPattern:
+        """
+        Parse object destructuring pattern.
+
+        Handles: {x, y}, {x: a, y: b}, {x, y: {z}}, {x = 10}
+
+        Returns:
+            ObjectPattern: Parsed object pattern
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.LBRACE)
+
+        properties = []
+
+        while self.current_token.type != TokenType.RBRACE:
+            prop_start = self.current_token.location
+
+            # Parse property key (identifier or computed)
+            if self.current_token.type == TokenType.IDENTIFIER:
+                key = Identifier(name=self.current_token.value, location=self.current_token.location)
+                self._advance()
+
+                # Check for shorthand {x} or colon {x: y} or default {x = 10}
+                if self.current_token.type == TokenType.COLON:
+                    # Long form: {x: y} or {x: {nested}}
+                    self._advance()  # skip :
+                    value = self._parse_pattern_or_identifier()
+                    computed = False
+                elif self.current_token.type == TokenType.ASSIGN:
+                    # Default value: {x = 10}
+                    self._advance()  # skip =
+                    default_value = self._parse_assignment_expression()
+                    value = AssignmentPattern(
+                        left=Identifier(name=key.name, location=key.location),
+                        right=default_value,
+                        location=prop_start
+                    )
+                    computed = False
+                else:
+                    # Shorthand: {x}
+                    value = Identifier(name=key.name, location=key.location)
+                    computed = False
+
+                properties.append(PropertyPattern(
+                    key=key,
+                    value=value,
+                    computed=computed,
+                    location=prop_start
+                ))
+            else:
+                raise SyntaxError(
+                    f"Expected identifier in object pattern "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+
+            # Check for comma or end of pattern
+            if self.current_token.type == TokenType.COMMA:
+                self._advance()  # skip comma
+                # Allow trailing comma
+                if self.current_token.type == TokenType.RBRACE:
+                    break
+            elif self.current_token.type != TokenType.RBRACE:
+                raise SyntaxError(
+                    f"Expected comma or }} in object pattern "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+
+        self._expect(TokenType.RBRACE)
+        return ObjectPattern(properties=properties, location=start_location)
+
+    def _parse_array_pattern(self) -> ArrayPattern:
+        """
+        Parse array destructuring pattern.
+
+        Handles: [a, b], [a, , c], [[x, y], z], [a = 5]
+
+        Returns:
+            ArrayPattern: Parsed array pattern
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.LBRACKET)
+
+        elements = []
+
+        while self.current_token.type != TokenType.RBRACKET:
+            # Check for hole in array pattern: [a, , c]
+            if self.current_token.type == TokenType.COMMA:
+                elements.append(None)
+                self._advance()
+                continue
+
+            # Parse element (can be identifier, nested pattern, or assignment pattern)
+            element = self._parse_pattern_or_identifier()
+
+            # Check for default value: [a = 5]
+            if self.current_token.type == TokenType.ASSIGN:
+                elem_start = element.location if hasattr(element, 'location') else start_location
+                self._advance()  # skip =
+                default_value = self._parse_assignment_expression()
+                element = AssignmentPattern(
+                    left=element,
+                    right=default_value,
+                    location=elem_start
+                )
+
+            elements.append(element)
+
+            # Check for comma or end of pattern
+            if self.current_token.type == TokenType.COMMA:
+                self._advance()  # skip comma
+                # Allow trailing comma
+                if self.current_token.type == TokenType.RBRACKET:
+                    break
+            elif self.current_token.type != TokenType.RBRACKET:
+                raise SyntaxError(
+                    f"Expected comma or ] in array pattern "
+                    f"at {self.current_token.location.filename}:"
+                    f"{self.current_token.location.line}:{self.current_token.location.column}"
+                )
+
+        self._expect(TokenType.RBRACKET)
+        return ArrayPattern(elements=elements, location=start_location)
+
+    def _parse_pattern_or_identifier(self):
+        """
+        Parse a pattern (object or array) or identifier.
+
+        Used in destructuring contexts where either can appear.
+
+        Returns:
+            Union[Identifier, ObjectPattern, ArrayPattern]: Parsed pattern or identifier
+        """
+        if self.current_token.type == TokenType.LBRACE:
+            return self._parse_object_pattern()
+        elif self.current_token.type == TokenType.LBRACKET:
+            return self._parse_array_pattern()
+        elif self.current_token.type == TokenType.IDENTIFIER:
+            identifier = Identifier(name=self.current_token.value, location=self.current_token.location)
+            self._advance()
+            return identifier
+        else:
+            raise SyntaxError(
+                f"Expected identifier or pattern "
+                f"at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
+
     def _parse_variable_declaration(self) -> VariableDeclaration:
         """
         Parse variable declaration statement.
@@ -247,6 +401,8 @@ class Parser:
         """
         Parse a single variable declarator.
 
+        Supports both simple identifiers and destructuring patterns.
+
         Args:
             kind: Declaration kind ("var", "let", or "const")
 
@@ -256,8 +412,19 @@ class Parser:
         Raises:
             SyntaxError: If const declaration lacks initializer
         """
-        name_token = self._expect(TokenType.IDENTIFIER)
-        name = name_token.value
+        start_location = self.current_token.location
+
+        # Check if this is a destructuring pattern
+        if self.current_token.type == TokenType.LBRACE:
+            # Object destructuring: {x, y} = obj
+            pattern_id = self._parse_object_pattern()
+        elif self.current_token.type == TokenType.LBRACKET:
+            # Array destructuring: [a, b] = arr
+            pattern_id = self._parse_array_pattern()
+        else:
+            # Simple identifier: x = value
+            name_token = self._expect(TokenType.IDENTIFIER)
+            pattern_id = name_token.value
 
         init = None
         if self.current_token.type == TokenType.ASSIGN:
@@ -268,11 +435,11 @@ class Parser:
         if kind == "const" and init is None:
             raise SyntaxError(
                 f"Missing initializer in const declaration "
-                f"at {name_token.location.filename}:"
-                f"{name_token.location.line}:{name_token.location.column}"
+                f"at {start_location.filename}:"
+                f"{start_location.line}:{start_location.column}"
             )
 
-        return VariableDeclarator(name=name, init=init)
+        return VariableDeclarator(id=pattern_id, init=init)
 
     def _parse_function_declaration(self) -> FunctionDeclaration:
         """Parse function declaration."""
