@@ -233,7 +233,11 @@ class TestDefaultValues:
 
         # Should have conditional logic for default value
         # (JUMP_IF_NOT_UNDEFINED or similar pattern)
-        assert Opcode.JUMP_IF_TRUE in opcodes or Opcode.JUMP_IF_FALSE in opcodes or Opcode.LOAD_CONSTANT in opcodes
+        assert (
+            Opcode.JUMP_IF_TRUE in opcodes
+            or Opcode.JUMP_IF_FALSE in opcodes
+            or Opcode.LOAD_CONSTANT in opcodes
+        )
 
     def test_array_destructuring_with_defaults(self):
         """
@@ -254,7 +258,11 @@ class TestDefaultValues:
         assert opcodes.count(Opcode.LOAD_ELEMENT) >= 2
 
         # Should have conditional logic for defaults
-        assert Opcode.JUMP_IF_TRUE in opcodes or Opcode.JUMP_IF_FALSE in opcodes or Opcode.LOAD_CONSTANT in opcodes
+        assert (
+            Opcode.JUMP_IF_TRUE in opcodes
+            or Opcode.JUMP_IF_FALSE in opcodes
+            or Opcode.LOAD_CONSTANT in opcodes
+        )
 
 
 class TestDestructuringIntegration:
