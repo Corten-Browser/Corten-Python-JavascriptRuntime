@@ -66,7 +66,8 @@ def test_compile_member_expression_direct():
     bytecode = compiler.compile()
 
     # Then
-    # Should have: LOAD_GLOBAL "obj", LOAD_PROPERTY "name", POP, RETURN
+    # Should have: LOAD_GLOBAL "obj", LOAD_PROPERTY "name", RETURN
+    # Note: Last expression value is preserved (no POP) for REPL/eval mode
     instructions = bytecode.instructions
     assert len(instructions) >= 3
 
@@ -78,8 +79,8 @@ def test_compile_member_expression_direct():
     assert instructions[1].opcode == Opcode.LOAD_PROPERTY
     assert bytecode.constant_pool[instructions[1].operand1] == "name"
 
-    # Pop expression result
-    assert instructions[2].opcode == Opcode.POP
+    # Return (expression value preserved)
+    assert instructions[2].opcode == Opcode.RETURN
 
 
 def test_compile_member_expression_computed():
@@ -112,7 +113,8 @@ def test_compile_member_expression_computed():
     bytecode = compiler.compile()
 
     # Then
-    # Should have: LOAD_GLOBAL "obj", LOAD_CONSTANT 0, LOAD_ELEMENT, POP, RETURN
+    # Should have: LOAD_GLOBAL "obj", LOAD_CONSTANT 0, LOAD_ELEMENT, RETURN
+    # Note: Last expression value is preserved (no POP) for REPL/eval mode
     instructions = bytecode.instructions
     assert len(instructions) >= 4
 
@@ -127,8 +129,8 @@ def test_compile_member_expression_computed():
     # Load element
     assert instructions[2].opcode == Opcode.LOAD_ELEMENT
 
-    # Pop expression result
-    assert instructions[3].opcode == Opcode.POP
+    # Return (expression value preserved)
+    assert instructions[3].opcode == Opcode.RETURN
 
 
 # ============================================================================
