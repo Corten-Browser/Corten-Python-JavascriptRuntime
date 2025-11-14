@@ -1106,6 +1106,172 @@ class BlockStatement(Statement):
 
 
 # ============================================================================
+# ES MODULES - IMPORT/EXPORT DECLARATIONS
+# ============================================================================
+
+
+@dataclass
+class ImportDeclaration(Statement):
+    """
+    Import declaration.
+
+    Represents ES6 import statements with various import forms.
+    Examples:
+        import './module.js';                        (side-effect)
+        import foo from './module.js';               (default)
+        import { x, y } from './module.js';          (named)
+        import { x as y } from './module.js';        (named with alias)
+        import * as name from './module.js';         (namespace)
+        import foo, { x } from './module.js';        (default + named)
+
+    Attributes:
+        specifiers: List of import specifiers (ImportSpecifier, ImportDefaultSpecifier, or ImportNamespaceSpecifier)
+        source: Module path as Literal (string)
+        location: Source location
+    """
+
+    specifiers: List[any]  # Union[ImportSpecifier, ImportDefaultSpecifier, ImportNamespaceSpecifier]
+    source: Literal  # Module path (string literal)
+
+
+@dataclass
+class ImportSpecifier:
+    """
+    Named import specifier.
+
+    Represents a single named import in an import declaration.
+    Examples: { x }, { x as y }
+
+    Attributes:
+        imported: Name in source module (Identifier)
+        local: Name in current module (Identifier) - can be same as imported or an alias
+        location: Source location
+    """
+
+    imported: Identifier  # Name in source module
+    local: Identifier  # Name in current module (binding name)
+    location: SourceLocation
+
+
+@dataclass
+class ImportDefaultSpecifier:
+    """
+    Default import specifier.
+
+    Represents default import.
+    Example: foo in "import foo from './module.js';"
+
+    Attributes:
+        local: Local name for default export (Identifier)
+        location: Source location
+    """
+
+    local: Identifier  # Local name for default export
+    location: SourceLocation
+
+
+@dataclass
+class ImportNamespaceSpecifier:
+    """
+    Namespace import specifier.
+
+    Represents namespace import.
+    Example: * as name in "import * as name from './module.js';"
+
+    Attributes:
+        local: Local name for namespace object (Identifier)
+        location: Source location
+    """
+
+    local: Identifier  # Local name for namespace object
+    location: SourceLocation
+
+
+@dataclass
+class ExportNamedDeclaration(Statement):
+    """
+    Named export declaration.
+
+    Represents named exports in various forms.
+    Examples:
+        export const x = 1;                     (declaration export)
+        export function foo() {}                (function export)
+        export { x, y };                        (list export)
+        export { x as y };                      (list with alias)
+        export { x } from './other.js';         (re-export)
+
+    Attributes:
+        declaration: Optional declaration (VariableDeclaration, FunctionDeclaration, ClassDeclaration)
+        specifiers: List of export specifiers
+        source: Optional module source for re-exports (Literal)
+        location: Source location
+    """
+
+    declaration: Optional[any]  # Union[VariableDeclaration, FunctionDeclaration, ClassDeclaration, None]
+    specifiers: List["ExportSpecifier"]  # List of export specifiers
+    source: Optional[Literal]  # Module source for re-exports (string literal)
+
+
+@dataclass
+class ExportSpecifier:
+    """
+    Export specifier in export list.
+
+    Represents a single export in export list.
+    Examples: { x }, { x as y }
+
+    Attributes:
+        local: Name in current module (Identifier)
+        exported: Name when imported (Identifier) - can be same as local or an alias
+        location: Source location
+    """
+
+    local: Identifier  # Name in current module
+    exported: Identifier  # Name exported as
+    location: SourceLocation
+
+
+@dataclass
+class ExportDefaultDeclaration(Statement):
+    """
+    Default export declaration.
+
+    Represents default export.
+    Examples:
+        export default function() {}
+        export default class {}
+        export default 42;
+        export default expression;
+
+    Attributes:
+        declaration: Expression, FunctionDeclaration, FunctionExpression, ClassDeclaration, or ClassExpression
+        location: Source location
+    """
+
+    declaration: any  # Union[Expression, FunctionDeclaration, FunctionExpression, ClassDeclaration, ClassExpression]
+
+
+@dataclass
+class ExportAllDeclaration(Statement):
+    """
+    Export all declaration (re-export all).
+
+    Represents re-export of all exports from another module.
+    Examples:
+        export * from './module.js';
+        export * as ns from './module.js';
+
+    Attributes:
+        source: Module source (Literal - string)
+        exported: Optional namespace name for "export * as ns"
+        location: Source location
+    """
+
+    source: Literal  # Module source (string literal)
+    exported: Optional[Identifier]  # For 'export * as name'
+
+
+# ============================================================================
 # PROGRAM ROOT
 # ============================================================================
 

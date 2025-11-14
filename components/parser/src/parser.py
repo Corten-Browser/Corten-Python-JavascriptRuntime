@@ -50,6 +50,14 @@ from .ast_nodes import (
     WhileStatement,
     ReturnStatement,
     BlockStatement,
+    ImportDeclaration,
+    ImportSpecifier,
+    ImportDefaultSpecifier,
+    ImportNamespaceSpecifier,
+    ExportNamedDeclaration,
+    ExportSpecifier,
+    ExportDefaultDeclaration,
+    ExportAllDeclaration,
 )
 
 
@@ -141,6 +149,14 @@ class Parser:
         Returns:
             Statement: Parsed statement node or None
         """
+        # Import statement
+        if self.current_token.type == TokenType.IMPORT:
+            return self._parse_import_declaration()
+
+        # Export statement
+        if self.current_token.type == TokenType.EXPORT:
+            return self._parse_export_declaration()
+
         # Async function declaration
         if self.current_token.type == TokenType.ASYNC:
             # Look ahead to see if it's 'async function'
@@ -1725,3 +1741,316 @@ class Parser:
             arguments=arguments,
             location=start_location,
         )
+
+    # ========================================================================
+    # ES MODULES - IMPORT/EXPORT PARSING
+    # ========================================================================
+
+    def _parse_import_declaration(self) -> ImportDeclaration:
+        """
+        Parse import declaration.
+
+        Variants:
+        - import './module.js';                          (side-effect)
+        - import foo from './module.js';                 (default)
+        - import { x, y } from './module.js';            (named)
+        - import { x as y } from './module.js';          (named with alias)
+        - import * as name from './module.js';           (namespace)
+        - import foo, { x } from './module.js';          (default + named)
+
+        Returns:
+            ImportDeclaration: Parsed import declaration
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.IMPORT)
+
+        specifiers = []
+
+        # Check for side-effect import: import './module.js';
+        if self.current_token.type == TokenType.STRING:
+            source = Literal(value=self.current_token.value, location=self.current_token.location)
+            self._advance()
+            self._consume_semicolon()
+            return ImportDeclaration(specifiers=[], source=source, location=start_location)
+
+        # Check for namespace import: import * as name from './module.js';
+        if self.current_token.type == TokenType.MULTIPLY:
+            self._advance()  # consume *
+            self._expect(TokenType.AS)
+            local_token = self._expect(TokenType.IDENTIFIER)
+            local = Identifier(name=local_token.value, location=local_token.location)
+            specifiers.append(ImportNamespaceSpecifier(local=local, location=start_location))
+        elif self.current_token.type == TokenType.LBRACE:
+            # Named imports: import { x, y } from './module.js';
+            specifiers.extend(self._parse_import_specifiers())
+        else:
+            # Default import: import foo from './module.js';
+            # Or default + named: import foo, { x } from './module.js';
+            if self.current_token.type == TokenType.IDENTIFIER:
+                local_token = self._expect(TokenType.IDENTIFIER)
+                local = Identifier(name=local_token.value, location=local_token.location)
+                specifiers.append(ImportDefaultSpecifier(local=local, location=local_token.location))
+
+                # Check for comma (default + named)
+                if self.current_token.type == TokenType.COMMA:
+                    self._advance()  # consume comma
+
+                    # Check for namespace import after default
+                    if self.current_token.type == TokenType.MULTIPLY:
+                        self._advance()  # consume *
+                        self._expect(TokenType.AS)
+                        local_token = self._expect(TokenType.IDENTIFIER)
+                        local = Identifier(name=local_token.value, location=local_token.location)
+                        specifiers.append(ImportNamespaceSpecifier(local=local, location=start_location))
+                    else:
+                        # Named imports after default
+                        specifiers.extend(self._parse_import_specifiers())
+
+        # Parse FROM './module.js'
+        self._expect(TokenType.FROM)
+        source_token = self._expect(TokenType.STRING)
+        source = Literal(value=source_token.value, location=source_token.location)
+
+        self._consume_semicolon()
+
+        return ImportDeclaration(specifiers=specifiers, source=source, location=start_location)
+
+    def _parse_import_specifiers(self) -> List[ImportSpecifier]:
+        """
+        Parse list of import specifiers: { x, y as z, ... }
+
+        Returns:
+            List[ImportSpecifier]: List of parsed import specifiers
+        """
+        self._expect(TokenType.LBRACE)
+        specifiers = []
+
+        while self.current_token.type != TokenType.RBRACE:
+            imported_token = self._expect(TokenType.IDENTIFIER)
+            imported = Identifier(name=imported_token.value, location=imported_token.location)
+
+            # Check for 'as' alias
+            if self.current_token.type == TokenType.AS:
+                self._advance()  # consume 'as'
+                local_token = self._expect(TokenType.IDENTIFIER)
+                local = Identifier(name=local_token.value, location=local_token.location)
+            else:
+                local = Identifier(name=imported_token.value, location=imported_token.location)
+
+            specifiers.append(ImportSpecifier(imported=imported, local=local, location=imported_token.location))
+
+            if self.current_token.type != TokenType.RBRACE:
+                self._expect(TokenType.COMMA)
+
+        self._expect(TokenType.RBRACE)
+        return specifiers
+
+    def _parse_export_declaration(self):
+        """
+        Parse export declaration.
+
+        Variants:
+        - export const x = 1;                     (named declaration)
+        - export function foo() {}                (named function)
+        - export class Bar {}                     (named class)
+        - export { x, y };                        (named list)
+        - export { x as y };                      (named with alias)
+        - export { x } from './other.js';         (re-export named)
+        - export * from './other.js';             (re-export all)
+        - export * as name from './other.js';     (re-export all as namespace)
+        - export default expression;              (default export)
+        - export default function() {}            (default function)
+        - export default class {}                 (default class)
+
+        Returns:
+            Union[ExportNamedDeclaration, ExportDefaultDeclaration, ExportAllDeclaration]
+        """
+        start_location = self.current_token.location
+        self._expect(TokenType.EXPORT)
+
+        # Check for default export
+        if self.current_token.type == TokenType.DEFAULT:
+            return self._parse_export_default_declaration(start_location)
+
+        # Check for export * from
+        if self.current_token.type == TokenType.MULTIPLY:
+            return self._parse_export_all_declaration(start_location)
+
+        # Check for export declaration: export const x = 1;
+        if self._check_declaration_start():
+            declaration = self._parse_declaration()
+            return ExportNamedDeclaration(
+                declaration=declaration,
+                specifiers=[],
+                source=None,
+                location=start_location
+            )
+
+        # export { x, y } [from './module.js'];
+        self._expect(TokenType.LBRACE)
+        specifiers = self._parse_export_specifiers()
+        self._expect(TokenType.RBRACE)
+
+        # Check for 'from' (re-export)
+        source = None
+        if self.current_token.type == TokenType.FROM:
+            self._advance()  # consume 'from'
+            source_token = self._expect(TokenType.STRING)
+            source = Literal(value=source_token.value, location=source_token.location)
+
+        self._consume_semicolon()
+
+        return ExportNamedDeclaration(
+            declaration=None,
+            specifiers=specifiers,
+            source=source,
+            location=start_location
+        )
+
+    def _parse_export_default_declaration(self, start_location):
+        """
+        Parse export default declaration.
+
+        Handles:
+        - export default function() {}
+        - export default function name() {}
+        - export default class {}
+        - export default class Name {}
+        - export default expression;
+
+        Args:
+            start_location: Start location of export keyword
+
+        Returns:
+            ExportDefaultDeclaration
+        """
+        self._advance()  # consume 'default'
+
+        # Check for function/class declaration or expression
+        if self.current_token.type == TokenType.FUNCTION:
+            # Look ahead to check if function has a name
+            # If next token is LPAREN, it's anonymous function expression
+            # Otherwise it's a named function declaration
+            next_token = self.lexer.peek_token(0)
+            if next_token.type == TokenType.LPAREN:
+                # Anonymous function: export default function() {}
+                declaration = self._parse_function_expression()
+            else:
+                # Named function: export default function foo() {}
+                declaration = self._parse_function_declaration()
+        elif self.current_token.type == TokenType.CLASS:
+            # Classes can also be anonymous or named
+            # For now, use parse_class_expression for both
+            # The class parser should handle both cases
+            declaration = self._parse_class_declaration()
+        else:
+            # Expression
+            declaration = self._parse_assignment_expression()
+            self._consume_semicolon()
+
+        return ExportDefaultDeclaration(declaration=declaration, location=start_location)
+
+    def _parse_export_all_declaration(self, start_location):
+        """
+        Parse export * from './module.js';
+
+        Handles:
+        - export * from './module.js';
+        - export * as name from './module.js';
+
+        Args:
+            start_location: Start location of export keyword
+
+        Returns:
+            ExportAllDeclaration
+        """
+        self._advance()  # consume *
+
+        exported = None
+        # Check for: export * as name from './module.js';
+        if self.current_token.type == TokenType.AS:
+            self._advance()  # consume 'as'
+            exported_token = self._expect(TokenType.IDENTIFIER)
+            exported = Identifier(name=exported_token.value, location=exported_token.location)
+
+        self._expect(TokenType.FROM)
+        source_token = self._expect(TokenType.STRING)
+        source = Literal(value=source_token.value, location=source_token.location)
+
+        self._consume_semicolon()
+
+        return ExportAllDeclaration(source=source, exported=exported, location=start_location)
+
+    def _parse_export_specifiers(self) -> List[ExportSpecifier]:
+        """
+        Parse list of export specifiers: { x, y as z }
+
+        Returns:
+            List[ExportSpecifier]: List of parsed export specifiers
+        """
+        specifiers = []
+
+        while self.current_token.type != TokenType.RBRACE:
+            local_token = self._expect(TokenType.IDENTIFIER)
+            local = Identifier(name=local_token.value, location=local_token.location)
+
+            # Check for 'as' alias
+            if self.current_token.type == TokenType.AS:
+                self._advance()  # consume 'as'
+                exported_token = self._expect(TokenType.IDENTIFIER)
+                exported = Identifier(name=exported_token.value, location=exported_token.location)
+            else:
+                exported = Identifier(name=local_token.value, location=local_token.location)
+
+            specifiers.append(ExportSpecifier(local=local, exported=exported, location=local_token.location))
+
+            if self.current_token.type != TokenType.RBRACE:
+                self._expect(TokenType.COMMA)
+
+        return specifiers
+
+    def _parse_declaration(self):
+        """
+        Parse a declaration (variable, function, or class).
+
+        Returns:
+            Union[VariableDeclaration, FunctionDeclaration, ClassDeclaration]
+        """
+        if self.current_token.type in (TokenType.VAR, TokenType.LET, TokenType.CONST):
+            return self._parse_variable_declaration()
+        elif self.current_token.type == TokenType.FUNCTION:
+            return self._parse_function_declaration()
+        elif self.current_token.type == TokenType.CLASS:
+            return self._parse_class_declaration()
+        else:
+            raise SyntaxError(
+                f"Expected declaration, got {self.current_token.type} "
+                f"at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
+
+    def _check_declaration_start(self) -> bool:
+        """
+        Check if current token starts a declaration.
+
+        Returns:
+            bool: True if current token can start a declaration
+        """
+        return self.current_token.type in (
+            TokenType.VAR,
+            TokenType.LET,
+            TokenType.CONST,
+            TokenType.FUNCTION,
+            TokenType.CLASS
+        )
+
+    def _consume_semicolon(self):
+        """
+        Consume semicolon if present (ASI - Automatic Semicolon Insertion).
+
+        This method implements basic automatic semicolon insertion rules.
+        It consumes a semicolon if present, but doesn't require one,
+        allowing for ASI behavior.
+        """
+        if self.current_token.type == TokenType.SEMICOLON:
+            self._advance()

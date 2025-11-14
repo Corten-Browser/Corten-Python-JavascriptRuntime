@@ -43,6 +43,13 @@ class TokenType(Enum):
     NEW = auto()
     ASYNC = auto()
     AWAIT = auto()
+    DEFAULT = auto()
+
+    # ES Modules keywords
+    IMPORT = auto()
+    EXPORT = auto()
+    FROM = auto()
+    AS = auto()
 
     # Literals
     IDENTIFIER = auto()
