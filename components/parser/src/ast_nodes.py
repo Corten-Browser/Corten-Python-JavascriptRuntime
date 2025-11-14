@@ -213,6 +213,48 @@ class FunctionExpression(Expression):
 
 
 @dataclass
+class ArrowFunctionExpression(Expression):
+    """
+    Arrow function expression.
+
+    Represents ES6 arrow functions with concise syntax.
+    Examples: x => x * 2, (x, y) => x + y, () => 42, x => { return x; }
+
+    Arrow functions differ from regular functions:
+    - Lexical 'this' binding (captured from surrounding scope)
+    - No 'arguments' object
+    - Cannot be used as constructors
+    - Implicit return for expression bodies
+
+    Attributes:
+        params: List of parameter identifiers
+        body: Function body (Expression for implicit return, BlockStatement for explicit)
+        is_async: Whether this is an async arrow function (for future support)
+        location: Source location
+
+    Example:
+        >>> # x => x * 2 (expression body with implicit return)
+        >>> ArrowFunctionExpression(
+        ...     params=[Identifier(name="x", location=loc)],
+        ...     body=BinaryExpression(operator="*", left=..., right=..., location=loc),
+        ...     is_async=False,
+        ...     location=loc
+        ... )
+        >>> # (x, y) => { return x + y; } (block body with explicit return)
+        >>> ArrowFunctionExpression(
+        ...     params=[Identifier(name="x", location=loc), Identifier(name="y", location=loc)],
+        ...     body=BlockStatement(body=[ReturnStatement(...)], location=loc),
+        ...     is_async=False,
+        ...     location=loc
+        ... )
+    """
+
+    params: List[Identifier]
+    body: any  # Union[Expression, BlockStatement]
+    is_async: bool = False
+
+
+@dataclass
 class ArrayExpression(Expression):
     """
     Array literal expression.
@@ -352,15 +394,17 @@ class VariableDeclaration(Statement):
     """
     Variable declaration statement.
 
-    Represents var declarations.
-    Example: var x = 5, y = 10;
+    Represents var, let, or const declarations.
+    Example: var x = 5, y = 10; or let x = 1; or const y = 2;
 
     Attributes:
+        kind: Declaration kind - "var", "let", or "const"
         declarations: List of variable declarators
         location: Source location
 
     Example:
         >>> VariableDeclaration(
+        ...     kind="var",
         ...     declarations=[
         ...         VariableDeclarator(name="x", init=Literal(value=5, location=loc)),
         ...         VariableDeclarator(name="y", init=Literal(value=10, location=loc))
@@ -369,6 +413,7 @@ class VariableDeclaration(Statement):
         ... )
     """
 
+    kind: str
     declarations: List[VariableDeclarator]
 
 

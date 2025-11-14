@@ -100,8 +100,8 @@ class Parser:
         Returns:
             Statement: Parsed statement node or None
         """
-        # Variable declaration
-        if self.current_token.type == TokenType.VAR:
+        # Variable declaration (var, let, const)
+        if self.current_token.type in (TokenType.VAR, TokenType.LET, TokenType.CONST):
             return self._parse_variable_declaration()
 
         # Function declaration
@@ -128,28 +128,62 @@ class Parser:
         return self._parse_expression_statement()
 
     def _parse_variable_declaration(self) -> VariableDeclaration:
-        """Parse variable declaration statement."""
+        """
+        Parse variable declaration statement.
+
+        Supports var, let, and const declarations with proper validation.
+        const declarations must have initializers.
+        """
         start_location = self.current_token.location
-        self._expect(TokenType.VAR)
+
+        # Determine declaration kind
+        if self.current_token.type == TokenType.VAR:
+            kind = "var"
+            self._expect(TokenType.VAR)
+        elif self.current_token.type == TokenType.LET:
+            kind = "let"
+            self._expect(TokenType.LET)
+        elif self.current_token.type == TokenType.CONST:
+            kind = "const"
+            self._expect(TokenType.CONST)
+        else:
+            raise SyntaxError(
+                f"Expected var, let, or const, got {self.current_token.type} "
+                f"at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
 
         declarations = []
 
         # Parse first declarator
-        declarations.append(self._parse_variable_declarator())
+        declarations.append(self._parse_variable_declarator(kind))
 
         # Parse additional declarators (comma-separated)
         while self.current_token.type == TokenType.COMMA:
             self._advance()  # skip comma
-            declarations.append(self._parse_variable_declarator())
+            declarations.append(self._parse_variable_declarator(kind))
 
         # Expect semicolon
         if self.current_token.type == TokenType.SEMICOLON:
             self._advance()
 
-        return VariableDeclaration(declarations=declarations, location=start_location)
+        return VariableDeclaration(
+            kind=kind, declarations=declarations, location=start_location
+        )
 
-    def _parse_variable_declarator(self) -> VariableDeclarator:
-        """Parse a single variable declarator."""
+    def _parse_variable_declarator(self, kind: str) -> VariableDeclarator:
+        """
+        Parse a single variable declarator.
+
+        Args:
+            kind: Declaration kind ("var", "let", or "const")
+
+        Returns:
+            VariableDeclarator: Parsed declarator
+
+        Raises:
+            SyntaxError: If const declaration lacks initializer
+        """
         name_token = self._expect(TokenType.IDENTIFIER)
         name = name_token.value
 
@@ -157,6 +191,14 @@ class Parser:
         if self.current_token.type == TokenType.ASSIGN:
             self._advance()  # skip =
             init = self._parse_expression()
+
+        # Validate const must have initializer
+        if kind == "const" and init is None:
+            raise SyntaxError(
+                f"Missing initializer in const declaration "
+                f"at {name_token.location.filename}:"
+                f"{name_token.location.line}:{name_token.location.column}"
+            )
 
         return VariableDeclarator(name=name, init=init)
 
@@ -292,7 +334,12 @@ class Parser:
         return self._parse_assignment_expression()
 
     def _parse_assignment_expression(self) -> Expression:
-        """Parse assignment expression."""
+        """Parse assignment expression or arrow function."""
+        # Try to parse arrow function first
+        if self._is_arrow_function():
+            return self._parse_arrow_function()
+
+        # Otherwise parse normal assignment
         left = self._parse_equality_expression()
 
         if self.current_token.type == TokenType.ASSIGN:
@@ -304,6 +351,145 @@ class Parser:
             )
 
         return left
+
+    def _is_arrow_function(self) -> bool:
+        """
+        Check if current position is start of arrow function.
+
+        Lookahead to distinguish:
+        - x => expr (single param without parens)
+        - (x) => expr (single param with parens)
+        - (x, y) => expr (multiple params)
+        - () => expr (no params)
+
+        Returns:
+            bool: True if arrow function detected, False otherwise
+        """
+        # Case 1: Single parameter without parens: x =>
+        if self.current_token.type == TokenType.IDENTIFIER:
+            next_token = self.lexer.peek_token(0)
+            return next_token.type == TokenType.ARROW
+
+        # Case 2: Parameters with parens: (x) => or (x, y) => or () =>
+        if self.current_token.type == TokenType.LPAREN:
+            # Need to look ahead past parameter list to find =>
+            return self._lookahead_arrow_params()
+
+        return False
+
+    def _lookahead_arrow_params(self) -> bool:
+        """
+        Lookahead to check if parenthesized expression is arrow function params.
+
+        Distinguishes:
+        - (x) => expr (arrow function)
+        - (x) (grouped expression followed by something else)
+
+        Returns:
+            bool: True if => found after closing paren
+        """
+        # We're at LPAREN, peek ahead to find matching RPAREN
+        # Start at 1 because we're already at the first LPAREN
+        paren_depth = 1
+        offset = -1
+
+        while True:
+            offset += 1
+            token = self.lexer.peek_token(offset)
+
+            if token.type == TokenType.EOF:
+                return False
+
+            if token.type == TokenType.LPAREN:
+                paren_depth += 1
+            elif token.type == TokenType.RPAREN:
+                paren_depth -= 1
+                if paren_depth == 0:
+                    # Found matching closing paren
+                    # Check if next token is =>
+                    next_token = self.lexer.peek_token(offset + 1)
+                    return next_token.type == TokenType.ARROW
+
+            # Safety: don't lookahead too far
+            if offset > 100:
+                return False
+
+    def _parse_arrow_function(self) -> ArrowFunctionExpression:
+        """
+        Parse arrow function expression.
+
+        Handles:
+        - x => expr (single param without parens)
+        - (x) => expr (single param with parens)
+        - (x, y) => expr (multiple params)
+        - () => expr (no params)
+        - x => { block } (block body)
+        - x => expr (expression body)
+
+        Returns:
+            ArrowFunctionExpression: Parsed arrow function
+        """
+        start_location = self.current_token.location
+
+        # Parse parameters
+        params = []
+
+        if self.current_token.type == TokenType.IDENTIFIER:
+            # Single parameter without parens: x =>
+            param_token = self.current_token
+            params.append(
+                Identifier(name=param_token.value, location=param_token.location)
+            )
+            self._advance()
+        elif self.current_token.type == TokenType.LPAREN:
+            # Parameters with parens: (x), (x, y), or ()
+            self._advance()  # skip (
+
+            # Parse parameter list
+            while (
+                self.current_token.type != TokenType.RPAREN
+                and self.current_token.type != TokenType.EOF
+            ):
+                # Parse parameter identifier
+                param_token = self._expect(TokenType.IDENTIFIER)
+                params.append(
+                    Identifier(name=param_token.value, location=param_token.location)
+                )
+
+                # Check for comma (more parameters)
+                if self.current_token.type == TokenType.COMMA:
+                    self._advance()  # skip comma
+                elif self.current_token.type != TokenType.RPAREN:
+                    raise SyntaxError(
+                        f"Expected ',' or ')' in arrow function parameters, "
+                        f"got {self.current_token.type} "
+                        f"at {self.current_token.location.filename}:"
+                        f"{self.current_token.location.line}:{self.current_token.location.column}"
+                    )
+
+            self._expect(TokenType.RPAREN)
+        else:
+            raise SyntaxError(
+                f"Expected parameter or '(' in arrow function, "
+                f"got {self.current_token.type} "
+                f"at {self.current_token.location.filename}:"
+                f"{self.current_token.location.line}:{self.current_token.location.column}"
+            )
+
+        # Expect arrow =>
+        self._expect(TokenType.ARROW)
+
+        # Parse body (expression or block)
+        if self.current_token.type == TokenType.LBRACE:
+            # Block body: { statements }
+            body = self._parse_block_statement()
+        else:
+            # Expression body: expr (implicit return)
+            body = self._parse_assignment_expression()
+
+        return ArrowFunctionExpression(
+            params=params, body=body, is_async=False, location=start_location
+        )
 
     def _parse_equality_expression(self) -> Expression:
         """Parse equality expression (==, !=)."""

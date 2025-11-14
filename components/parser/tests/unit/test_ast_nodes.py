@@ -192,8 +192,9 @@ def test_variable_declaration_node():
         VariableDeclarator(name="y", init=Literal(value=10, location=loc)),
     ]
 
-    var_decl = VariableDeclaration(declarations=declarators, location=loc)
+    var_decl = VariableDeclaration(kind="var", declarations=declarators, location=loc)
 
+    assert var_decl.kind == "var"
     assert len(var_decl.declarations) == 2
     assert var_decl.declarations[0].name == "x"
     assert var_decl.declarations[0].init.value == 5
@@ -306,6 +307,7 @@ def test_block_statement_node():
 
     statements = [
         VariableDeclaration(
+            kind="var",
             declarations=[
                 VariableDeclarator(name="x", init=Literal(value=1, location=loc))
             ],
@@ -331,6 +333,7 @@ def test_program_node():
 
     statements = [
         VariableDeclaration(
+            kind="var",
             declarations=[
                 VariableDeclarator(name="x", init=Literal(value=1, location=loc))
             ],

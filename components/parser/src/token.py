@@ -22,6 +22,8 @@ class TokenType(Enum):
 
     # Keywords
     VAR = auto()
+    LET = auto()
+    CONST = auto()
     FUNCTION = auto()
     IF = auto()
     ELSE = auto()
@@ -62,6 +64,7 @@ class TokenType(Enum):
     COMMA = auto()
     DOT = auto()
     COLON = auto()
+    ARROW = auto()  # => for arrow functions
 
     # Special
     EOF = auto()

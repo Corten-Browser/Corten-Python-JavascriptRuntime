@@ -36,6 +36,8 @@ class Lexer:
     # Keyword mappings
     KEYWORDS = {
         "var": TokenType.VAR,
+        "let": TokenType.LET,
+        "const": TokenType.CONST,
         "function": TokenType.FUNCTION,
         "if": TokenType.IF,
         "else": TokenType.ELSE,
@@ -161,6 +163,19 @@ class Lexer:
                 self.column += 2
                 return Token(
                     type=TokenType.NOT_EQUAL,
+                    value=None,
+                    location=SourceLocation(
+                        filename=self.filename,
+                        line=start_line,
+                        column=start_column,
+                        offset=start_offset,
+                    ),
+                )
+            if two_char == "=>":
+                self.position += 2
+                self.column += 2
+                return Token(
+                    type=TokenType.ARROW,
                     value=None,
                     location=SourceLocation(
                         filename=self.filename,
