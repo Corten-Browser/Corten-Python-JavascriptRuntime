@@ -246,6 +246,23 @@ class BytecodeCompiler:
             self.bytecode.add_instruction(Instruction(opcode=Opcode.GREATER_THAN))
         elif op == ">=":
             self.bytecode.add_instruction(Instruction(opcode=Opcode.GREATER_EQUAL))
+        elif op == "=":
+            # Assignment operator: x = value
+            # Right side is already on stack from compilation above
+            # Left side should be Identifier
+            if hasattr(expr.left, 'name'):
+                var_name = expr.left.name
+                # Duplicate value to keep on stack (assignment returns the value)
+                self.bytecode.add_instruction(Instruction(opcode=Opcode.DUP))
+                # Store in variable
+                if var_name in self.locals:
+                    local_index = self.locals[var_name]
+                    self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_LOCAL, operand1=local_index))
+                else:
+                    name_index = self.bytecode.add_constant(var_name)
+                    self.bytecode.add_instruction(Instruction(opcode=Opcode.STORE_GLOBAL, operand1=name_index))
+            else:
+                raise CompileError(f"Assignment to non-identifier not yet supported")
         else:
             raise CompileError(f"Unsupported binary operator: {op}")
 
