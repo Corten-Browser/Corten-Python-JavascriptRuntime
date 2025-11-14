@@ -288,3 +288,263 @@ class JSPromise:
 
         # Register separate handlers for fulfillment and rejection
         return self.then(fulfillment_handler, rejection_handler)
+
+    @staticmethod
+    def resolve(value, event_loop):
+        """Create immediately fulfilled Promise.
+
+        If value is already a Promise, return it unchanged.
+        Otherwise, create a new Promise fulfilled with the value.
+
+        Args:
+            value: Value to fulfill with (or existing Promise)
+            event_loop: EventLoop instance
+
+        Returns:
+            Promise (either existing or newly created)
+
+        Example:
+            >>> loop = EventLoop()
+            >>> promise = JSPromise.resolve(42, loop)
+            >>> promise.then(lambda x: print(x))
+            >>> loop.run()
+            42
+        """
+        if isinstance(value, JSPromise):
+            return value  # Already a Promise
+
+        return JSPromise(lambda resolve, reject: resolve(value), event_loop)
+
+    @staticmethod
+    def reject(reason, event_loop):
+        """Create immediately rejected Promise.
+
+        Args:
+            reason: Rejection reason
+            event_loop: EventLoop instance
+
+        Returns:
+            Rejected Promise
+
+        Example:
+            >>> loop = EventLoop()
+            >>> promise = JSPromise.reject("error", loop)
+            >>> promise.catch(lambda err: print(err))
+            >>> loop.run()
+            error
+        """
+        return JSPromise(lambda resolve, reject: reject(reason), event_loop)
+
+    @staticmethod
+    def all(promises, event_loop):
+        """Fulfill when all Promises fulfill, reject if any rejects.
+
+        Returns a Promise that:
+        - Fulfills with array of values when all input promises fulfill
+        - Rejects with first rejection reason if any promise rejects
+
+        Args:
+            promises: List of Promises (or values that will be converted)
+            event_loop: EventLoop instance
+
+        Returns:
+            Promise that resolves with list of values or rejects with first rejection
+
+        Example:
+            >>> loop = EventLoop()
+            >>> promises = [
+            ...     JSPromise.resolve(1, loop),
+            ...     JSPromise.resolve(2, loop)
+            ... ]
+            >>> JSPromise.all(promises, loop).then(lambda v: print(v))
+            >>> loop.run()
+            [1, 2]
+        """
+        results = [None] * len(promises)
+        completed_count = [0]  # Use list to allow mutation in nested function
+
+        def create_result_promise(resolve_outer, reject_outer):
+            if len(promises) == 0:
+                resolve_outer([])
+                return
+
+            def handle_fulfillment(index, value):
+                results[index] = value
+                completed_count[0] += 1
+                if completed_count[0] == len(promises):
+                    resolve_outer(results)
+
+            def handle_rejection(reason):
+                reject_outer(reason)
+
+            for i, promise in enumerate(promises):
+                # Ensure it's a Promise
+                if not isinstance(promise, JSPromise):
+                    promise = JSPromise.resolve(promise, event_loop)
+
+                # Use lambda with default args to capture loop variable
+                promise.then(
+                    lambda value, idx=i: handle_fulfillment(idx, value),
+                    handle_rejection
+                )
+
+        return JSPromise(create_result_promise, event_loop)
+
+    @staticmethod
+    def race(promises, event_loop):
+        """Settle when first Promise settles (fulfill or reject).
+
+        Returns a Promise that settles with the same value/reason as the
+        first promise that settles.
+
+        Args:
+            promises: List of Promises
+            event_loop: EventLoop instance
+
+        Returns:
+            Promise that settles with first settlement
+
+        Example:
+            >>> loop = EventLoop()
+            >>> promises = [
+            ...     JSPromise.resolve(1, loop),
+            ...     JSPromise.resolve(2, loop)
+            ... ]
+            >>> JSPromise.race(promises, loop).then(lambda v: print(v))
+            >>> loop.run()
+            1
+        """
+        def create_result_promise(resolve_outer, reject_outer):
+            if len(promises) == 0:
+                # Never settles (per spec)
+                return
+
+            for promise in promises:
+                # Ensure it's a Promise
+                if not isinstance(promise, JSPromise):
+                    promise = JSPromise.resolve(promise, event_loop)
+
+                promise.then(resolve_outer, reject_outer)
+
+        return JSPromise(create_result_promise, event_loop)
+
+    @staticmethod
+    def any(promises, event_loop):
+        """Fulfill when first Promise fulfills, reject if all reject.
+
+        Returns a Promise that:
+        - Fulfills with the first fulfillment value
+        - Rejects with AggregateError if all promises reject
+
+        Args:
+            promises: List of Promises
+            event_loop: EventLoop instance
+
+        Returns:
+            Promise that fulfills with first fulfillment or rejects with AggregateError
+
+        Example:
+            >>> loop = EventLoop()
+            >>> promises = [
+            ...     JSPromise.reject("error1", loop),
+            ...     JSPromise.resolve(42, loop)
+            ... ]
+            >>> JSPromise.any(promises, loop).then(lambda v: print(v))
+            >>> loop.run()
+            42
+        """
+        errors = []
+        rejected_count = [0]
+
+        def create_result_promise(resolve_outer, reject_outer):
+            if len(promises) == 0:
+                reject_outer(AggregateError([]))
+                return
+
+            def handle_rejection(index, reason):
+                errors.append(reason)
+                rejected_count[0] += 1
+                if rejected_count[0] == len(promises):
+                    reject_outer(AggregateError(errors))
+
+            for i, promise in enumerate(promises):
+                # Ensure it's a Promise
+                if not isinstance(promise, JSPromise):
+                    promise = JSPromise.resolve(promise, event_loop)
+
+                promise.then(
+                    resolve_outer,  # Any fulfillment wins
+                    lambda reason, idx=i: handle_rejection(idx, reason)
+                )
+
+        return JSPromise(create_result_promise, event_loop)
+
+    @staticmethod
+    def allSettled(promises, event_loop):
+        """Wait for all Promises to settle (fulfill or reject).
+
+        Returns a Promise that always fulfills with an array of objects
+        describing the outcome of each promise.
+
+        Args:
+            promises: List of Promises
+            event_loop: EventLoop instance
+
+        Returns:
+            Promise that resolves with list of settlement results
+
+        Example:
+            >>> loop = EventLoop()
+            >>> promises = [
+            ...     JSPromise.resolve(1, loop),
+            ...     JSPromise.reject("error", loop)
+            ... ]
+            >>> JSPromise.allSettled(promises, loop).then(lambda v: print(v))
+            >>> loop.run()
+            [{'status': 'fulfilled', 'value': 1}, {'status': 'rejected', 'reason': 'error'}]
+        """
+        results = [None] * len(promises)
+        settled_count = [0]
+
+        def create_result_promise(resolve_outer, reject_outer):
+            if len(promises) == 0:
+                resolve_outer([])
+                return
+
+            def handle_fulfillment(index, value):
+                results[index] = {"status": "fulfilled", "value": value}
+                settled_count[0] += 1
+                if settled_count[0] == len(promises):
+                    resolve_outer(results)
+
+            def handle_rejection(index, reason):
+                results[index] = {"status": "rejected", "reason": reason}
+                settled_count[0] += 1
+                if settled_count[0] == len(promises):
+                    resolve_outer(results)
+
+            for i, promise in enumerate(promises):
+                # Ensure it's a Promise
+                if not isinstance(promise, JSPromise):
+                    promise = JSPromise.resolve(promise, event_loop)
+
+                promise.then(
+                    lambda value, idx=i: handle_fulfillment(idx, value),
+                    lambda reason, idx=i: handle_rejection(idx, reason)
+                )
+
+        return JSPromise(create_result_promise, event_loop)
+
+
+class AggregateError(Exception):
+    """Error representing multiple Promise rejections.
+
+    Used by Promise.any() when all input promises reject.
+
+    Attributes:
+        errors: List of rejection reasons from all rejected promises
+    """
+
+    def __init__(self, errors):
+        self.errors = errors
+        super().__init__(f"All Promises rejected ({len(errors)} errors)")

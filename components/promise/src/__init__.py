@@ -23,9 +23,9 @@ Example:
     Result: 42
 """
 
-from .js_promise import JSPromise
+from .js_promise import JSPromise, AggregateError
 from .promise_state import PromiseState
 
-__all__ = ['JSPromise', 'PromiseState']
+__all__ = ['JSPromise', 'PromiseState', 'AggregateError']
 
 __version__ = '0.1.0'
