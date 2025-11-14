@@ -340,13 +340,13 @@ class Interpreter:
                     # Capture current frame locals for closure support
                     closure_locals = frame.locals.copy()
 
-                    def bytecode_callable(*args):
+                    def bytecode_callable(*args, captured_bytecode=function_bytecode):
                         """Execute bytecode with arguments."""
                         # Convert args to list of Values
                         arg_values = list(args)
                         # Execute the function bytecode
                         result = self.execute(
-                            function_bytecode,
+                            captured_bytecode,  # Use captured value, not reference
                             this_value=Value.from_smi(0),  # Phase 1: undefined this
                             arguments=arg_values,
                         )
