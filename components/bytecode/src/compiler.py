@@ -21,6 +21,7 @@ from components.parser.src.ast_nodes import (
     Statement,
     Literal,
     Identifier,
+    TemplateLiteral,
     BinaryExpression,
     ExpressionStatement,
     VariableDeclaration,
@@ -197,6 +198,9 @@ class BytecodeCompiler:
 
         elif isinstance(expr, MemberExpression):
             self._compile_member_expression(expr)
+
+        elif isinstance(expr, TemplateLiteral):
+            self._compile_template_literal(expr)
 
         else:
             raise CompileError(f"Unsupported expression type: {type(expr).__name__}")
@@ -639,6 +643,55 @@ class BytecodeCompiler:
             property_name = node.property.name
             property_index = self.bytecode.add_constant(property_name)
             self._emit(Opcode.LOAD_PROPERTY, property_index)
+
+    def _compile_template_literal(self, node: TemplateLiteral) -> None:
+        """
+        Compile a template literal to bytecode.
+
+        Template literals are compiled to a series of string concatenation
+        operations using the ADD opcode. Each quasi (static text) is loaded
+        as a constant, and each expression is compiled normally. The parts
+        are then concatenated left-to-right.
+
+        Args:
+            node: TemplateLiteral AST node
+
+        Example bytecode for `Hello ${name}!`:
+            LOAD_CONSTANT "Hello "
+            LOAD_GLOBAL "name"
+            ADD
+            LOAD_CONSTANT "!"
+            ADD
+        """
+        # Handle empty template literal
+        if len(node.quasis) == 1 and len(node.expressions) == 0:
+            # Just a single static string
+            const_index = self.bytecode.add_constant(node.quasis[0])
+            self._emit(Opcode.LOAD_CONSTANT, const_index)
+            return
+
+        # Build the result by concatenating all parts
+        # quasis[0] expr[0] quasis[1] expr[1] ... quasis[n]
+        # where len(quasis) = len(expressions) + 1
+
+        # Load first quasi
+        const_index = self.bytecode.add_constant(node.quasis[0])
+        self._emit(Opcode.LOAD_CONSTANT, const_index)
+
+        # Interleave expressions and quasis
+        for i, expression in enumerate(node.expressions):
+            # Compile the expression
+            self._compile_expression(expression)
+
+            # Add (concatenate)
+            self._emit(Opcode.ADD)
+
+            # Load the next quasi (if not empty)
+            next_quasi = node.quasis[i + 1]
+            if next_quasi:  # Only if quasi is not empty string
+                const_index = self.bytecode.add_constant(next_quasi)
+                self._emit(Opcode.LOAD_CONSTANT, const_index)
+                self._emit(Opcode.ADD)
 
     def _compile_if_statement(self, node: IfStatement) -> None:
         """

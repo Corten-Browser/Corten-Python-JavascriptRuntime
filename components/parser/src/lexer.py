@@ -144,6 +144,10 @@ class Lexer:
         if char == '"' or char == "'":
             return self._scan_string()
 
+        # Template literals
+        if char == "`":
+            return self._scan_template_literal()
+
         # Two-character operators
         if self.position + 1 < len(self.source):
             two_char = self.source[self.position : self.position + 2]
@@ -342,6 +346,52 @@ class Lexer:
 
         return Token(
             type=TokenType.STRING,
+            value=text,
+            location=SourceLocation(
+                filename=self.filename,
+                line=start_line,
+                column=start_column,
+                offset=start_offset,
+            ),
+        )
+
+    def _scan_template_literal(self) -> Token:
+        """
+        Scan a template literal.
+
+        Template literals are enclosed in backticks and can contain newlines
+        and ${} expressions. This method scans the entire template as a single
+        token, preserving the ${} syntax for the parser to handle.
+
+        Returns:
+            Token: Template literal token with full template content
+        """
+        start_line = self.line
+        start_column = self.column
+        start_offset = self.position
+
+        # Skip opening backtick
+        self.position += 1
+        self.column += 1
+
+        start = self.position
+        while self.position < len(self.source) and self.source[self.position] != "`":
+            if self.source[self.position] == "\n":
+                self.line += 1
+                self.column = 1
+            else:
+                self.column += 1
+            self.position += 1
+
+        text = self.source[start : self.position]
+
+        # Skip closing backtick
+        if self.position < len(self.source):
+            self.position += 1
+            self.column += 1
+
+        return Token(
+            type=TokenType.TEMPLATE_LITERAL,
             value=text,
             location=SourceLocation(
                 filename=self.filename,

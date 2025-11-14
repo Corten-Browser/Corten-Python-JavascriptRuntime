@@ -18,6 +18,7 @@ from .ast_nodes import (
     Expression,
     Literal,
     Identifier,
+    TemplateLiteral,
     BinaryExpression,
     CallExpression,
     MemberExpression,
@@ -826,6 +827,10 @@ class Parser:
             self._advance()
             return Literal(value=token.value, location=token.location)
 
+        # Template literal
+        if self.current_token.type == TokenType.TEMPLATE_LITERAL:
+            return self._parse_template_literal()
+
         # Boolean literals
         if self.current_token.type == TokenType.TRUE:
             token = self.current_token
@@ -1033,4 +1038,70 @@ class Parser:
             kind="init",
             computed=computed,
             location=prop_start_location,
+        )
+
+    def _parse_template_literal(self) -> TemplateLiteral:
+        """
+        Parse a template literal expression.
+
+        Template literals are backtick-delimited strings that can contain
+        ${} expressions. This method parses the template, extracting static
+        text parts (quasis) and embedded expressions.
+
+        Returns:
+            TemplateLiteral: Parsed template literal AST node
+
+        Example:
+            `Hello ${name}!` → quasis=["Hello ", "!"], expressions=[name]
+        """
+        token = self.current_token
+        location = token.location
+        template_content = token.value  # Full template content
+        self._advance()
+
+        # Parse template content to extract quasis and expressions
+        quasis = []
+        expressions = []
+
+        i = 0
+        current_quasi = ""
+
+        while i < len(template_content):
+            # Check for expression start ${
+            if i < len(template_content) - 1 and template_content[i:i+2] == "${":
+                # Save current quasi
+                quasis.append(current_quasi)
+                current_quasi = ""
+
+                # Find matching }
+                i += 2  # Skip ${
+                expr_start = i
+                brace_count = 1
+
+                while i < len(template_content) and brace_count > 0:
+                    if template_content[i] == "{":
+                        brace_count += 1
+                    elif template_content[i] == "}":
+                        brace_count -= 1
+                    i += 1
+
+                # Extract expression text
+                expr_text = template_content[expr_start:i-1]
+
+                # Parse the expression
+                expr_lexer = Lexer(expr_text, location.filename)
+                expr_parser = Parser(expr_lexer)
+                expr = expr_parser._parse_expression()
+                expressions.append(expr)
+            else:
+                current_quasi += template_content[i]
+                i += 1
+
+        # Add final quasi
+        quasis.append(current_quasi)
+
+        return TemplateLiteral(
+            quasis=quasis,
+            expressions=expressions,
+            location=location,
         )

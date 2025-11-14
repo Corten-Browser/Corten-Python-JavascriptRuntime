@@ -90,6 +90,32 @@ class Identifier(Expression):
     name: str
 
 
+@dataclass
+class TemplateLiteral(Expression):
+    """
+    Template literal expression.
+
+    Represents ES6 template literals with backticks and ${} expressions.
+    Examples: `Hello World`, `Value: ${x}`, `${a} + ${b} = ${a + b}`
+
+    Attributes:
+        quasis: List of template string parts (static text between expressions)
+        expressions: List of expression AST nodes interpolated in the template
+        location: Source location
+
+    Example:
+        >>> # `Hello ${name}!`
+        >>> TemplateLiteral(
+        ...     quasis=["Hello ", "!"],
+        ...     expressions=[Identifier(name="name", location=loc)],
+        ...     location=loc
+        ... )
+    """
+
+    quasis: List[str]
+    expressions: List[Expression]
+
+
 # ============================================================================
 # EXPRESSIONS
 # ============================================================================

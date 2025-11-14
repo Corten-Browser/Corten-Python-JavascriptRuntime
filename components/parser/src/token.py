@@ -39,6 +39,7 @@ class TokenType(Enum):
     IDENTIFIER = auto()
     NUMBER = auto()
     STRING = auto()
+    TEMPLATE_LITERAL = auto()
     TRUE = auto()
     FALSE = auto()
     NULL = auto()

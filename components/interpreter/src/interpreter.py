@@ -109,8 +109,11 @@ class Interpreter:
                     # Convert Python value to Value
                     if isinstance(const_value, int):
                         frame.push(Value.from_smi(const_value))
+                    elif isinstance(const_value, str):
+                        # Template literals: store strings as objects
+                        frame.push(Value.from_object(const_value))
                     else:
-                        # For now, store as SMI (will be improved)
+                        # Other types - placeholder
                         frame.push(Value.from_smi(0))
 
                 case Opcode.LOAD_UNDEFINED:
@@ -162,8 +165,21 @@ class Interpreter:
                 case Opcode.ADD:
                     right = frame.pop()
                     left = frame.pop()
-                    result = Value.from_smi(left.to_smi() + right.to_smi())
-                    frame.push(result)
+
+                    # Handle string concatenation for template literals
+                    left_is_string = left.is_object() and isinstance(left.to_object(), str)
+                    right_is_string = right.is_object() and isinstance(right.to_object(), str)
+
+                    if left_is_string or right_is_string:
+                        # String concatenation (JavaScript coercion)
+                        left_str = left.to_object() if left_is_string else str(left.to_smi())
+                        right_str = right.to_object() if right_is_string else str(right.to_smi())
+                        result = Value.from_object(left_str + right_str)
+                        frame.push(result)
+                    else:
+                        # Numeric addition
+                        result = Value.from_smi(left.to_smi() + right.to_smi())
+                        frame.push(result)
 
                 case Opcode.SUBTRACT:
                     right = frame.pop()
