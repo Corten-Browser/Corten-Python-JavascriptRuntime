@@ -1,0 +1,159 @@
+component: runtime_cli
+version: 0.1.0
+type: application
+description: Command-line interface, REPL, Test262 test runner
+level: 4
+dependencies:
+  - shared_types
+  - value_system
+  - memory_gc
+  - object_runtime
+  - parser
+  - bytecode
+  - interpreter
+
+exports:
+  - name: main
+    type: function
+    params:
+      - name: args
+        type: List[str]
+        optional: true
+        description: Command-line arguments (sys.argv if not provided)
+    returns: int
+    description: Main entry point, returns exit code
+
+  - name: CLIOptions
+    type: dataclass
+    description: Parsed command-line options
+    fields:
+      - name: mode
+        type: str
+        description: Execution mode (repl, file, test262, eval)
+      - name: filename
+        type: str
+        optional: true
+        description: JavaScript file to execute
+      - name: expression
+        type: str
+        optional: true
+        description: Expression to evaluate (--eval mode)
+      - name: test262_path
+        type: str
+        optional: true
+        description: Path to Test262 test or directory
+      - name: verbose
+        type: bool
+        default: false
+        description: Enable verbose output
+      - name: dump_bytecode
+        type: bool
+        default: false
+        description: Dump bytecode instead of executing
+      - name: dump_ast
+        type: bool
+        default: false
+        description: Dump AST instead of executing
+
+  - name: REPL
+    type: class
+    description: Read-Eval-Print Loop interactive shell
+    methods:
+      - name: __init__
+        params:
+          - name: interpreter
+            type: Interpreter
+        returns: REPL
+
+      - name: run
+        params: []
+        returns: None
+        description: Start REPL loop (exits on Ctrl+D or 'exit')
+
+  - name: ExecuteFile
+    type: function
+    params:
+      - name: filename
+        type: str
+      - name: options
+        type: CLIOptions
+    returns: EvaluationResult
+    description: Execute JavaScript file
+
+  - name: EvaluateExpression
+    type: function
+    params:
+      - name: expression
+        type: str
+      - name: options
+        type: CLIOptions
+    returns: EvaluationResult
+    description: Evaluate single JavaScript expression
+
+  - name: Test262Runner
+    type: class
+    description: Test262 conformance test runner
+    methods:
+      - name: __init__
+        params:
+          - name: test262_root
+            type: str
+            description: Path to Test262 repository root
+        returns: Test262Runner
+
+      - name: run_test
+        params:
+          - name: test_path
+            type: str
+            description: Path to test file
+        returns: TestResult
+        description: Run single Test262 test
+
+      - name: run_directory
+        params:
+          - name: directory
+            type: str
+        returns: TestResults
+        description: Run all tests in directory recursively
+
+  - name: TestResult
+    type: dataclass
+    description: Single test result
+    fields:
+      - name: test_path
+        type: str
+      - name: passed
+        type: bool
+      - name: expected_error
+        type: str
+        optional: true
+        description: Expected error type (from test metadata)
+      - name: actual_error
+        type: str
+        optional: true
+        description: Actual error if test failed
+      - name: duration_ms
+        type: float
+
+  - name: TestResults
+    type: class
+    description: Aggregated test results
+    fields:
+      - name: tests_run
+        type: int
+      - name: tests_passed
+        type: int
+      - name: tests_failed
+        type: int
+      - name: duration_ms
+        type: float
+    methods:
+      - name: pass_rate
+        params: []
+        returns: float
+        description: Return pass rate percentage (0-100)
+
+      - name: print_summary
+        params: []
+        returns: None
+        description: Print test summary to stdout

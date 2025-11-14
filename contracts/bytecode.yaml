@@ -1,0 +1,171 @@
+component: bytecode
+version: 0.1.0
+type: feature
+description: Register-based bytecode format and compiler (AST → bytecode)
+level: 2
+dependencies:
+  - shared_types
+  - object_runtime
+  - parser
+
+exports:
+  - name: Opcode
+    type: enum
+    description: Bytecode instruction opcodes
+    values:
+      # Literals
+      - LOAD_CONSTANT      # Load constant from pool
+      - LOAD_UNDEFINED
+      - LOAD_NULL
+      - LOAD_TRUE
+      - LOAD_FALSE
+
+      # Variables
+      - LOAD_GLOBAL        # Load global variable
+      - STORE_GLOBAL       # Store global variable
+      - LOAD_LOCAL         # Load local variable
+      - STORE_LOCAL        # Store local variable
+
+      # Arithmetic
+      - ADD
+      - SUBTRACT
+      - MULTIPLY
+      - DIVIDE
+      - MODULO
+      - NEGATE
+
+      # Comparison
+      - EQUAL
+      - NOT_EQUAL
+      - LESS_THAN
+      - LESS_EQUAL
+      - GREATER_THAN
+      - GREATER_EQUAL
+
+      # Logical
+      - LOGICAL_AND
+      - LOGICAL_OR
+      - LOGICAL_NOT
+
+      # Control flow
+      - JUMP               # Unconditional jump
+      - JUMP_IF_TRUE       # Jump if top of stack is true
+      - JUMP_IF_FALSE      # Jump if top of stack is false
+      - RETURN             # Return from function
+
+      # Objects
+      - CREATE_OBJECT      # Create empty object
+      - LOAD_PROPERTY      # Load object property
+      - STORE_PROPERTY     # Store object property
+      - DELETE_PROPERTY    # Delete object property
+
+      # Arrays
+      - CREATE_ARRAY       # Create empty array
+      - LOAD_ELEMENT       # Load array element
+      - STORE_ELEMENT      # Store array element
+
+      # Functions
+      - CREATE_CLOSURE     # Create function closure
+      - CALL_FUNCTION      # Call function
+
+      # Stack manipulation
+      - POP                # Pop value from stack
+      - DUP                # Duplicate top of stack
+
+  - name: Instruction
+    type: dataclass
+    description: Single bytecode instruction
+    fields:
+      - name: opcode
+        type: Opcode
+      - name: operand1
+        type: int
+        optional: true
+        description: First operand (register, offset, constant index)
+      - name: operand2
+        type: int
+        optional: true
+        description: Second operand
+      - name: operand3
+        type: int
+        optional: true
+        description: Third operand
+      - name: location
+        type: SourceLocation
+        optional: true
+        description: Source location for debugging
+
+  - name: BytecodeArray
+    type: class
+    description: Compiled bytecode with constant pool
+    fields:
+      - name: instructions
+        type: List[Instruction]
+      - name: constant_pool
+        type: List[Any]
+        description: Constants referenced by LOAD_CONSTANT
+      - name: local_count
+        type: int
+        description: Number of local variables
+      - name: parameter_count
+        type: int
+        description: Number of function parameters
+    methods:
+      - name: add_instruction
+        params:
+          - name: instruction
+            type: Instruction
+        returns: int
+        description: Add instruction, return its index
+
+      - name: add_constant
+        params:
+          - name: value
+            type: Any
+        returns: int
+        description: Add constant to pool, return its index
+
+      - name: get_instruction
+        params:
+          - name: index
+            type: int
+        returns: Instruction
+
+      - name: patch_jump
+        params:
+          - name: jump_index
+            type: int
+            description: Index of jump instruction
+          - name: target_index
+            type: int
+            description: Target instruction index
+        returns: None
+        description: Patch jump target after forward reference resolution
+
+  - name: BytecodeCompiler
+    type: class
+    description: AST → bytecode compiler
+    methods:
+      - name: __init__
+        params:
+          - name: ast
+            type: Program
+        returns: BytecodeCompiler
+
+      - name: compile
+        params: []
+        returns: BytecodeArray
+        description: Compile AST to bytecode
+        raises:
+          - CompileError: If compilation fails
+
+  # Main entry point
+  - name: Compile
+    type: function
+    params:
+      - name: ast
+        type: Program
+    returns: BytecodeArray
+    description: Compile AST to bytecode
+    raises:
+      - CompileError: If compilation fails
