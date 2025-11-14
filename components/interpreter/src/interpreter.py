@@ -25,6 +25,7 @@ class _AsyncSuspension(Exception):
     an async function suspends at an await point. It should be caught
     by the async function executor and not propagate to user code.
     """
+
     pass
 
 
@@ -39,6 +40,7 @@ class AsyncFunctionState:
         bytecode: Function bytecode being executed
         promise: Promise to resolve/reject when async function completes
     """
+
     instruction_pointer: int
     locals: List[Value]
     stack: List[Value]
@@ -76,7 +78,7 @@ class Interpreter:
 
         # Add Promise constructor to global scope (wrapped in Value)
         promise_constructor = self._create_promise_constructor()
-        self.context.global_scope['Promise'] = Value.from_object(promise_constructor)
+        self.context.global_scope["Promise"] = Value.from_object(promise_constructor)
 
     def execute(
         self,
@@ -146,6 +148,7 @@ class Interpreter:
 
         # Create JSObject for Promise constructor
         from components.object_runtime.src import JSObject
+
         promise_obj = JSObject(self.gc)
 
         # Store the callable in the object (for NEW opcode)
@@ -262,13 +265,23 @@ class Interpreter:
                     left = frame.pop()
 
                     # Handle string concatenation for template literals
-                    left_is_string = left.is_object() and isinstance(left.to_object(), str)
-                    right_is_string = right.is_object() and isinstance(right.to_object(), str)
+                    left_is_string = left.is_object() and isinstance(
+                        left.to_object(), str
+                    )
+                    right_is_string = right.is_object() and isinstance(
+                        right.to_object(), str
+                    )
 
                     if left_is_string or right_is_string:
                         # String concatenation (JavaScript coercion)
-                        left_str = left.to_object() if left_is_string else str(left.to_smi())
-                        right_str = right.to_object() if right_is_string else str(right.to_smi())
+                        left_str = (
+                            left.to_object() if left_is_string else str(left.to_smi())
+                        )
+                        right_str = (
+                            right.to_object()
+                            if right_is_string
+                            else str(right.to_smi())
+                        )
                         result = Value.from_object(left_str + right_str)
                         frame.push(result)
                     else:
@@ -556,38 +569,49 @@ class Interpreter:
                     arguments = []
                     for _ in range(arg_count):
                         arg_value = frame.pop()
-                        arguments.insert(0, arg_value)  # Insert at beginning to maintain order
+                        arguments.insert(
+                            0, arg_value
+                        )  # Insert at beginning to maintain order
 
                     # Pop constructor function
                     constructor_value = frame.pop()
 
                     # Extract callable from Value
-                    if hasattr(constructor_value, 'to_object'):
+                    if hasattr(constructor_value, "to_object"):
                         constructor = constructor_value.to_object()
                     else:
                         constructor = constructor_value
 
                     # Check if constructor is a JSObject with _callable attribute
-                    if hasattr(constructor, '_callable') and callable(constructor._callable):
+                    if hasattr(constructor, "_callable") and callable(
+                        constructor._callable
+                    ):
                         instance = constructor._callable(*arguments)
                         frame.push(Value.from_object(instance))
                     elif callable(constructor):
                         instance = constructor(*arguments)
                         frame.push(Value.from_object(instance))
                     else:
-                        raise RuntimeError(f"Cannot construct non-callable: {type(constructor)}")
+                        raise RuntimeError(
+                            f"Cannot construct non-callable: {type(constructor)}"
+                        )
 
                 case Opcode.CREATE_ASYNC_FUNCTION:
                     # Get the async function bytecode
                     function_bytecode = instruction.operand2
 
                     # Create async function wrapper that returns Promise
-                    def async_function_wrapper(*args, captured_bytecode=function_bytecode):
+                    def async_function_wrapper(
+                        *args, captured_bytecode=function_bytecode
+                    ):
                         """Async function wrapper that returns Promise."""
+
                         # Create Promise that starts async function execution
                         def executor(resolve, reject):
                             # Start async function execution
-                            self._start_async_function(captured_bytecode, args, resolve, reject)
+                            self._start_async_function(
+                                captured_bytecode, args, resolve, reject
+                            )
 
                         promise = JSPromise(executor, self.event_loop)
                         return promise
@@ -599,7 +623,15 @@ class Interpreter:
                     awaited_value = frame.pop()
 
                     # Convert to Promise if not already
-                    if isinstance(awaited_value.to_object() if hasattr(awaited_value, 'to_object') and awaited_value.is_object() else awaited_value, JSPromise):
+                    if isinstance(
+                        (
+                            awaited_value.to_object()
+                            if hasattr(awaited_value, "to_object")
+                            and awaited_value.is_object()
+                            else awaited_value
+                        ),
+                        JSPromise,
+                    ):
                         # Value contains a Promise object
                         promise = awaited_value.to_object()
                     elif isinstance(awaited_value, JSPromise):
@@ -607,10 +639,13 @@ class Interpreter:
                         promise = awaited_value
                     else:
                         # Unwrap Value to get raw Python value
-                        if hasattr(awaited_value, 'is_smi') and awaited_value.is_smi():
+                        if hasattr(awaited_value, "is_smi") and awaited_value.is_smi():
                             # It's an SMI - extract the integer
                             raw_value = awaited_value.to_smi()
-                        elif hasattr(awaited_value, 'is_object') and awaited_value.is_object():
+                        elif (
+                            hasattr(awaited_value, "is_object")
+                            and awaited_value.is_object()
+                        ):
                             # It's an object - extract it
                             raw_value = awaited_value.to_object()
                         else:
@@ -624,13 +659,13 @@ class Interpreter:
                         locals=frame.locals.copy(),
                         stack=frame.stack.copy(),
                         bytecode=bytecode,
-                        promise=self.current_async_promise  # The Promise this async function will resolve
+                        promise=self.current_async_promise,  # The Promise this async function will resolve
                     )
 
                     # Register continuation - when promise settles, resume execution
                     promise.then(
                         lambda value: self._resume_async_function(state, value, False),
-                        lambda error: self._resume_async_function(state, error, True)
+                        lambda error: self._resume_async_function(state, error, True),
                     )
 
                     # Suspend execution - signal suspension to caller
@@ -729,7 +764,9 @@ class Interpreter:
                     arg_values.append(Value.from_object(arg))
 
             # Execute the async function body
-            result = self.execute(bytecode, this_value=Value.from_smi(0), arguments=arg_values)
+            result = self.execute(
+                bytecode, this_value=Value.from_smi(0), arguments=arg_values
+            )
 
             # Restore previous async promise context
             self.current_async_promise = old_promise
@@ -760,56 +797,65 @@ class Interpreter:
             value: Resolved value or rejection reason
             is_error: True if value is an error (rejection)
         """
-        try:
-            if is_error:
-                # For Phase 2.6.3, just reject the Promise
-                # Phase 2.6.5 will handle try/catch
-                if hasattr(state.promise, 'reject'):
-                    state.promise.reject(value)
-                else:
-                    # state.promise is PromiseHandlers
-                    state.promise.reject(value)
-                return
+        # Save current async promise context at the start
+        old_promise = self.current_async_promise
+        self.current_async_promise = state.promise
 
-            # For Phase 2.6.3: Simplified single-await resumption
+        try:
+            # Phase 2.6.5: Handle both success and error paths by resuming execution
             # Create a new frame with saved state
             frame = CallFrame(state.bytecode, len(state.locals), Value.from_smi(0))
             frame.locals = state.locals.copy()
             frame.stack = state.stack.copy()
             frame.pc = state.instruction_pointer
 
-            # Push the awaited value onto stack (result of await expression)
-            if isinstance(value, Value):
-                frame.push(value)
-            elif isinstance(value, int):
-                # Use SMI for integers
-                frame.push(Value.from_smi(value))
+            if is_error:
+                # Phase 2.6.5: When await rejects, raise an exception
+                # This allows try/catch (when implemented) to catch it
+                # If no try/catch, the exception will propagate and reject the Promise
+
+                # Convert value to exception if it's not already one
+                if isinstance(value, Exception):
+                    error = value
+                else:
+                    # Wrap the rejection reason in an exception
+                    error = Exception(str(value))
+
+                # Push frame onto call stack (so exception context is correct)
+                self.context.push_frame(frame)
+
+                # Raise the exception - this will be caught by outer except block
+                # and will reject the async function's Promise
+                raise error
             else:
-                # Use object for other types
-                frame.push(Value.from_object(value))
+                # Success path: Push the awaited value onto stack
+                if isinstance(value, Value):
+                    frame.push(value)
+                elif isinstance(value, int):
+                    # Use SMI for integers
+                    frame.push(Value.from_smi(value))
+                else:
+                    # Use object for other types
+                    frame.push(Value.from_object(value))
 
-            # Save current async promise context
-            old_promise = self.current_async_promise
-            self.current_async_promise = state.promise
+                # Push frame onto call stack
+                self.context.push_frame(frame)
 
-            # Push frame onto call stack
-            self.context.push_frame(frame)
+                # Continue execution from saved instruction pointer
+                result_value = self._execute_frame(frame)
 
-            # Continue execution from saved instruction pointer
-            result_value = self._execute_frame(frame)
+                # Pop frame from call stack
+                self.context.pop_frame()
 
-            # Pop frame from call stack
-            self.context.pop_frame()
+                # Restore promise context
+                self.current_async_promise = old_promise
 
-            # Restore promise context
-            self.current_async_promise = old_promise
-
-            # Resolve the async function's Promise with the final result
-            if hasattr(state.promise, 'resolve'):
-                state.promise.resolve(result_value)
-            else:
-                # state.promise is PromiseHandlers
-                state.promise.resolve(result_value)
+                # Resolve the async function's Promise with the final result
+                if hasattr(state.promise, "resolve"):
+                    state.promise.resolve(result_value)
+                else:
+                    # state.promise is PromiseHandlers
+                    state.promise.resolve(result_value)
 
         except _AsyncSuspension:
             # Another await encountered during resumption - this is normal for multiple awaits
@@ -827,7 +873,7 @@ class Interpreter:
                 self.context.pop_frame()
 
             # Reject the async function's Promise
-            if hasattr(state.promise, 'reject'):
+            if hasattr(state.promise, "reject"):
                 state.promise.reject(e)
             else:
                 # state.promise is PromiseHandlers
