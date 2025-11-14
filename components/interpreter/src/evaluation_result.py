@@ -19,10 +19,12 @@ class EvaluationResult:
     Attributes:
         value: Return value if execution succeeded (None if exception occurred)
         exception: Exception if execution failed (None if successful)
+        suspended: True if async function suspended at await (Phase 2.6.3+)
     """
 
     def __init__(
-        self, value: Optional[Value] = None, exception: Optional[Exception] = None
+        self, value: Optional[Value] = None, exception: Optional[Exception] = None,
+        suspended: bool = False
     ):
         """
         Create an EvaluationResult.
@@ -30,6 +32,7 @@ class EvaluationResult:
         Args:
             value: Successful result value (optional)
             exception: Exception if execution failed (optional)
+            suspended: True if async function suspended at await (default: False)
 
         Note:
             If neither value nor exception is provided, this represents
@@ -37,6 +40,7 @@ class EvaluationResult:
         """
         self.value = value
         self.exception = exception
+        self.suspended = suspended
 
     def is_success(self) -> bool:
         """

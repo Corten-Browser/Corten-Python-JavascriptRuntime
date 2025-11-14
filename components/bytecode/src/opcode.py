@@ -89,6 +89,7 @@ class Opcode(Enum):
 
     # Async/Await operations
     CREATE_ASYNC_FUNCTION = auto()  # Create async function (returns Promise)
+    AWAIT = auto()  # Suspend execution at await point
 
     # Stack manipulation
     POP = auto()  # Pop value from stack

@@ -5,7 +5,8 @@ This module provides the Interpreter class which executes JavaScript bytecode
 using a register-based virtual machine with opcode dispatch loop.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from dataclasses import dataclass
 from components.memory_gc.src import GarbageCollector
 from components.value_system.src import Value
 from components.bytecode.src import BytecodeArray, Opcode
@@ -15,6 +16,34 @@ from components.interpreter.src.evaluation_result import EvaluationResult
 from components.object_runtime.src import JSArray, JSObject
 from components.event_loop.src import EventLoop
 from components.promise.src import JSPromise
+
+
+class _AsyncSuspension(Exception):
+    """Internal exception to signal async function suspension at await.
+
+    This exception is used internally to unwind the call stack when
+    an async function suspends at an await point. It should be caught
+    by the async function executor and not propagate to user code.
+    """
+    pass
+
+
+@dataclass
+class AsyncFunctionState:
+    """State for suspended async function.
+
+    Attributes:
+        instruction_pointer: Where to resume execution
+        locals: Local variable values
+        stack: Stack state at suspension point
+        bytecode: Function bytecode being executed
+        promise: Promise to resolve/reject when async function completes
+    """
+    instruction_pointer: int
+    locals: List[Value]
+    stack: List[Value]
+    bytecode: BytecodeArray
+    promise: JSPromise
 
 
 class Interpreter:
@@ -40,6 +69,10 @@ class Interpreter:
         self.gc = gc
         self.event_loop = event_loop if event_loop is not None else EventLoop()
         self.context = ExecutionContext(gc)
+
+        # Async/await state management
+        self.suspended_async_functions: Dict[str, AsyncFunctionState] = {}
+        self.current_async_promise: Optional[JSPromise] = None
 
         # Add Promise constructor to global scope (wrapped in Value)
         promise_constructor = self._create_promise_constructor()
@@ -86,6 +119,12 @@ class Interpreter:
             self.context.pop_frame()
 
             return EvaluationResult(value=result_value)
+
+        except _AsyncSuspension:
+            # Async suspension - propagate up to caller (don't wrap in EvaluationResult)
+            if len(self.context.call_stack) > 0:
+                self.context.pop_frame()
+            raise  # Re-raise to let _start_async_function catch it
 
         except Exception as e:
             # Clean up call stack on exception
@@ -539,6 +578,70 @@ class Interpreter:
                     else:
                         raise RuntimeError(f"Cannot construct non-callable: {type(constructor)}")
 
+                case Opcode.CREATE_ASYNC_FUNCTION:
+                    # Get the async function bytecode
+                    function_bytecode = instruction.operand2
+
+                    # Create async function wrapper that returns Promise
+                    def async_function_wrapper(*args, captured_bytecode=function_bytecode):
+                        """Async function wrapper that returns Promise."""
+                        # Create Promise that starts async function execution
+                        def executor(resolve, reject):
+                            # Start async function execution
+                            self._start_async_function(captured_bytecode, args, resolve, reject)
+
+                        promise = JSPromise(executor, self.event_loop)
+                        return promise
+
+                    frame.push(Value.from_object(async_function_wrapper))
+
+                case Opcode.AWAIT:
+                    # Pop the value to await
+                    awaited_value = frame.pop()
+
+                    # Convert to Promise if not already
+                    if isinstance(awaited_value.to_object() if hasattr(awaited_value, 'to_object') and awaited_value.is_object() else awaited_value, JSPromise):
+                        # Value contains a Promise object
+                        promise = awaited_value.to_object()
+                    elif isinstance(awaited_value, JSPromise):
+                        # Already a Promise
+                        promise = awaited_value
+                    else:
+                        # Unwrap Value to get raw Python value
+                        if hasattr(awaited_value, 'is_smi') and awaited_value.is_smi():
+                            # It's an SMI - extract the integer
+                            raw_value = awaited_value.to_smi()
+                        elif hasattr(awaited_value, 'is_object') and awaited_value.is_object():
+                            # It's an object - extract it
+                            raw_value = awaited_value.to_object()
+                        else:
+                            # It's already a raw value
+                            raw_value = awaited_value
+                        promise = JSPromise.resolve(raw_value, self.event_loop)
+
+                    # Save current state for resumption
+                    state = AsyncFunctionState(
+                        instruction_pointer=frame.pc,  # Resume at next instruction
+                        locals=frame.locals.copy(),
+                        stack=frame.stack.copy(),
+                        bytecode=bytecode,
+                        promise=self.current_async_promise  # The Promise this async function will resolve
+                    )
+
+                    # Register continuation - when promise settles, resume execution
+                    promise.then(
+                        lambda value: self._resume_async_function(state, value, False),
+                        lambda error: self._resume_async_function(state, error, True)
+                    )
+
+                    # Suspend execution - signal suspension to caller
+                    # Pop the frame since we're suspending
+                    if len(self.context.call_stack) > 0:
+                        self.context.pop_frame()
+
+                    # Raise a special marker exception to signal suspension
+                    raise _AsyncSuspension()
+
                 # Placeholder for unimplemented opcodes
                 case _:
                     raise NotImplementedError(
@@ -591,3 +694,128 @@ class Interpreter:
         """
         # Basic implementation - will be enhanced with JSFunction integration
         raise NotImplementedError("call_function will be implemented with JSFunction")
+
+    def _start_async_function(self, bytecode: BytecodeArray, args, resolve, reject):
+        """Start async function execution.
+
+        Args:
+            bytecode: Bytecode for the async function body
+            args: Function arguments
+            resolve: Promise resolve function
+            reject: Promise reject function
+        """
+        try:
+            # Store resolve/reject for this async function
+            # Save the Promise that this async function should resolve
+            old_promise = self.current_async_promise
+
+            # Create a temporary Promise to track this async function's completion
+            # (We can't access the actual Promise here, so we track resolve/reject)
+            class PromiseHandlers:
+                def __init__(self, res, rej):
+                    self.resolve = res
+                    self.reject = rej
+
+            self.current_async_promise = PromiseHandlers(resolve, reject)
+
+            # Convert args to list of Values
+            arg_values = []
+            for arg in args:
+                if isinstance(arg, Value):
+                    arg_values.append(arg)
+                else:
+                    arg_values.append(Value.from_object(arg))
+
+            # Execute the async function body
+            result = self.execute(bytecode, this_value=Value.from_smi(0), arguments=arg_values)
+
+            # Restore previous async promise context
+            self.current_async_promise = old_promise
+
+            # If execution completed without await (no suspension), resolve immediately
+            if result.is_success():
+                resolve(result.value)
+            else:
+                reject(result.exception)
+
+        except _AsyncSuspension:
+            # Async function suspended at await - this is normal
+            # The continuation will resolve/reject the Promise later
+            # Restore context
+            self.current_async_promise = old_promise
+            # Don't resolve or reject - the Promise will be settled by the continuation
+
+        except Exception as e:
+            # Restore context on error
+            self.current_async_promise = old_promise
+            reject(e)
+
+    def _resume_async_function(self, state: AsyncFunctionState, value, is_error: bool):
+        """Resume async function after await resolves.
+
+        Args:
+            state: Saved async function state
+            value: Resolved value or rejection reason
+            is_error: True if value is an error (rejection)
+        """
+        try:
+            if is_error:
+                # For Phase 2.6.3, just reject the Promise
+                # Phase 2.6.5 will handle try/catch
+                if hasattr(state.promise, 'reject'):
+                    state.promise.reject(value)
+                else:
+                    # state.promise is PromiseHandlers
+                    state.promise.reject(value)
+                return
+
+            # For Phase 2.6.3: Simplified single-await resumption
+            # Create a new frame with saved state
+            frame = CallFrame(state.bytecode, len(state.locals), Value.from_smi(0))
+            frame.locals = state.locals.copy()
+            frame.stack = state.stack.copy()
+            frame.pc = state.instruction_pointer
+
+            # Push the awaited value onto stack (result of await expression)
+            if isinstance(value, Value):
+                frame.push(value)
+            elif isinstance(value, int):
+                # Use SMI for integers
+                frame.push(Value.from_smi(value))
+            else:
+                # Use object for other types
+                frame.push(Value.from_object(value))
+
+            # Save current async promise context
+            old_promise = self.current_async_promise
+            self.current_async_promise = state.promise
+
+            # Push frame onto call stack
+            self.context.push_frame(frame)
+
+            # Continue execution from saved instruction pointer
+            result_value = self._execute_frame(frame)
+
+            # Pop frame from call stack
+            self.context.pop_frame()
+
+            # Restore promise context
+            self.current_async_promise = old_promise
+
+            # Resolve the async function's Promise with the final result
+            if hasattr(state.promise, 'resolve'):
+                state.promise.resolve(result_value)
+            else:
+                # state.promise is PromiseHandlers
+                state.promise.resolve(result_value)
+
+        except Exception as e:
+            # Restore context on error
+            self.current_async_promise = old_promise
+
+            # Reject the async function's Promise
+            if hasattr(state.promise, 'reject'):
+                state.promise.reject(e)
+            else:
+                # state.promise is PromiseHandlers
+                state.promise.reject(e)
