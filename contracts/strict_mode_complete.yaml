@@ -1,0 +1,731 @@
+name: strict_mode_complete
+version: 0.1.0
+type: feature
+description: Complete ES2024 strict mode implementation with directive detection, error enforcement, and scope propagation
+
+api:
+  classes:
+    - name: StrictModeDetector
+      description: Detects and processes "use strict" directives
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize strict mode detector
+
+        - name: detect_directive
+          params:
+            - name: statement
+              type: Statement
+              description: Statement to check for directive
+          returns:
+            type: bool
+            description: True if statement is "use strict" directive
+          description: Detect "use strict" directive in statement
+
+        - name: is_directive_prologue
+          params:
+            - name: statements
+              type: List[Statement]
+              description: Statement list to check
+            - name: index
+              type: int
+              description: Index of statement to check
+          returns:
+            type: bool
+            description: True if statement is in directive prologue
+          description: Check if statement is in directive prologue position
+
+        - name: scan_for_directives
+          params:
+            - name: body
+              type: List[Statement]
+              description: Function or program body
+          returns:
+            type: DirectivePrologueInfo
+            description: Information about directives found
+          description: Scan body for all directives
+
+    - name: StrictModeValidator
+      description: Validates strict mode constraints and raises errors
+      methods:
+        - name: __init__
+          params:
+            - name: is_strict
+              type: bool
+              description: Whether strict mode is active
+          returns:
+            type: None
+          description: Initialize validator with strict mode flag
+
+        - name: validate_assignment
+          params:
+            - name: target
+              type: Expression
+              description: Assignment target
+            - name: scope
+              type: Scope
+              description: Current scope
+          returns:
+            type: None
+          description: Validate assignment (throws if undeclared in strict mode)
+          raises:
+            - ReferenceError: "Assignment to undeclared variable 'x' in strict mode"
+
+        - name: validate_deletion
+          params:
+            - name: target
+              type: Expression
+              description: Deletion target
+          returns:
+            type: None
+          description: Validate deletion (throws on unqualified identifier)
+          raises:
+            - SyntaxError: "Delete of an unqualified identifier in strict mode"
+
+        - name: validate_parameters
+          params:
+            - name: parameters
+              type: List[str]
+              description: Function parameter names
+          returns:
+            type: None
+          description: Validate function parameters (throws on duplicates)
+          raises:
+            - SyntaxError: "Duplicate parameter name 'x' in strict mode"
+
+        - name: validate_octal_literal
+          params:
+            - name: literal
+              type: str
+              description: Numeric literal string
+          returns:
+            type: None
+          description: Validate numeric literal (throws on legacy octal)
+          raises:
+            - SyntaxError: "Octal literals are not allowed in strict mode"
+
+        - name: validate_identifier_name
+          params:
+            - name: name
+              type: str
+              description: Identifier name
+            - name: context
+              type: str
+              description: Usage context (variable, parameter, etc.)
+          returns:
+            type: None
+          description: Validate identifier usage (eval, arguments restrictions)
+          raises:
+            - SyntaxError: "Cannot use 'eval' as identifier in strict mode"
+            - SyntaxError: "Cannot use 'arguments' as identifier in strict mode"
+
+        - name: validate_with_statement
+          params:
+            - name: with_stmt
+              type: WithStatement
+              description: With statement node
+          returns:
+            type: None
+          description: Validate with statement (always throws in strict mode)
+          raises:
+            - SyntaxError: "Strict mode code may not include a with statement"
+
+        - name: validate_reserved_word
+          params:
+            - name: word
+              type: str
+              description: Word to check
+            - name: context
+              type: str
+              description: Usage context
+          returns:
+            type: None
+          description: Validate future reserved words
+          raises:
+            - SyntaxError: "Use of future reserved word 'implements' in strict mode"
+
+        - name: validate_property_write
+          params:
+            - name: obj
+              type: JSObject
+              description: Object to modify
+            - name: property
+              type: str
+              description: Property name
+            - name: value
+              type: Any
+              description: Value to set
+          returns:
+            type: None
+          description: Validate property assignment (throws on readonly)
+          raises:
+            - TypeError: "Cannot assign to read-only property 'x' in strict mode"
+
+        - name: validate_function_declaration
+          params:
+            - name: func_decl
+              type: FunctionDeclaration
+              description: Function declaration
+            - name: parent
+              type: Statement
+              description: Parent statement
+          returns:
+            type: None
+          description: Validate function declaration in blocks
+          raises:
+            - SyntaxError: "Function declarations in blocks are forbidden in strict mode"
+
+    - name: StrictModePropagator
+      description: Manages strict mode scope propagation
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize strict mode propagator
+
+        - name: create_scope
+          params:
+            - name: parent_scope
+              type: Scope
+              description: Parent scope (may be None for global)
+            - name: has_directive
+              type: bool
+              description: Whether this scope has "use strict" directive
+            - name: scope_type
+              type: ScopeType
+              description: Type of scope (function, block, global)
+          returns:
+            type: Scope
+            description: New scope with correct strict mode flag
+          description: Create scope with propagated strict mode
+
+        - name: is_strict_scope
+          params:
+            - name: scope
+              type: Scope
+              description: Scope to check
+          returns:
+            type: bool
+            description: True if scope is strict mode
+          description: Check if scope has strict mode active
+
+        - name: propagate_to_nested_function
+          params:
+            - name: parent_scope
+              type: Scope
+              description: Parent function scope
+            - name: nested_function
+              type: FunctionExpression
+              description: Nested function
+          returns:
+            type: bool
+            description: True if nested function should be strict
+          description: Determine if nested function inherits strict mode
+
+    - name: ArgumentsObjectValidator
+      description: Validates arguments object behavior in strict mode
+      methods:
+        - name: __init__
+          params:
+            - name: is_strict
+              type: bool
+              description: Strict mode flag
+          returns:
+            type: None
+          description: Initialize arguments validator
+
+        - name: validate_caller_access
+          params:
+            - name: arguments_obj
+              type: JSObject
+              description: Arguments object
+          returns:
+            type: None
+          description: Validate arguments.caller access
+          raises:
+            - TypeError: "arguments.caller is not allowed in strict mode"
+
+        - name: validate_callee_access
+          params:
+            - name: arguments_obj
+              type: JSObject
+              description: Arguments object
+          returns:
+            type: None
+          description: Validate arguments.callee access
+          raises:
+            - TypeError: "arguments.callee is not allowed in strict mode"
+
+        - name: create_arguments_object
+          params:
+            - name: parameters
+              type: List[str]
+              description: Function parameter names
+            - name: values
+              type: List[Any]
+              description: Argument values
+            - name: is_strict
+              type: bool
+              description: Strict mode flag
+          returns:
+            type: JSObject
+            description: Arguments object (aliased or unaliased)
+          description: Create arguments object with correct behavior
+
+    - name: ThisBindingHandler
+      description: Handles 'this' binding in strict mode
+      methods:
+        - name: __init__
+          params:
+            - name: is_strict
+              type: bool
+              description: Strict mode flag
+          returns:
+            type: None
+          description: Initialize this binding handler
+
+        - name: get_this_value
+          params:
+            - name: call_type
+              type: CallType
+              description: Type of function call
+            - name: explicit_this
+              type: Any
+              description: Explicitly provided this value
+          returns:
+            type: Any
+            description: Actual this value for function
+          description: Get this value (undefined in strict mode for plain calls)
+
+        - name: validate_this_binding
+          params:
+            - name: this_value
+              type: Any
+              description: This value to validate
+            - name: is_strict
+              type: bool
+              description: Strict mode flag
+          returns:
+            type: Any
+            description: Validated this value (no boxing in strict mode)
+          description: Validate and normalize this value
+
+  enums:
+    - name: ScopeType
+      description: Type of scope
+      values:
+        - GLOBAL
+        - FUNCTION
+        - BLOCK
+        - EVAL
+        - MODULE
+
+    - name: CallType
+      description: Type of function call
+      values:
+        - PLAIN          # f()
+        - METHOD         # obj.f()
+        - CONSTRUCTOR    # new f()
+        - APPLY_CALL     # f.apply() / f.call()
+
+    - name: StrictModeErrorType
+      description: Categories of strict mode errors
+      values:
+        - UNDECLARED_ASSIGNMENT
+        - UNQUALIFIED_DELETE
+        - DUPLICATE_PARAMETER
+        - OCTAL_LITERAL
+        - EVAL_ARGUMENTS_USAGE
+        - WITH_STATEMENT
+        - RESERVED_WORD
+        - READONLY_WRITE
+        - ARGUMENTS_CALLER_CALLEE
+        - FUNCTION_IN_BLOCK
+
+  structs:
+    - name: DirectivePrologueInfo
+      fields:
+        - name: has_use_strict
+          type: bool
+          description: True if "use strict" directive found
+        - name: directive_count
+          type: int
+          description: Number of directives in prologue
+        - name: first_non_directive_index
+          type: int
+          description: Index of first non-directive statement
+
+    - name: StrictModeContext
+      fields:
+        - name: is_strict
+          type: bool
+          description: Whether strict mode is active
+        - name: scope_type
+          type: ScopeType
+          description: Type of current scope
+        - name: has_local_directive
+          type: bool
+          description: True if this scope has "use strict" directive
+        - name: inherited_strict
+          type: bool
+          description: True if strict mode inherited from parent
+
+    - name: ValidationError
+      fields:
+        - name: error_type
+          type: StrictModeErrorType
+          description: Type of strict mode violation
+        - name: message
+          type: str
+          description: Error message
+        - name: location
+          type: SourceLocation
+          description: Source location of error
+        - name: identifier
+          type: str
+          description: Identifier involved (if applicable)
+
+  errors:
+    - name: StrictModeReferenceError
+      inherits: ReferenceError
+      description: Assignment to undeclared variable in strict mode
+      fields:
+        - name: variable_name
+          type: str
+          description: Name of undeclared variable
+
+    - name: StrictModeSyntaxError
+      inherits: SyntaxError
+      description: Syntax error specific to strict mode
+      fields:
+        - name: violation_type
+          type: StrictModeErrorType
+          description: Type of strict mode violation
+
+    - name: StrictModeTypeError
+      inherits: TypeError
+      description: Type error specific to strict mode
+      fields:
+        - name: property_name
+          type: str
+          description: Property name (if applicable)
+
+dependencies:
+  - name: parser
+    version: "^0.2.0"
+    imports:
+      - Statement
+      - Expression
+      - FunctionDeclaration
+      - FunctionExpression
+      - WithStatement
+      - SourceLocation
+      - Identifier
+
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - ExecutionContext
+      - Scope
+
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSObject
+      - JSValue
+
+  - name: shared_types
+    version: "^0.1.0"
+    imports:
+      - ErrorType
+
+requirements:
+  functional:
+    - id: FR-ES24-B-047
+      description: '"use strict" directive - Proper detection and propagation'
+      acceptance_criteria:
+        - Directive detected in program and function prologues
+        - Only string literal "use strict" (exact match)
+        - Propagates to nested scopes correctly
+        - Works in both global and function contexts
+
+    - id: FR-ES24-B-048
+      description: 'Strict mode assignment errors - Throw on assignment to undeclared'
+      acceptance_criteria:
+        - ReferenceError thrown for x = 1 without declaration
+        - Error includes variable name in message
+        - Only applies in strict mode scopes
+        - Does not affect declared variables
+
+    - id: FR-ES24-B-049
+      description: 'Strict mode deletion errors - Throw on delete of unqualified identifier'
+      acceptance_criteria:
+        - SyntaxError thrown for delete x
+        - delete obj.prop still allowed
+        - delete obj[prop] still allowed
+        - Error at parse time (not runtime)
+
+    - id: FR-ES24-B-050
+      description: 'Strict mode duplicate parameters - Throw on duplicate formal parameters'
+      acceptance_criteria:
+        - SyntaxError thrown for function f(a, a) {}
+        - Error at parse time
+        - Applies to all function types
+        - Case-sensitive duplicate detection
+
+    - id: FR-ES24-B-051
+      description: 'Strict mode octal literals - Throw on octal literals (0777)'
+      acceptance_criteria:
+        - SyntaxError thrown for 0777 literals
+        - 0o777 (ES6 octal) still allowed
+        - Error at parse time
+        - Does not affect hex or binary literals
+
+    - id: FR-ES24-B-052
+      description: 'Strict mode eval/arguments - Restrictions on eval and arguments'
+      acceptance_criteria:
+        - Cannot use eval as variable name
+        - Cannot use arguments as variable name
+        - Cannot assign to eval or arguments
+        - Cannot use as parameter names
+        - SyntaxError at parse time
+
+    - id: FR-ES24-B-053
+      description: 'Strict mode this binding - undefined this in function calls'
+      acceptance_criteria:
+        - this === undefined in plain function calls
+        - this not boxed to global object
+        - Method calls preserve this correctly
+        - Constructor calls preserve this correctly
+
+    - id: FR-ES24-B-054
+      description: 'Strict mode with statement - Throw on with statement'
+      acceptance_criteria:
+        - SyntaxError thrown for with statements
+        - Error at parse time
+        - Applies to all strict mode contexts
+        - Clear error message
+
+    - id: FR-ES24-B-055
+      description: 'Strict mode reserved words - Future reserved words restrictions'
+      acceptance_criteria:
+        - implements, interface, let, package, private, protected, public, static, yield forbidden
+        - SyntaxError at parse time
+        - Only in strict mode contexts
+        - Does not affect string properties
+
+    - id: FR-ES24-B-056
+      description: 'Strict mode caller/callee - Throw on arguments.caller/callee'
+      acceptance_criteria:
+        - TypeError thrown for arguments.caller access
+        - TypeError thrown for arguments.callee access
+        - Error at runtime (not parse time)
+        - Does not affect function.caller/callee
+
+    - id: FR-ES24-B-057
+      description: 'Strict mode assignment to readonly - Throw on assignment to readonly props'
+      acceptance_criteria:
+        - TypeError thrown for assignment to readonly property
+        - TypeError thrown for assignment to non-writable property
+        - TypeError thrown for assignment to getter-only property
+        - TypeError thrown for extension of non-extensible object
+
+    - id: FR-ES24-B-058
+      description: 'Strict mode function declarations - Function declarations in blocks'
+      acceptance_criteria:
+        - Function declarations in blocks have block scope
+        - Works in if, while, for blocks
+        - Does not hoist to function scope
+        - Follows ES2015+ semantics
+
+    - id: FR-ES24-B-059
+      description: 'Strict mode scope propagation - Propagate to nested functions'
+      acceptance_criteria:
+        - Nested functions inherit parent strict mode
+        - eval code can have own "use strict"
+        - Module code is always strict
+        - Function in strict scope is strict
+
+    - id: FR-ES24-B-060
+      description: 'Strict mode edge cases - All remaining strict mode semantics'
+      acceptance_criteria:
+        - NaN, Infinity, undefined are not assignable
+        - No arguments/parameters aliasing
+        - eval has separate scope
+        - All Test262 strict mode tests pass
+
+  non_functional:
+    - id: NFR-STRICT-001
+      description: Performance overhead
+      acceptance_criteria:
+        - Strict mode detection < 5μs per function
+        - Validation overhead < 1% vs non-strict
+        - No memory overhead per scope
+        - Efficient directive scanning
+
+    - id: NFR-STRICT-002
+      description: Error quality
+      acceptance_criteria:
+        - All errors include source location
+        - Error messages specify exact violation
+        - Helpful error messages for developers
+        - Consistent error format
+
+    - id: NFR-STRICT-003
+      description: Spec compliance
+      acceptance_criteria:
+        - 100% ES2024 strict mode compliance
+        - All Test262 strict mode tests pass
+        - Matches V8/SpiderMonkey behavior
+        - No custom extensions
+
+  testing:
+    - Minimum 157 unit tests (14 requirements × 11 avg + 3 integration)
+    - Test coverage ≥ 90%
+    - Test262 strict mode suite (~800 tests)
+    - Each requirement has dedicated test suite
+    - Edge case coverage (directive position, scope boundaries, error conditions)
+    - Performance regression tests
+    - Error message format tests
+
+  documentation:
+    - API documentation for all classes
+    - Strict mode behavior guide
+    - Migration guide from non-strict code
+    - Performance characteristics documented
+    - Error catalog with examples
+
+performance:
+  directive_detection: "<5μs per function"
+  validation_overhead: "<1% vs non-strict mode"
+  scope_propagation: "<100ns per scope creation"
+  error_creation: "<10μs per error"
+
+integration:
+  - component: parser
+    description: Parser detects directives and validates syntax-time errors
+    interface: StrictModeDetector, StrictModeValidator (syntax checks)
+
+  - component: interpreter
+    description: Interpreter enforces runtime strict mode semantics
+    interface: StrictModeValidator (runtime checks), ThisBindingHandler
+
+  - component: object_runtime
+    description: Object runtime enforces property access restrictions
+    interface: StrictModeValidator.validate_property_write
+
+test_categories:
+  - category: directive_detection
+    count: 15
+    description: Tests for "use strict" directive detection and position
+
+  - category: assignment_errors
+    count: 12
+    description: Tests for undeclared variable assignment errors
+
+  - category: deletion_errors
+    count: 10
+    description: Tests for unqualified identifier deletion
+
+  - category: parameter_validation
+    count: 8
+    description: Tests for duplicate parameter detection
+
+  - category: octal_literals
+    count: 10
+    description: Tests for legacy octal literal rejection
+
+  - category: eval_arguments
+    count: 15
+    description: Tests for eval/arguments restrictions
+
+  - category: this_binding
+    count: 12
+    description: Tests for strict mode this behavior
+
+  - category: with_statement
+    count: 8
+    description: Tests for with statement rejection
+
+  - category: reserved_words
+    count: 12
+    description: Tests for future reserved word restrictions
+
+  - category: arguments_props
+    count: 10
+    description: Tests for arguments.caller/callee restrictions
+
+  - category: readonly_props
+    count: 15
+    description: Tests for readonly property assignment
+
+  - category: function_scope
+    count: 10
+    description: Tests for function declaration scoping
+
+  - category: propagation
+    count: 15
+    description: Tests for strict mode propagation
+
+  - category: edge_cases
+    count: 15
+    description: Tests for edge cases and spec compliance
+
+edge_cases:
+  - name: directive_after_statement
+    description: "use strict" after non-directive statement is not a directive
+    test: |
+      "not a directive";
+      var x = 1;
+      "use strict";  // This is NOT a strict mode directive
+      y = 2;  // Should NOT throw in this case
+
+  - name: directive_with_escapes
+    description: "use strict" with character escapes is not a directive
+    test: |
+      "use\x20strict";  // NOT a directive (has escape sequence)
+      y = 2;  // Should NOT throw
+
+  - name: nested_function_directive
+    description: Nested function can have own strict mode
+    test: |
+      function outer() {
+        x = 1;  // OK (non-strict)
+        function inner() {
+          "use strict";
+          y = 2;  // ERROR (strict)
+        }
+      }
+
+  - name: eval_scope_isolation
+    description: eval in strict mode has isolated scope
+    test: |
+      "use strict";
+      eval("var x = 1");
+      console.log(x);  // ReferenceError (x not in outer scope)
+
+  - name: arguments_aliasing
+    description: No aliasing between parameters and arguments in strict mode
+    test: |
+      "use strict";
+      function f(a) {
+        arguments[0] = 2;
+        return a;  // Returns 1 (not 2, no aliasing)
+      }
+      f(1);
+
+specification_references:
+  - section: "10.2.1"
+    title: Strict Mode Code
+    url: "https://tc39.es/ecma262/#sec-strict-mode-code"
+
+  - section: "14.1.1"
+    title: Directive Prologues and the Use Strict Directive
+    url: "https://tc39.es/ecma262/#sec-directive-prologues-and-the-use-strict-directive"
+
+  - section: "13.2.1"
+    title: Strict Mode Restrictions
+    url: "https://tc39.es/ecma262/#sec-strict-mode-restrictions"

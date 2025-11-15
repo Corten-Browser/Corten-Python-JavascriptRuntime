@@ -1,0 +1,280 @@
+name: error_extensions
+version: 0.1.0
+type: feature
+description: ES2021 AggregateError and ES2024 stack trace enhancements
+
+api:
+  classes:
+    - name: AggregateError
+      description: Error type for representing multiple failures
+      extends: Error
+      methods:
+        - name: __init__
+          params:
+            - name: errors
+              type: Iterable[Any]
+              description: Iterable of error objects
+            - name: message
+              type: str
+              description: Optional error message (default empty string)
+            - name: options
+              type: Dict[str, Any]
+              description: Optional options object (may contain 'cause')
+          returns:
+            type: AggregateError
+          description: Create new AggregateError with multiple errors
+
+        - name: toString
+          params: []
+          returns:
+            type: str
+          description: String representation of AggregateError
+
+      properties:
+        - name: errors
+          type: Array[Any]
+          description: Array of aggregated errors (read-only)
+          readonly: true
+
+        - name: message
+          type: str
+          description: Error message
+
+        - name: name
+          type: str
+          description: Error name (always "AggregateError")
+          default: "AggregateError"
+
+        - name: stack
+          type: str
+          description: Stack trace string
+
+        - name: cause
+          type: Any
+          description: Optional cause of the error
+          optional: true
+
+    - name: StackTraceGenerator
+      description: Generates and formats stack traces for errors
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize stack trace generator
+
+        - name: capture_stack_trace
+          params:
+            - name: error
+              type: Error
+              description: Error object to attach stack to
+            - name: limit_frames
+              type: int
+              description: Optional limit on number of frames (default unlimited)
+          returns:
+            type: str
+            description: Formatted stack trace string
+          description: Capture current stack trace and attach to error
+
+        - name: format_stack_trace
+          params:
+            - name: frames
+              type: List[StackFrame]
+              description: List of stack frames
+          returns:
+            type: str
+            description: Formatted stack trace string
+          description: Format stack frames into human-readable string
+
+        - name: parse_stack_frame
+          params:
+            - name: frame
+              type: ExecutionFrame
+              description: Execution context frame
+          returns:
+            type: StackFrame
+            description: Parsed stack frame
+          description: Parse execution frame into stack frame structure
+
+    - name: ErrorStackInitializer
+      description: Initializes stack property on all Error types
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize error stack initializer
+
+        - name: install_stack_property
+          params:
+            - name: error_class
+              type: type
+              description: Error class to install stack property on
+          returns:
+            type: None
+          description: Install stack property getter on Error.prototype
+
+        - name: get_stack_trace
+          params:
+            - name: error
+              type: Error
+              description: Error object
+          returns:
+            type: str
+            description: Stack trace string or empty
+          description: Get stack trace for error (lazy generation)
+
+  structs:
+    - name: StackFrame
+      fields:
+        - name: function_name
+          type: str
+          description: Function name or "<anonymous>"
+
+        - name: file_name
+          type: str
+          description: Source file name or "<unknown>"
+
+        - name: line_number
+          type: int
+          description: Line number in source (1-based)
+
+        - name: column_number
+          type: int
+          description: Column number in source (1-based)
+
+        - name: is_constructor
+          type: bool
+          description: True if constructor call
+
+        - name: is_native
+          type: bool
+          description: True if native code
+
+    - name: ErrorStackConfig
+      fields:
+        - name: max_frames
+          type: int
+          description: Maximum stack frames to capture
+          default: 100
+
+        - name: include_native_frames
+          type: bool
+          description: Include native code frames
+          default: false
+
+        - name: stack_trace_limit
+          type: int
+          description: Global stack trace limit (Error.stackTraceLimit)
+          default: 10
+
+  functions:
+    - name: create_aggregate_error
+      params:
+        - name: errors
+          type: Iterable[Any]
+          description: Iterable of errors
+        - name: message
+          type: str
+          description: Error message
+        - name: options
+          type: Dict[str, Any]
+          description: Optional options
+      returns:
+        type: AggregateError
+        description: New AggregateError instance
+      description: Factory function for creating AggregateError
+
+    - name: format_error_stack
+      params:
+        - name: error
+          type: Error
+          description: Error object
+        - name: frames
+          type: List[StackFrame]
+          description: Stack frames
+      returns:
+        type: str
+        description: Formatted stack trace
+      description: Format stack trace string (V8-compatible format)
+
+    - name: install_error_stack_support
+      params:
+        - name: runtime
+          type: Runtime
+          description: JavaScript runtime
+      returns:
+        type: None
+      description: Install stack trace support on all Error types
+
+dependencies:
+  - name: value_system
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSString
+      - JSArray
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - ExecutionContext
+      - ExecutionFrame
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSObject
+      - JSError
+
+requirements:
+  functional:
+    - FR-ES24-B-015: AggregateError - Error for multiple failures
+    - FR-ES24-B-016: AggregateError.errors property - Array of aggregated errors
+    - FR-ES24-B-017: Error.prototype.stack - Stack trace property
+    - FR-ES24-B-018: Stack trace formatting - Human-readable stack traces
+    - FR-ES24-B-019: Error subclass stack traces - Stack traces for all Error types
+
+  non_functional:
+    - Stack trace generation <2ms
+    - AggregateError construction <1ms for 100 errors
+    - Stack property access <100ns (lazy evaluation)
+    - Memory overhead <100 bytes per error with stack
+
+  testing:
+    - Minimum 45 unit tests
+    - Test coverage ≥85%
+    - AggregateError compatibility tests
+    - Stack trace format verification
+    - Performance benchmarks
+    - Edge case handling (empty errors, circular errors)
+
+performance:
+  stack_trace_generation: "<2ms"
+  aggregate_error_construction: "<1ms for 100 errors"
+  stack_property_access: "<100ns (lazy)"
+  memory_overhead: "<100 bytes per error"
+
+error_handling:
+  - AggregateError with non-iterable errors throws TypeError
+  - AggregateError.errors is read-only (sealed array)
+  - Stack traces handle missing source information gracefully
+  - Circular error references handled safely
+  - Stack trace limit enforced (Error.stackTraceLimit)
+
+stack_format:
+  description: V8-compatible stack trace format
+  example: |
+    Error: message
+        at functionName (filename.js:line:column)
+        at ClassName.methodName (filename.js:line:column)
+        at <anonymous> (filename.js:line:column)
+
+  frame_format: "    at {function} ({file}:{line}:{column})"
+  anonymous_function: "<anonymous>"
+  unknown_file: "<unknown>"
+  native_frame: "[native code]"
+
+compatibility:
+  - ES2021 AggregateError specification
+  - V8 stack trace format
+  - Error.stackTraceLimit property (V8 extension)
+  - Error.captureStackTrace() (V8 extension, optional)
