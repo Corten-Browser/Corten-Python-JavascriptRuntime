@@ -2,5 +2,6 @@
 
 from .same_value_zero import same_value_zero
 from .hash_table import HashTable
+from .map import Map
 
-__all__ = ['same_value_zero', 'HashTable']
+__all__ = ['same_value_zero', 'HashTable', 'Map']
