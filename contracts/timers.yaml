@@ -1,0 +1,217 @@
+contract:
+  name: timers
+  version: 0.3.0
+  description: setTimeout, setInterval, clearTimeout, clearInterval timer APIs
+
+api:
+  functions:
+    - name: setTimeout
+      signature: setTimeout(callback, delay, ...args)
+      parameters:
+        - name: callback
+          type: function | string
+          description: Function to execute (string eval discouraged)
+        - name: delay
+          type: number
+          optional: true
+          default: 0
+          description: Minimum delay in milliseconds
+        - name: args
+          type: any[]
+          variadic: true
+          description: Arguments to pass to callback
+      returns: number
+      description: Schedule callback execution after delay
+      notes:
+        - Minimum delay is 0ms (execute in next event loop iteration)
+        - Nested timeouts ≥5 levels deep are clamped to 4ms minimum
+        - Actual execution may be later than delay if event loop busy
+
+    - name: clearTimeout
+      signature: clearTimeout(timeoutID)
+      parameters:
+        - name: timeoutID
+          type: number
+          description: Timer ID returned from setTimeout
+      returns: undefined
+      description: Cancel scheduled timeout
+      notes:
+        - No-op if timeout already fired or invalid ID
+        - Safe to call multiple times with same ID
+
+    - name: setInterval
+      signature: setInterval(callback, delay, ...args)
+      parameters:
+        - name: callback
+          type: function | string
+          description: Function to execute repeatedly
+        - name: delay
+          type: number
+          optional: true
+          default: 0
+          description: Delay between executions in milliseconds
+        - name: args
+          type: any[]
+          variadic: true
+          description: Arguments to pass to callback
+      returns: number
+      description: Schedule repeated callback execution
+      notes:
+        - Repeats every delay milliseconds
+        - Same clamping rules as setTimeout
+        - Does not wait for callback to complete before scheduling next
+
+    - name: clearInterval
+      signature: clearInterval(intervalID)
+      parameters:
+        - name: intervalID
+          type: number
+          description: Interval ID returned from setInterval
+      returns: undefined
+      description: Stop repeating interval
+      notes:
+        - No-op if interval already cleared or invalid ID
+        - Safe to call multiple times with same ID
+
+timer_semantics:
+  execution_context:
+    this_binding: globalThis (or undefined in strict mode)
+    call_stack: Separate macrotask (not synchronous)
+
+  timing_guarantees:
+    minimum_delay: Specified delay is minimum, actual may be longer
+    ordering: Timers with same expiration fire in creation order
+    zero_delay: setTimeout(fn, 0) executes in next event loop iteration
+
+  nesting_clamping:
+    threshold: 5 nested timeout levels
+    clamp_value: 4ms
+    reason: Prevent CPU thrashing from tight loops
+    example: |
+      let level = 0;
+      function nest() {
+        level++;
+        if (level >= 5) {
+          // This and deeper levels clamped to 4ms minimum
+        }
+        setTimeout(nest, 0);
+      }
+
+timer_queue:
+  structure: Priority queue (min-heap) by expiration time
+  key: expiration_time = current_time + delay
+  operations:
+    - insert: O(log n) - Add timer
+    - peek_min: O(1) - Check next expiring timer
+    - extract_min: O(log n) - Remove and return next timer
+
+event_loop_integration:
+  phase: Macrotask execution
+  algorithm: |
+    1. Event loop iteration begins
+    2. Process all expired timers from timer queue
+    3. Execute timer callbacks as macrotasks
+    4. Check timer queue again (timers may schedule timers)
+    5. Continue to microtask checkpoint
+
+timer_id_generation:
+  strategy: Incrementing counter (or cryptographically random for security)
+  type: Positive integer
+  reuse: Avoid reusing IDs for active timers
+  storage: Map<timerID, TimerInfo>
+
+timer_info_structure:
+  fields:
+    - timerID: number
+    - callback: function
+    - args: any[]
+    - expiration: number (timestamp)
+    - repeat: boolean (true for interval)
+    - interval: number (delay for setInterval)
+    - nesting_level: number (for clamping)
+
+callback_execution:
+  this_binding: globalThis (or undefined in strict mode)
+  arguments: ...args passed to setTimeout/setInterval
+  exceptions: Caught and reported (do not stop event loop)
+  return_value: Ignored
+
+errors:
+  - No TypeError for non-function callback (compat: convert to string and eval)
+  - No RangeError for negative delay (treated as 0)
+  - No error for invalid timer ID in clear* (no-op)
+
+compatibility_notes:
+  - String callbacks (eval) are discouraged but supported for compat
+  - Very large delays (>2^31-1ms) may behave inconsistently
+  - Timer precision depends on event loop responsiveness
+
+security_considerations:
+  - Timer IDs should not be predictable (timing attacks)
+  - Consider cryptographically random IDs if security-sensitive
+  - Do not leak timer queue state
+
+integration_points:
+  - component: event_loop
+    interface: Add timer queue to event loop
+
+  - component: event_loop
+    interface: Check and execute expired timers each iteration
+
+  - component: interpreter
+    interface: Execute timer callbacks as macrotasks
+
+implementation_requirements:
+  - Timer queue uses min-heap or sorted list
+  - Efficient timer insertion and removal
+  - Track nesting level per timer chain
+  - Clamp delays ≥4ms when nesting ≥5
+  - Clean up completed timers from storage
+
+test_requirements:
+  unit_tests: ≥35
+  integration_tests: ≥10
+  coverage: ≥85%
+
+success_criteria:
+  - setTimeout executes callback after delay
+  - clearTimeout cancels pending timeout
+  - setInterval executes callback repeatedly
+  - clearInterval stops interval
+  - Zero delay works (next iteration)
+  - Nested timeout clamping works (≥4ms after 5 levels)
+  - Timer ordering preserved
+  - Arguments passed correctly to callback
+  - this binding is globalThis
+
+examples:
+  basic_timeout: |
+    setTimeout(() => {
+      console.log('Executed after 1 second');
+    }, 1000);
+
+  timeout_with_args: |
+    setTimeout((a, b) => {
+      console.log(a + b); // 7
+    }, 0, 3, 4);
+
+  cancel_timeout: |
+    const id = setTimeout(() => {
+      console.log('Will not execute');
+    }, 1000);
+    clearTimeout(id);
+
+  basic_interval: |
+    let count = 0;
+    const id = setInterval(() => {
+      console.log(++count);
+      if (count === 5) clearInterval(id);
+    }, 100);
+
+  nested_clamping: |
+    let level = 0;
+    function nest() {
+      console.log('Level:', ++level);
+      setTimeout(nest, 0); // Clamped to 4ms after level 5
+    }
+    nest();
