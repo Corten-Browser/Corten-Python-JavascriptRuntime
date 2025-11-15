@@ -1,0 +1,444 @@
+name: intl_displaynames
+version: 0.1.0
+type: feature
+description: ES2024 Wave C Intl.DisplayNames API - Display names for language/region/script/currency codes
+
+api:
+  classes:
+    - name: IntlDisplayNames
+      description: Provides localized display names for language, region, script, and currency codes
+      constructor:
+        params:
+          - name: locales
+            type: String|Array<String>
+            description: BCP 47 language tag(s) or locale identifier(s)
+          - name: options
+            type: Object
+            description: Configuration options
+            properties:
+              - name: type
+                type: String
+                description: Type of display names (language, region, script, currency, calendar, dateTimeField)
+                required: true
+                values: ["language", "region", "script", "currency", "calendar", "dateTimeField"]
+              - name: style
+                type: String
+                description: Display style (long, short, narrow)
+                required: false
+                default: "long"
+                values: ["long", "short", "narrow"]
+              - name: fallback
+                type: String
+                description: Fallback behavior (code, none)
+                required: false
+                default: "code"
+                values: ["code", "none"]
+              - name: languageDisplay
+                type: String
+                description: Language display mode (dialect, standard) - for type=language only
+                required: false
+                default: "dialect"
+                values: ["dialect", "standard"]
+        throws:
+          - type: TypeError
+            condition: Missing required type option
+          - type: RangeError
+            condition: Invalid locale or option value
+        description: Create new DisplayNames formatter for localized display names
+
+      methods:
+        - name: of
+          params:
+            - name: code
+              type: String
+              description: Code to get display name for (language/region/script/currency code)
+          returns:
+            type: String|undefined
+            description: Localized display name, or undefined if not found (fallback=none), or code itself (fallback=code)
+          throws:
+            - type: RangeError
+              condition: Invalid code format for the type
+          description: Get display name for given code according to locale and options
+
+        - name: resolvedOptions
+          params: []
+          returns:
+            type: Object
+            description: Resolved configuration options
+            properties:
+              - name: locale
+                type: String
+                description: Resolved locale identifier
+              - name: type
+                type: String
+                description: Type of display names
+              - name: style
+                type: String
+                description: Display style
+              - name: fallback
+                type: String
+                description: Fallback behavior
+              - name: languageDisplay
+                type: String
+                description: Language display mode (only for type=language)
+          description: Return resolved configuration options
+
+    - name: DisplayNamesLanguage
+      description: Language code display names handler
+      methods:
+        - name: get_language_name
+          params:
+            - name: code
+              type: String
+              description: ISO 639-1 or ISO 639-2 language code (e.g., "en", "es", "zh")
+            - name: locale
+              type: String
+              description: Display locale
+            - name: style
+              type: String
+              description: Display style (long, short, narrow)
+            - name: language_display
+              type: String
+              description: dialect or standard
+          returns:
+            type: String
+            description: Localized language name
+          description: Get display name for language code
+
+        - name: validate_language_code
+          params:
+            - name: code
+              type: String
+              description: Language code to validate
+          returns:
+            type: bool
+            description: True if valid language code
+          description: Validate language code format (ISO 639)
+
+    - name: DisplayNamesRegion
+      description: Region code display names handler
+      methods:
+        - name: get_region_name
+          params:
+            - name: code
+              type: String
+              description: ISO 3166-1 alpha-2 region code (e.g., "US", "GB", "JP")
+            - name: locale
+              type: String
+              description: Display locale
+            - name: style
+              type: String
+              description: Display style (long, short, narrow)
+          returns:
+            type: String
+            description: Localized region name
+          description: Get display name for region code
+
+        - name: validate_region_code
+          params:
+            - name: code
+              type: String
+              description: Region code to validate
+          returns:
+            type: bool
+            description: True if valid region code
+          description: Validate region code format (ISO 3166-1 alpha-2)
+
+    - name: DisplayNamesScript
+      description: Script code display names handler
+      methods:
+        - name: get_script_name
+          params:
+            - name: code
+              type: String
+              description: ISO 15924 script code (e.g., "Latn", "Cyrl", "Arab")
+            - name: locale
+              type: String
+              description: Display locale
+            - name: style
+              type: String
+              description: Display style (long, short, narrow)
+          returns:
+            type: String
+            description: Localized script name
+          description: Get display name for script code
+
+        - name: validate_script_code
+          params:
+            - name: code
+              type: String
+              description: Script code to validate
+          returns:
+            type: bool
+            description: True if valid script code
+          description: Validate script code format (ISO 15924, 4 letters, title case)
+
+    - name: DisplayNamesCurrency
+      description: Currency code display names handler
+      methods:
+        - name: get_currency_name
+          params:
+            - name: code
+              type: String
+              description: ISO 4217 currency code (e.g., "USD", "EUR", "JPY")
+            - name: locale
+              type: String
+              description: Display locale
+            - name: style
+              type: String
+              description: Display style (long, short, narrow)
+          returns:
+            type: String
+            description: Localized currency name
+          description: Get display name for currency code
+
+        - name: validate_currency_code
+          params:
+            - name: code
+              type: String
+              description: Currency code to validate
+          returns:
+            type: bool
+            description: True if valid currency code
+          description: Validate currency code format (ISO 4217, 3 uppercase letters)
+
+    - name: DisplayNamesFallback
+      description: Fallback behavior handler
+      methods:
+        - name: apply_fallback
+          params:
+            - name: code
+              type: String
+              description: Original code
+            - name: display_name
+              type: String|undefined
+              description: Found display name or undefined
+            - name: fallback_mode
+              type: String
+              description: Fallback mode (code, none)
+          returns:
+            type: String|undefined
+            description: Code if fallback=code and not found, undefined if fallback=none and not found, or display_name if found
+          description: Apply fallback behavior when display name not found
+
+    - name: DisplayNamesCache
+      description: CLDR display names cache for performance
+      methods:
+        - name: get_cached_name
+          params:
+            - name: locale
+              type: String
+              description: Locale identifier
+            - name: type
+              type: String
+              description: Display type
+            - name: code
+              type: String
+              description: Code to lookup
+            - name: style
+              type: String
+              description: Display style
+          returns:
+            type: String|undefined
+            description: Cached display name or undefined
+          description: Get cached display name if available
+
+        - name: set_cached_name
+          params:
+            - name: locale
+              type: String
+              description: Locale identifier
+            - name: type
+              type: String
+              description: Display type
+            - name: code
+              type: String
+              description: Code
+            - name: style
+              type: String
+              description: Display style
+            - name: name
+              type: String
+              description: Display name to cache
+          returns:
+            type: void
+          description: Cache display name for future lookups
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - ValueType
+      - is_string
+
+requirements:
+  functional:
+    - FR-ES24-C-048: Intl.DisplayNames constructor (locales, options with type, style, fallback, languageDisplay)
+    - FR-ES24-C-049: of() method (get display name for code, validate code format, apply fallback)
+    - FR-ES24-C-050: Language display names (ISO 639 codes to localized language names)
+    - FR-ES24-C-051: Region display names (ISO 3166-1 codes to localized region/country names)
+    - FR-ES24-C-052: Script display names (ISO 15924 codes to localized script names)
+    - FR-ES24-C-053: Currency display names (ISO 4217 codes to localized currency names)
+    - FR-ES24-C-054: resolvedOptions() (return resolved locale, type, style, fallback, languageDisplay)
+
+  non_functional:
+    - Constructor performance <3ms
+    - of() method performance <200µs per lookup
+    - CLDR data loading <10ms on first use
+    - Cache hit rate >95% for repeated lookups
+    - Memory usage <5MB for CLDR display names data
+
+  testing:
+    - Minimum 67 unit tests (breakdown by requirement)
+    - Test coverage ≥90%
+    - Test262 compliance (~350 intl402/DisplayNames tests)
+    - Edge case tests:
+      - Invalid locale (throw RangeError)
+      - Missing type option (throw TypeError)
+      - Invalid type/style/fallback values (throw RangeError)
+      - Invalid code format for each type (throw RangeError)
+      - fallback=code returns code when not found
+      - fallback=none returns undefined when not found
+      - languageDisplay=dialect vs standard differences
+      - style=long vs short vs narrow formatting
+      - Various language codes (2-letter, 3-letter)
+      - Region codes (2-letter uppercase)
+      - Script codes (4-letter titlecase)
+      - Currency codes (3-letter uppercase)
+      - Unknown codes with each fallback mode
+      - resolvedOptions() returns correct properties
+
+performance:
+  constructor_time: "<3ms"
+  of_method_time: "<200µs"
+  cldr_load_time: "<10ms"
+  cache_hit_rate: ">95%"
+  memory_usage: "<5MB"
+
+error_types:
+  - name: TypeError
+    cases:
+      - Missing type option in constructor
+      - Invalid arguments to of() method
+  - name: RangeError
+    cases:
+      - Invalid locale identifier
+      - Invalid type value
+      - Invalid style value
+      - Invalid fallback value
+      - Invalid languageDisplay value
+      - Invalid code format for specified type
+
+examples:
+  constructor:
+    code: |
+      // Create DisplayNames for language codes
+      const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
+
+      // Create with style option
+      const regionNames = new Intl.DisplayNames(['en'], { type: 'region', style: 'short' });
+
+      // Create with fallback option
+      const currencyNames = new Intl.DisplayNames(['en'], { type: 'currency', fallback: 'none' });
+
+  of_method:
+    code: |
+      const languageNames = new Intl.DisplayNames(['en'], { type: 'language' });
+      languageNames.of('en');   // "English"
+      languageNames.of('es');   // "Spanish"
+      languageNames.of('zh');   // "Chinese"
+
+      const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+      regionNames.of('US');     // "United States"
+      regionNames.of('GB');     // "United Kingdom"
+      regionNames.of('JP');     // "Japan"
+
+      const scriptNames = new Intl.DisplayNames(['en'], { type: 'script' });
+      scriptNames.of('Latn');   // "Latin"
+      scriptNames.of('Cyrl');   // "Cyrillic"
+      scriptNames.of('Arab');   // "Arabic"
+
+      const currencyNames = new Intl.DisplayNames(['en'], { type: 'currency' });
+      currencyNames.of('USD');  // "US Dollar"
+      currencyNames.of('EUR');  // "Euro"
+      currencyNames.of('JPY');  // "Japanese Yen"
+
+  style_option:
+    code: |
+      const longRegions = new Intl.DisplayNames(['en'], { type: 'region', style: 'long' });
+      longRegions.of('US');     // "United States"
+
+      const shortRegions = new Intl.DisplayNames(['en'], { type: 'region', style: 'short' });
+      shortRegions.of('US');    // "US" (may be abbreviated)
+
+      const narrowRegions = new Intl.DisplayNames(['en'], { type: 'region', style: 'narrow' });
+      narrowRegions.of('US');   // "US" (most compact)
+
+  fallback_option:
+    code: |
+      // fallback: 'code' (default) - return code if not found
+      const withCodeFallback = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'code' });
+      withCodeFallback.of('xyz');  // "xyz" (unknown code, returns code itself)
+
+      // fallback: 'none' - return undefined if not found
+      const withNoFallback = new Intl.DisplayNames(['en'], { type: 'language', fallback: 'none' });
+      withNoFallback.of('xyz');    // undefined (unknown code)
+
+  language_display:
+    code: |
+      // languageDisplay: 'dialect' (default) - distinguish dialects
+      const dialectNames = new Intl.DisplayNames(['en'], { type: 'language', languageDisplay: 'dialect' });
+      dialectNames.of('en-US');  // "American English"
+      dialectNames.of('en-GB');  // "British English"
+
+      // languageDisplay: 'standard' - use standard language names
+      const standardNames = new Intl.DisplayNames(['en'], { type: 'language', languageDisplay: 'standard' });
+      standardNames.of('en-US');  // "English"
+      standardNames.of('en-GB');  // "English"
+
+  resolved_options:
+    code: |
+      const displayNames = new Intl.DisplayNames(['en-US'], {
+        type: 'language',
+        style: 'long',
+        fallback: 'code',
+        languageDisplay: 'dialect'
+      });
+
+      displayNames.resolvedOptions();
+      // {
+      //   locale: "en-US",
+      //   type: "language",
+      //   style: "long",
+      //   fallback: "code",
+      //   languageDisplay: "dialect"
+      // }
+
+  localized_output:
+    code: |
+      // Display names in different locales
+      const enNames = new Intl.DisplayNames(['en'], { type: 'language' });
+      enNames.of('fr');  // "French"
+
+      const frNames = new Intl.DisplayNames(['fr'], { type: 'language' });
+      frNames.of('fr');  // "français"
+
+      const deNames = new Intl.DisplayNames(['de'], { type: 'language' });
+      deNames.of('fr');  // "Französisch"
+
+  error_handling:
+    code: |
+      // TypeError: Missing type option
+      new Intl.DisplayNames(['en'], {});  // TypeError
+
+      // RangeError: Invalid type
+      new Intl.DisplayNames(['en'], { type: 'invalid' });  // RangeError
+
+      // RangeError: Invalid code for type
+      const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+      regionNames.of('XYZ');  // RangeError (invalid region code)

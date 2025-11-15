@@ -1,0 +1,479 @@
+name: intl_pluralrules
+version: 0.1.0
+type: feature
+description: ES2024 Intl.PluralRules API for plural form selection (cardinal and ordinal rules, CLDR data integration)
+
+api:
+  classes:
+    - name: PluralRules
+      description: Intl.PluralRules constructor for plural form selection
+      constructor:
+        params:
+          - name: locales
+            type: String|Array<String>|undefined
+            description: BCP 47 language tag(s) or undefined for default locale
+          - name: options
+            type: Object|undefined
+            description: Optional configuration object
+        options:
+          - name: localeMatcher
+            type: String
+            values: ["lookup", "best fit"]
+            default: "best fit"
+            description: Locale matching algorithm
+          - name: type
+            type: String
+            values: ["cardinal", "ordinal"]
+            default: "cardinal"
+            description: Type of plural rules (cardinal for quantities, ordinal for ordering)
+          - name: minimumIntegerDigits
+            type: Number
+            range: [1, 21]
+            default: 1
+            description: Minimum number of integer digits
+          - name: minimumFractionDigits
+            type: Number
+            range: [0, 20]
+            default: 0
+            description: Minimum number of fraction digits
+          - name: maximumFractionDigits
+            type: Number
+            range: [0, 20]
+            default: 3
+            description: Maximum number of fraction digits
+          - name: minimumSignificantDigits
+            type: Number
+            range: [1, 21]
+            default: undefined
+            description: Minimum significant digits (overrides integer/fraction if set)
+          - name: maximumSignificantDigits
+            type: Number
+            range: [1, 21]
+            default: undefined
+            description: Maximum significant digits (overrides integer/fraction if set)
+        description: Create new PluralRules instance for locale-aware plural selection
+        throws:
+          - TypeError: Invalid options
+          - RangeError: Invalid digit range values
+
+      methods:
+        - name: select
+          params:
+            - name: number
+              type: Number|BigInt
+              description: Number to get plural category for
+          returns:
+            type: String
+            values: ["zero", "one", "two", "few", "many", "other"]
+            description: CLDR plural category for the number
+          description: Select appropriate plural category for a number
+          performance: "<100µs per call"
+          examples:
+            - locale: "en-US"
+              type: "cardinal"
+              input: 1
+              output: "one"
+            - locale: "en-US"
+              type: "cardinal"
+              input: 2
+              output: "other"
+            - locale: "ar-EG"
+              type: "cardinal"
+              input: 0
+              output: "zero"
+            - locale: "ar-EG"
+              type: "cardinal"
+              input: 1
+              output: "one"
+            - locale: "ar-EG"
+              type: "cardinal"
+              input: 2
+              output: "two"
+            - locale: "pl-PL"
+              type: "cardinal"
+              input: 5
+              output: "many"
+
+        - name: selectRange
+          params:
+            - name: startRange
+              type: Number|BigInt
+              description: Start of range
+            - name: endRange
+              type: Number|BigInt
+              description: End of range
+          returns:
+            type: String
+            values: ["zero", "one", "two", "few", "many", "other"]
+            description: Plural category for the range
+          description: Select plural category for a numeric range (ES2023+)
+          performance: "<200µs per call"
+          examples:
+            - locale: "en-US"
+              type: "cardinal"
+              startRange: 1
+              endRange: 3
+              output: "other"
+            - locale: "pl-PL"
+              type: "cardinal"
+              startRange: 2
+              endRange: 4
+              output: "few"
+          throws:
+            - RangeError: startRange > endRange
+
+        - name: resolvedOptions
+          params: []
+          returns:
+            type: Object
+            properties:
+              - name: locale
+                type: String
+                description: Resolved BCP 47 locale identifier
+              - name: type
+                type: String
+                values: ["cardinal", "ordinal"]
+                description: Type of plural rules
+              - name: minimumIntegerDigits
+                type: Number
+                description: Minimum integer digits
+              - name: minimumFractionDigits
+                type: Number
+                description: Minimum fraction digits
+              - name: maximumFractionDigits
+                type: Number
+                description: Maximum fraction digits
+              - name: minimumSignificantDigits
+                type: Number|undefined
+                description: Minimum significant digits (if set)
+              - name: maximumSignificantDigits
+                type: Number|undefined
+                description: Maximum significant digits (if set)
+              - name: pluralCategories
+                type: Array<String>
+                description: Available plural categories for locale
+            description: Object with resolved locale and options
+          description: Return resolved options and locale for this PluralRules instance
+
+    - name: PluralRulesEngine
+      description: Internal engine for CLDR-based plural rule evaluation
+      methods:
+        - name: evaluateCardinalRule
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+            - name: number
+              type: Number|BigInt
+              description: Number to evaluate
+            - name: numberOptions
+              type: Object
+              description: Formatting options
+          returns:
+            type: String
+            values: ["zero", "one", "two", "few", "many", "other"]
+            description: CLDR plural category
+          description: Evaluate CLDR cardinal plural rules for locale
+
+        - name: evaluateOrdinalRule
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+            - name: number
+              type: Number|BigInt
+              description: Number to evaluate
+            - name: numberOptions
+              type: Object
+              description: Formatting options
+          returns:
+            type: String
+            values: ["zero", "one", "two", "few", "many", "other"]
+            description: CLDR plural category
+          description: Evaluate CLDR ordinal plural rules for locale
+
+        - name: evaluateRangeRule
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+            - name: startCategory
+              type: String
+              description: Plural category for start
+            - name: endCategory
+              type: String
+              description: Plural category for end
+          returns:
+            type: String
+            values: ["zero", "one", "two", "few", "many", "other"]
+            description: Combined plural category for range
+          description: Combine two plural categories into range category
+
+        - name: getPluralOperands
+          params:
+            - name: number
+              type: Number|BigInt
+              description: Input number
+            - name: options
+              type: Object
+              description: Formatting options
+          returns:
+            type: Object
+            properties:
+              - name: n
+                type: Number
+                description: Absolute value of the number
+              - name: i
+                type: Number
+                description: Integer part
+              - name: v
+                type: Number
+                description: Number of visible fraction digits
+              - name: w
+                type: Number
+                description: Number of visible fraction digits without trailing zeros
+              - name: f
+                type: Number
+                description: Visible fraction digits (as integer)
+              - name: t
+                type: Number
+                description: Visible fraction digits without trailing zeros (as integer)
+            description: CLDR plural operands for rule evaluation
+          description: Extract CLDR plural operands from formatted number
+
+    - name: CLDRDataProvider
+      description: Provider for CLDR plural rule data
+      methods:
+        - name: getCardinalRules
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+          returns:
+            type: Object
+            description: Map of category -> rule function
+          description: Get cardinal plural rules for locale from CLDR
+
+        - name: getOrdinalRules
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+          returns:
+            type: Object
+            description: Map of category -> rule function
+          description: Get ordinal plural rules for locale from CLDR
+
+        - name: getRangeRules
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+          returns:
+            type: Object
+            description: Map of (start, end) -> result category
+          description: Get range resolution rules for locale
+
+        - name: getPluralCategories
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale
+            - name: type
+              type: String
+              values: ["cardinal", "ordinal"]
+              description: Rule type
+          returns:
+            type: Array<String>
+            description: Available plural categories for locale+type
+          description: Get list of plural categories used by locale
+
+dependencies:
+  - name: shared_types
+    version: "^0.1.0"
+    imports:
+      - Result
+      - Error
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - JSValue
+      - JSObject
+      - ValueType
+
+requirements:
+  functional:
+    - FR-ES24-C-031: Intl.PluralRules constructor with locale and options support
+    - FR-ES24-C-032: select() method returns CLDR plural category for number
+    - FR-ES24-C-033: selectRange() method returns plural category for numeric range
+    - FR-ES24-C-034: Type option supports cardinal (quantities) and ordinal (ordering) rules
+    - FR-ES24-C-035: Support all CLDR plural categories (zero, one, two, few, many, other)
+    - FR-ES24-C-036: resolvedOptions() returns locale, type, and formatting options
+
+  non_functional:
+    - Constructor performance <2ms for locale data loading
+    - select() performance <100µs per call
+    - selectRange() performance <200µs per call
+    - CLDR data loading optimized (lazy loading per locale)
+    - Memory efficient operand calculation
+    - Support at least 50 locales from CLDR
+
+  testing:
+    - Minimum 56 unit tests (covering all requirements)
+    - Test coverage ≥90%
+    - ECMA-402 compliance tests
+    - Test all 6 plural categories across multiple locales
+    - Edge cases:
+      - Zero, negative numbers, decimals
+      - BigInt support
+      - Invalid ranges (start > end)
+      - Invalid options (out of range digit counts)
+      - Locale fallback behavior
+      - Cardinal vs ordinal differences
+      - Range resolution logic
+      - Operand calculation (n, i, v, w, f, t)
+    - Locale coverage:
+      - English (one, other) - simple
+      - Arabic (zero, one, two, few, many, other) - complex
+      - Polish (one, few, many, other) - intermediate
+      - Japanese (other only) - minimal
+      - Welsh (zero, one, two, few, many, other) - full set
+    - Performance tests:
+      - Constructor <2ms
+      - select() <100µs
+      - selectRange() <200µs
+
+performance:
+  construction_time: "<2ms per instance"
+  select_time: "<100µs per call"
+  selectRange_time: "<200µs per call"
+  cldr_loading: "Lazy per locale"
+  operand_calculation: "<50µs"
+
+error_types:
+  - name: TypeError
+    cases:
+      - Invalid options object
+      - Invalid type value (not cardinal/ordinal)
+  - name: RangeError
+    cases:
+      - minimumIntegerDigits out of range [1, 21]
+      - minimumFractionDigits out of range [0, 20]
+      - maximumFractionDigits out of range [0, 20]
+      - minimumSignificantDigits out of range [1, 21]
+      - maximumSignificantDigits out of range [1, 21]
+      - startRange > endRange in selectRange()
+
+examples:
+  cardinal_basic:
+    code: |
+      const pr = new Intl.PluralRules('en-US');
+      pr.select(0);   // 'other'
+      pr.select(1);   // 'one'
+      pr.select(2);   // 'other'
+      pr.select(1.5); // 'other'
+
+  cardinal_arabic:
+    code: |
+      const pr = new Intl.PluralRules('ar-EG');
+      pr.select(0);     // 'zero'
+      pr.select(1);     // 'one'
+      pr.select(2);     // 'two'
+      pr.select(5);     // 'few'
+      pr.select(100);   // 'other'
+
+  ordinal_english:
+    code: |
+      const pr = new Intl.PluralRules('en-US', { type: 'ordinal' });
+      pr.select(1);   // 'one'   (1st)
+      pr.select(2);   // 'two'   (2nd)
+      pr.select(3);   // 'few'   (3rd)
+      pr.select(4);   // 'other' (4th)
+      pr.select(21);  // 'one'   (21st)
+      pr.select(22);  // 'two'   (22nd)
+
+  select_range:
+    code: |
+      const pr = new Intl.PluralRules('en-US');
+      pr.selectRange(1, 3);   // 'other'
+      pr.selectRange(0, 1);   // 'other'
+
+      const prPL = new Intl.PluralRules('pl-PL');
+      prPL.selectRange(2, 4);  // 'few'
+      prPL.selectRange(5, 10); // 'many'
+
+  resolved_options:
+    code: |
+      const pr = new Intl.PluralRules('ar-EG', {
+        type: 'cardinal',
+        minimumFractionDigits: 2
+      });
+
+      pr.resolvedOptions();
+      // {
+      //   locale: 'ar-EG',
+      //   type: 'cardinal',
+      //   minimumIntegerDigits: 1,
+      //   minimumFractionDigits: 2,
+      //   maximumFractionDigits: 3,
+      //   pluralCategories: ['zero', 'one', 'two', 'few', 'many', 'other']
+      // }
+
+  bigint_support:
+    code: |
+      const pr = new Intl.PluralRules('en-US');
+      pr.select(1n);    // 'one'
+      pr.select(2n);    // 'other'
+      pr.select(100n);  // 'other'
+
+  formatting_options:
+    code: |
+      const pr = new Intl.PluralRules('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      pr.select(1);     // 'other' (formatted as 1.00)
+      pr.select(1.5);   // 'other' (formatted as 1.50)
+
+cldr_operands:
+  description: CLDR plural operands used in rule evaluation
+  operands:
+    - symbol: n
+      description: "Absolute value of the source number"
+      example: "n = 1.5 for input 1.5"
+    - symbol: i
+      description: "Integer digits of n"
+      example: "i = 1 for 1.5"
+    - symbol: v
+      description: "Number of visible fraction digits with trailing zeros"
+      example: "v = 2 for 1.50"
+    - symbol: w
+      description: "Number of visible fraction digits without trailing zeros"
+      example: "w = 1 for 1.50"
+    - symbol: f
+      description: "Visible fractional digits with trailing zeros (as integer)"
+      example: "f = 50 for 1.50"
+    - symbol: t
+      description: "Visible fractional digits without trailing zeros (as integer)"
+      example: "t = 5 for 1.50"
+  rule_examples:
+    - language: "English (en)"
+      cardinal_rule: "one: n = 1; other: (everything else)"
+      ordinal_rule: "one: n % 10 = 1 and n % 100 != 11; two: n % 10 = 2 and n % 100 != 12; few: n % 10 = 3 and n % 100 != 13; other: (everything else)"
+    - language: "Arabic (ar)"
+      cardinal_rule: "zero: n = 0; one: n = 1; two: n = 2; few: n % 100 = 3..10; many: n % 100 = 11..99; other: (everything else)"
+    - language: "Polish (pl)"
+      cardinal_rule: "one: n = 1; few: n % 10 = 2..4 and n % 100 != 12..14; many: n != 1 and n % 10 = 0..1 or n % 10 = 5..9 or n % 100 = 12..14; other: (everything else)"
+
+locale_coverage:
+  required_locales:
+    - en-US: "Simple (one, other)"
+    - ar-EG: "Complex (all 6 categories)"
+    - pl-PL: "Intermediate (one, few, many, other)"
+    - ja-JP: "Minimal (other only)"
+    - cy-GB: "Full set (zero, one, two, few, many, other)"
+    - fr-FR: "French (one, other)"
+    - ru-RU: "Russian (one, few, many, other)"
+    - zh-CN: "Chinese (other only)"
+  fallback_behavior: "Use parent locale or root if specific locale unavailable"

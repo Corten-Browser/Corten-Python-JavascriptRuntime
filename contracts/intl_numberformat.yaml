@@ -1,0 +1,857 @@
+openapi: 3.0.0
+info:
+  title: Intl.NumberFormat API Contract
+  version: 1.0.0
+  description: |
+    ECMAScript Internationalization API - Number Formatting
+
+    Implements ES2024 Intl.NumberFormat with full locale-aware number formatting,
+    including currency, units, notations, and range formatting.
+
+    **Requirements Coverage:**
+    - FR-ES24-C-021: Intl.NumberFormat constructor
+    - FR-ES24-C-022: format() method
+    - FR-ES24-C-023: formatToParts() method
+    - FR-ES24-C-024: formatRange() method
+    - FR-ES24-C-025: formatRangeToParts() method
+    - FR-ES24-C-026: Style option (decimal, percent, currency, unit)
+    - FR-ES24-C-027: Currency formatting (ISO 4217)
+    - FR-ES24-C-028: Unit formatting
+    - FR-ES24-C-029: Notation option (standard, scientific, engineering, compact)
+    - FR-ES24-C-030: resolvedOptions()
+
+components:
+  schemas:
+    # FR-ES24-C-021: Constructor options
+    NumberFormatOptions:
+      type: object
+      description: Configuration options for number formatting
+      properties:
+        # Locale matching
+        localeMatcher:
+          type: string
+          enum: ["lookup", "best fit"]
+          default: "best fit"
+          description: Locale matching algorithm
+
+        # Numbering system
+        numberingSystem:
+          type: string
+          description: Numbering system (e.g., "arab", "latn", "hanidec")
+          examples: ["arab", "latn", "hanidec", "fullwide"]
+
+        # FR-ES24-C-026: Style option
+        style:
+          type: string
+          enum: ["decimal", "percent", "currency", "unit"]
+          default: "decimal"
+          description: Formatting style
+
+        # FR-ES24-C-027: Currency formatting
+        currency:
+          type: string
+          description: ISO 4217 currency code (required when style is "currency")
+          pattern: "^[A-Z]{3}$"
+          examples: ["USD", "EUR", "JPY", "GBP"]
+
+        currencyDisplay:
+          type: string
+          enum: ["symbol", "narrowSymbol", "code", "name"]
+          default: "symbol"
+          description: How to display currency
+
+        currencySign:
+          type: string
+          enum: ["standard", "accounting"]
+          default: "standard"
+          description: Currency sign formatting
+
+        # FR-ES24-C-028: Unit formatting
+        unit:
+          type: string
+          description: Unit identifier (required when style is "unit")
+          examples: ["meter", "kilometer", "kilogram", "celsius", "percent"]
+
+        unitDisplay:
+          type: string
+          enum: ["short", "narrow", "long"]
+          default: "short"
+          description: How to display unit
+
+        # FR-ES24-C-029: Notation option
+        notation:
+          type: string
+          enum: ["standard", "scientific", "engineering", "compact"]
+          default: "standard"
+          description: Number notation format
+
+        compactDisplay:
+          type: string
+          enum: ["short", "long"]
+          default: "short"
+          description: Compact notation display (when notation is "compact")
+
+        # Sign display
+        signDisplay:
+          type: string
+          enum: ["auto", "never", "always", "exceptZero"]
+          default: "auto"
+          description: When to display sign
+
+        # Digit grouping
+        useGrouping:
+          oneOf:
+            - type: boolean
+            - type: string
+              enum: ["always", "auto", "min2"]
+          default: "auto"
+          description: Whether to use grouping separators
+
+        # Rounding and precision
+        minimumIntegerDigits:
+          type: integer
+          minimum: 1
+          maximum: 21
+          default: 1
+          description: Minimum integer digits
+
+        minimumFractionDigits:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: Minimum fraction digits (default varies by style)
+
+        maximumFractionDigits:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: Maximum fraction digits (default varies by style)
+
+        minimumSignificantDigits:
+          type: integer
+          minimum: 1
+          maximum: 21
+          description: Minimum significant digits (overrides fraction digits)
+
+        maximumSignificantDigits:
+          type: integer
+          minimum: 1
+          maximum: 21
+          description: Maximum significant digits (overrides fraction digits)
+
+        # Rounding mode (ES2024+)
+        roundingMode:
+          type: string
+          enum:
+            - "ceil"
+            - "floor"
+            - "expand"
+            - "trunc"
+            - "halfCeil"
+            - "halfFloor"
+            - "halfExpand"
+            - "halfTrunc"
+            - "halfEven"
+          default: "halfExpand"
+          description: Rounding mode for formatting
+
+        roundingPriority:
+          type: string
+          enum: ["auto", "morePrecision", "lessPrecision"]
+          default: "auto"
+          description: Priority between significant and fraction digits
+
+        roundingIncrement:
+          type: integer
+          enum: [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 2500, 5000]
+          default: 1
+          description: Rounding increment
+
+        trailingZeroDisplay:
+          type: string
+          enum: ["auto", "stripIfInteger"]
+          default: "auto"
+          description: Trailing zero display behavior
+
+      # Validation rules
+      allOf:
+        - if:
+            properties:
+              style:
+                const: "currency"
+          then:
+            required: ["currency"]
+        - if:
+            properties:
+              style:
+                const: "unit"
+          then:
+            required: ["unit"]
+
+    # FR-ES24-C-023: Format part
+    NumberFormatPart:
+      type: object
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum:
+            - "integer"
+            - "group"
+            - "decimal"
+            - "fraction"
+            - "plusSign"
+            - "minusSign"
+            - "percentSign"
+            - "currency"
+            - "literal"
+            - "nan"
+            - "infinity"
+            - "compact"
+            - "exponentInteger"
+            - "exponentMinusSign"
+            - "exponentSeparator"
+            - "unit"
+          description: Type of the formatted part
+        value:
+          type: string
+          description: String value of the part
+        source:
+          type: string
+          enum: ["startRange", "endRange", "shared"]
+          description: Source of the part (for range formatting)
+      example:
+        type: "integer"
+        value: "1,234"
+
+    # FR-ES24-C-030: Resolved options
+    ResolvedNumberFormatOptions:
+      type: object
+      required:
+        - locale
+        - numberingSystem
+        - style
+        - minimumIntegerDigits
+        - useGrouping
+      properties:
+        locale:
+          type: string
+          description: Resolved locale
+          examples: ["en-US", "de-DE", "ja-JP"]
+
+        numberingSystem:
+          type: string
+          description: Resolved numbering system
+
+        style:
+          type: string
+          enum: ["decimal", "percent", "currency", "unit"]
+
+        currency:
+          type: string
+          description: Currency code (if style is "currency")
+
+        currencyDisplay:
+          type: string
+          enum: ["symbol", "narrowSymbol", "code", "name"]
+
+        currencySign:
+          type: string
+          enum: ["standard", "accounting"]
+
+        unit:
+          type: string
+          description: Unit identifier (if style is "unit")
+
+        unitDisplay:
+          type: string
+          enum: ["short", "narrow", "long"]
+
+        notation:
+          type: string
+          enum: ["standard", "scientific", "engineering", "compact"]
+
+        compactDisplay:
+          type: string
+          enum: ["short", "long"]
+
+        signDisplay:
+          type: string
+          enum: ["auto", "never", "always", "exceptZero"]
+
+        useGrouping:
+          oneOf:
+            - type: boolean
+            - type: string
+              enum: ["always", "auto", "min2"]
+
+        minimumIntegerDigits:
+          type: integer
+
+        minimumFractionDigits:
+          type: integer
+
+        maximumFractionDigits:
+          type: integer
+
+        minimumSignificantDigits:
+          type: integer
+
+        maximumSignificantDigits:
+          type: integer
+
+        roundingMode:
+          type: string
+
+        roundingPriority:
+          type: string
+
+        roundingIncrement:
+          type: integer
+
+        trailingZeroDisplay:
+          type: string
+      example:
+        locale: "en-US"
+        numberingSystem: "latn"
+        style: "currency"
+        currency: "USD"
+        currencyDisplay: "symbol"
+        minimumIntegerDigits: 1
+        minimumFractionDigits: 2
+        maximumFractionDigits: 2
+        useGrouping: "auto"
+
+  interfaces:
+    NumberFormat:
+      description: |
+        Intl.NumberFormat - Locale-aware number formatting
+
+        **Constructor:** FR-ES24-C-021
+        **Methods:** FR-ES24-C-022 to FR-ES24-C-030
+
+      constructor:
+        name: Intl.NumberFormat
+        description: Creates a new NumberFormat instance
+        parameters:
+          - name: locales
+            type: string | string[]
+            optional: true
+            description: BCP 47 language tag(s)
+            examples:
+              - "en-US"
+              - "de-DE"
+              - ["en-US", "en-GB"]
+
+          - name: options
+            type: NumberFormatOptions
+            optional: true
+            description: Formatting options
+
+        returns:
+          type: NumberFormat
+          description: New NumberFormat instance
+
+        throws:
+          - type: RangeError
+            when: Invalid locale or option values
+          - type: TypeError
+            when: Invalid option types
+
+        examples:
+          - code: |
+              new Intl.NumberFormat('en-US')
+          - code: |
+              new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' })
+          - code: |
+              new Intl.NumberFormat('en-US', { notation: 'compact' })
+
+      methods:
+        # FR-ES24-C-022: format() method
+        - name: format
+          description: Formats a number according to locale and options
+          parameters:
+            - name: value
+              type: number | bigint
+              required: true
+              description: Number to format
+
+          returns:
+            type: string
+            description: Formatted number string
+
+          throws:
+            - type: RangeError
+              when: Value out of range
+            - type: TypeError
+              when: Invalid value type
+
+          performance:
+            target: <500µs
+            description: Format operation should complete in under 500 microseconds
+
+          examples:
+            - code: |
+                const formatter = new Intl.NumberFormat('en-US');
+                formatter.format(1234.56);  // "1,234.56"
+
+            - code: |
+                const currency = new Intl.NumberFormat('de-DE', {
+                  style: 'currency',
+                  currency: 'EUR'
+                });
+                currency.format(1234.56);  // "1.234,56 €"
+
+            - code: |
+                const compact = new Intl.NumberFormat('en-US', {
+                  notation: 'compact'
+                });
+                compact.format(1234567);  // "1.2M"
+
+        # FR-ES24-C-023: formatToParts() method
+        - name: formatToParts
+          description: Returns an array of objects representing the formatted number in parts
+          parameters:
+            - name: value
+              type: number | bigint
+              required: true
+              description: Number to format
+
+          returns:
+            type: NumberFormatPart[]
+            description: Array of formatted parts
+
+          throws:
+            - type: RangeError
+              when: Value out of range
+            - type: TypeError
+              when: Invalid value type
+
+          performance:
+            target: <1ms
+            description: Format to parts should complete in under 1 millisecond
+
+          examples:
+            - code: |
+                const formatter = new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD'
+                });
+                formatter.formatToParts(1234.56);
+                // [
+                //   { type: "currency", value: "$" },
+                //   { type: "integer", value: "1" },
+                //   { type: "group", value: "," },
+                //   { type: "integer", value: "234" },
+                //   { type: "decimal", value: "." },
+                //   { type: "fraction", value: "56" }
+                // ]
+
+        # FR-ES24-C-024: formatRange() method
+        - name: formatRange
+          description: Formats a number range according to locale and options
+          parameters:
+            - name: startRange
+              type: number | bigint
+              required: true
+              description: Start of the range
+
+            - name: endRange
+              type: number | bigint
+              required: true
+              description: End of the range
+
+          returns:
+            type: string
+            description: Formatted range string
+
+          throws:
+            - type: RangeError
+              when: Values out of range or startRange > endRange
+            - type: TypeError
+              when: Invalid value types
+
+          performance:
+            target: <1ms
+            description: Range formatting should complete in under 1 millisecond
+
+          examples:
+            - code: |
+                const formatter = new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD'
+                });
+                formatter.formatRange(100, 200);  // "$100.00 – $200.00"
+
+            - code: |
+                const compact = new Intl.NumberFormat('en-US', {
+                  notation: 'compact'
+                });
+                compact.formatRange(1000, 5000);  // "1K–5K"
+
+        # FR-ES24-C-025: formatRangeToParts() method
+        - name: formatRangeToParts
+          description: Returns an array of objects representing the formatted range in parts
+          parameters:
+            - name: startRange
+              type: number | bigint
+              required: true
+              description: Start of the range
+
+            - name: endRange
+              type: number | bigint
+              required: true
+              description: End of the range
+
+          returns:
+            type: NumberFormatPart[]
+            description: Array of formatted parts with source indicators
+
+          throws:
+            - type: RangeError
+              when: Values out of range or startRange > endRange
+            - type: TypeError
+              when: Invalid value types
+
+          performance:
+            target: <1.5ms
+            description: Range to parts should complete in under 1.5 milliseconds
+
+          examples:
+            - code: |
+                const formatter = new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD'
+                });
+                formatter.formatRangeToParts(100, 200);
+                // [
+                //   { type: "currency", value: "$", source: "startRange" },
+                //   { type: "integer", value: "100", source: "startRange" },
+                //   { type: "decimal", value: ".", source: "startRange" },
+                //   { type: "fraction", value: "00", source: "startRange" },
+                //   { type: "literal", value: " – ", source: "shared" },
+                //   { type: "currency", value: "$", source: "endRange" },
+                //   { type: "integer", value: "200", source: "endRange" },
+                //   { type: "decimal", value: ".", source: "endRange" },
+                //   { type: "fraction", value: "00", source: "endRange" }
+                // ]
+
+        # FR-ES24-C-030: resolvedOptions() method
+        - name: resolvedOptions
+          description: Returns the resolved options used by the formatter
+          parameters: []
+
+          returns:
+            type: ResolvedNumberFormatOptions
+            description: Resolved options object
+
+          performance:
+            target: <100µs
+            description: Should return cached options in under 100 microseconds
+
+          examples:
+            - code: |
+                const formatter = new Intl.NumberFormat('de-DE', {
+                  style: 'currency',
+                  currency: 'EUR'
+                });
+                formatter.resolvedOptions();
+                // {
+                //   locale: "de-DE",
+                //   numberingSystem: "latn",
+                //   style: "currency",
+                //   currency: "EUR",
+                //   currencyDisplay: "symbol",
+                //   minimumIntegerDigits: 1,
+                //   minimumFractionDigits: 2,
+                //   maximumFractionDigits: 2,
+                //   useGrouping: "auto",
+                //   ...
+                // }
+
+      staticMethods:
+        # Locale negotiation
+        - name: supportedLocalesOf
+          description: Returns supported locales from the provided list
+          parameters:
+            - name: locales
+              type: string | string[]
+              required: true
+              description: Locale(s) to check
+
+            - name: options
+              type: object
+              optional: true
+              properties:
+                localeMatcher:
+                  type: string
+                  enum: ["lookup", "best fit"]
+
+          returns:
+            type: string[]
+            description: Array of supported locales
+
+          examples:
+            - code: |
+                Intl.NumberFormat.supportedLocalesOf(['en-US', 'de-DE', 'xx-XX']);
+                // ["en-US", "de-DE"]
+
+# Test Requirements
+x-test-requirements:
+  total-tests: "≥110"
+  coverage: "≥95%"
+
+  categories:
+    constructor:
+      min-tests: 15
+      requirements:
+        - FR-ES24-C-021
+      coverage:
+        - "Constructor with no arguments"
+        - "Constructor with single locale"
+        - "Constructor with multiple locales"
+        - "Constructor with options object"
+        - "All style options (decimal, percent, currency, unit)"
+        - "Invalid locale handling"
+        - "Invalid options handling"
+        - "BigInt support"
+
+    format:
+      min-tests: 20
+      requirements:
+        - FR-ES24-C-022
+        - FR-ES24-C-026
+        - FR-ES24-C-027
+        - FR-ES24-C-028
+        - FR-ES24-C-029
+      coverage:
+        - "Decimal formatting"
+        - "Percent formatting"
+        - "Currency formatting (various currencies)"
+        - "Unit formatting (various units)"
+        - "Standard notation"
+        - "Scientific notation"
+        - "Engineering notation"
+        - "Compact notation (short and long)"
+        - "Negative numbers"
+        - "Zero"
+        - "Large numbers"
+        - "Small decimals"
+        - "BigInt values"
+        - "NaN and Infinity"
+        - "Rounding modes"
+        - "Sign display options"
+
+    formatToParts:
+      min-tests: 15
+      requirements:
+        - FR-ES24-C-023
+      coverage:
+        - "Decimal parts"
+        - "Currency parts"
+        - "Percent parts"
+        - "Unit parts"
+        - "Compact notation parts"
+        - "Scientific notation parts"
+        - "Negative number parts"
+        - "Grouping separator parts"
+        - "Part types validation"
+
+    formatRange:
+      min-tests: 12
+      requirements:
+        - FR-ES24-C-024
+      coverage:
+        - "Simple range formatting"
+        - "Currency range"
+        - "Unit range"
+        - "Compact notation range"
+        - "Negative ranges"
+        - "Same value range"
+        - "Large number ranges"
+        - "Invalid ranges (start > end)"
+
+    formatRangeToParts:
+      min-tests: 12
+      requirements:
+        - FR-ES24-C-025
+      coverage:
+        - "Range parts with sources"
+        - "Currency range parts"
+        - "Shared literal parts"
+        - "startRange source validation"
+        - "endRange source validation"
+        - "Part order validation"
+
+    options:
+      min-tests: 25
+      requirements:
+        - FR-ES24-C-026
+        - FR-ES24-C-027
+        - FR-ES24-C-028
+        - FR-ES24-C-029
+      coverage:
+        - "All style options"
+        - "ISO 4217 currency codes"
+        - "Currency display modes"
+        - "Currency sign (standard, accounting)"
+        - "Unit identifiers"
+        - "Unit display modes"
+        - "Notation types"
+        - "Compact display modes"
+        - "useGrouping variations"
+        - "Digit constraints (min/max integer/fraction)"
+        - "Significant digits"
+        - "Rounding modes (all 9 modes)"
+        - "Rounding priority"
+        - "Rounding increment"
+        - "Trailing zero display"
+        - "Sign display modes"
+
+    resolvedOptions:
+      min-tests: 8
+      requirements:
+        - FR-ES24-C-030
+      coverage:
+        - "Default options resolution"
+        - "Explicit options preservation"
+        - "Locale fallback"
+        - "Currency options resolution"
+        - "Unit options resolution"
+        - "Digit options resolution"
+        - "Immutability of returned object"
+
+    edge-cases:
+      min-tests: 8
+      coverage:
+        - "Very large numbers (>10^20)"
+        - "Very small decimals (<10^-20)"
+        - "Maximum precision"
+        - "Locale fallback chains"
+        - "Invalid currency codes"
+        - "Invalid unit identifiers"
+        - "Conflicting digit options"
+        - "Memory efficiency with many instances"
+
+    performance:
+      min-tests: 5
+      requirements: "All performance targets"
+      coverage:
+        - "Constructor: <5ms for complex options"
+        - "format(): <500µs per call"
+        - "formatToParts(): <1ms per call"
+        - "formatRange(): <1ms per call"
+        - "resolvedOptions(): <100µs (cached)"
+
+# Performance Requirements
+x-performance:
+  constructor:
+    target: "<5ms"
+    description: "Constructor with complex options should complete in under 5 milliseconds"
+    measurement: "Average of 1000 constructions with currency and notation options"
+
+  format:
+    target: "<500µs"
+    description: "Format operation should complete in under 500 microseconds"
+    measurement: "Average of 10,000 format calls with various number sizes"
+
+  formatToParts:
+    target: "<1ms"
+    description: "Format to parts should complete in under 1 millisecond"
+    measurement: "Average of 1,000 formatToParts calls"
+
+  formatRange:
+    target: "<1ms"
+    description: "Range formatting should complete in under 1 millisecond"
+    measurement: "Average of 1,000 formatRange calls"
+
+  formatRangeToParts:
+    target: "<1.5ms"
+    description: "Range to parts should complete in under 1.5 milliseconds"
+    measurement: "Average of 1,000 formatRangeToParts calls"
+
+  resolvedOptions:
+    target: "<100µs"
+    description: "Should return cached options quickly"
+    measurement: "Average of 10,000 resolvedOptions calls"
+
+  memory:
+    target: "<50KB per instance"
+    description: "Each NumberFormat instance should use less than 50KB of memory"
+    measurement: "Memory usage with 100 instances"
+
+# Error Handling Requirements
+x-error-handling:
+  required-errors:
+    - error: RangeError
+      conditions:
+        - "Invalid locale identifier"
+        - "Currency code not ISO 4217 compliant"
+        - "Invalid unit identifier"
+        - "minimumFractionDigits > maximumFractionDigits"
+        - "minimumSignificantDigits > maximumSignificantDigits"
+        - "Digit constraints out of range (0-20 or 1-21)"
+        - "Invalid roundingIncrement value"
+        - "startRange > endRange in formatRange()"
+
+    - error: TypeError
+      conditions:
+        - "Invalid options object type"
+        - "Invalid value type in format() (not number or bigint)"
+        - "Invalid locale type (not string or array)"
+
+# Compliance Requirements
+x-compliance:
+  standards:
+    - name: "ECMAScript 2024"
+      sections:
+        - "ECMA-402: Intl.NumberFormat"
+        - "ECMA-402: Number Format Functions"
+
+    - name: "ISO 4217"
+      description: "Currency code compliance"
+      validation: "All currency codes must be valid ISO 4217 codes"
+
+    - name: "Unicode CLDR"
+      description: "Locale data from Unicode Common Locale Data Repository"
+      version: "≥43"
+
+  locale-support:
+    minimum: ["en-US", "de-DE", "ja-JP", "ar-SA", "zh-CN"]
+    description: "Must support at least these locales with correct formatting rules"
+
+# Integration Requirements
+x-integration:
+  dependencies:
+    - component: "intl_core"
+      apis:
+        - "Locale resolution"
+        - "Locale matching"
+        - "CLDR data access"
+
+    - component: "intl_pluralrules"
+      apis:
+        - "Plural category selection (for compact notation)"
+      optional: true
+
+  exports:
+    - name: "Intl.NumberFormat"
+      type: "constructor"
+      global: true
+
+# Documentation Requirements
+x-documentation:
+  required-sections:
+    - "Constructor parameters and options"
+    - "Method reference (all 5 methods)"
+    - "Style options with examples (decimal, percent, currency, unit)"
+    - "Currency formatting guide (ISO 4217)"
+    - "Unit formatting guide"
+    - "Notation types with examples"
+    - "Rounding modes explanation"
+    - "Performance characteristics"
+    - "Locale support matrix"
+    - "Migration guide from Number.toLocaleString()"
+
+  examples-required: 25
+  api-coverage: "100%"

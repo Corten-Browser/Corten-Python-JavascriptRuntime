@@ -1,0 +1,550 @@
+name: intl_locale
+version: 0.1.0
+type: core
+description: ES2024 Intl.Locale - BCP 47 locale parsing and manipulation (foundation for all Intl components)
+
+api:
+  classes:
+    - name: IntlLocale
+      description: Represents a Unicode BCP 47 locale identifier with rich manipulation capabilities
+      constructor:
+        params:
+          - name: tag
+            type: String
+            description: BCP 47 language tag (e.g., "en-US", "zh-Hans-CN-u-ca-chinese")
+          - name: options
+            type: Object
+            description: |
+              Optional locale options:
+              - language: Override language subtag
+              - script: Override script subtag
+              - region: Override region subtag
+              - calendar: Calendar identifier (e.g., "gregory", "buddhist")
+              - collation: Collation type (e.g., "phonebk", "pinyin")
+              - hourCycle: Hour cycle (e.g., "h11", "h12", "h23", "h24")
+              - caseFirst: Case ordering (e.g., "upper", "lower", "false")
+              - numeric: Numeric collation (true/false)
+              - numberingSystem: Numbering system (e.g., "arab", "hanidec")
+        throws: "RangeError: Invalid language tag"
+        description: Create locale object from BCP 47 tag with optional overrides
+
+      properties:
+        - name: baseName
+          type: String
+          readonly: true
+          description: Complete language tag without extensions (e.g., "en-US")
+
+        - name: language
+          type: String
+          readonly: true
+          description: Language subtag (2-3 letters, e.g., "en", "zh")
+
+        - name: script
+          type: String | undefined
+          readonly: true
+          description: Script subtag (4 letters, e.g., "Latn", "Hans", "Cyrl")
+
+        - name: region
+          type: String | undefined
+          readonly: true
+          description: Region subtag (2 letters or 3 digits, e.g., "US", "CN", "419")
+
+        - name: calendar
+          type: String | undefined
+          readonly: true
+          description: Calendar system from -u-ca- extension (e.g., "gregory", "buddhist", "chinese")
+
+        - name: caseFirst
+          type: String | undefined
+          readonly: true
+          description: Case-first ordering from -u-kf- extension ("upper", "lower", "false")
+
+        - name: collation
+          type: String | undefined
+          readonly: true
+          description: Collation type from -u-co- extension (e.g., "phonebk", "pinyin")
+
+        - name: hourCycle
+          type: String | undefined
+          readonly: true
+          description: Hour cycle from -u-hc- extension ("h11", "h12", "h23", "h24")
+
+        - name: numeric
+          type: Boolean | undefined
+          readonly: true
+          description: Numeric collation from -u-kn- extension (true/false)
+
+        - name: numberingSystem
+          type: String | undefined
+          readonly: true
+          description: Numbering system from -u-nu- extension (e.g., "latn", "arab", "hanidec")
+
+      methods:
+        - name: maximize
+          params: []
+          returns:
+            type: Locale
+            description: New locale with likely subtags added
+          description: |
+            Add likely subtags using Unicode CLDR data.
+            Example: "en" -> "en-Latn-US"
+
+        - name: minimize
+          params: []
+          returns:
+            type: Locale
+            description: New locale with likely subtags removed
+          description: |
+            Remove likely subtags using Unicode CLDR data.
+            Example: "en-Latn-US" -> "en"
+
+        - name: toString
+          params: []
+          returns:
+            type: String
+            description: Canonical BCP 47 locale identifier
+          description: |
+            Serialize to canonical BCP 47 format.
+            Example: Locale("en-us") -> "en-US" (canonicalized case)
+
+    - name: BCP47Parser
+      description: Internal BCP 47 language tag parser
+      methods:
+        - name: parse
+          params:
+            - name: tag
+              type: String
+              description: BCP 47 language tag
+          returns:
+            type: Object
+            description: |
+              Parsed components:
+              - language: Language subtag (required)
+              - script: Script subtag (optional)
+              - region: Region subtag (optional)
+              - variants: Array of variant subtags
+              - extensions: Map of extension singletons to values
+              - privateUse: Private use subtags
+          throws: "RangeError: Invalid language tag"
+          description: Parse BCP 47 tag into structured components
+
+        - name: canonicalize
+          params:
+            - name: tag
+              type: String
+              description: BCP 47 language tag
+          returns:
+            type: String
+            description: Canonicalized tag (proper casing)
+          description: |
+            Canonicalize BCP 47 tag:
+            - Language: lowercase (en, not EN)
+            - Script: Title case (Latn, not LATN)
+            - Region: uppercase (US, not us)
+            - Extensions: lowercase keys, canonical values
+
+        - name: validate
+          params:
+            - name: tag
+              type: String
+              description: BCP 47 language tag
+          returns:
+            type: bool
+            description: True if valid BCP 47 tag
+          description: Validate tag structure per BCP 47 grammar
+
+    - name: UnicodeExtensionParser
+      description: Parser for Unicode locale extension (-u-)
+      methods:
+        - name: parse_extension
+          params:
+            - name: extension
+              type: String
+              description: Unicode extension string (e.g., "ca-chinese-nu-hanidec")
+          returns:
+            type: Map
+            description: Map of extension keys to values
+          description: Parse -u- extension into key-value pairs
+
+        - name: get_calendar
+          params:
+            - name: extensions
+              type: Map
+              description: Parsed extensions
+          returns:
+            type: String | undefined
+            description: Calendar identifier
+          description: Extract calendar from -u-ca- key
+
+        - name: get_collation
+          params:
+            - name: extensions
+              type: Map
+              description: Parsed extensions
+          returns:
+            type: String | undefined
+            description: Collation type
+          description: Extract collation from -u-co- key
+
+        - name: get_hour_cycle
+          params:
+            - name: extensions
+              type: Map
+              description: Parsed extensions
+          returns:
+            type: String | undefined
+            description: Hour cycle
+          description: Extract hour cycle from -u-hc- key
+
+        - name: get_case_first
+          params:
+            - name: extensions
+              type: Map
+              description: Parsed extensions
+          returns:
+            type: String | undefined
+            description: Case-first ordering
+          description: Extract case-first from -u-kf- key
+
+        - name: get_numeric
+          params:
+            - name: extensions
+              type: Map
+              description: Parsed extensions
+          returns:
+            type: Boolean | undefined
+            description: Numeric collation flag
+          description: Extract numeric from -u-kn- key
+
+        - name: get_numbering_system
+          params:
+            - name: extensions
+              type: Map
+              description: Parsed extensions
+          returns:
+            type: String | undefined
+            description: Numbering system
+          description: Extract numbering system from -u-nu- key
+
+    - name: LocaleLikelySubtags
+      description: Likely subtag computation using Unicode CLDR data
+      methods:
+        - name: add_likely_subtags
+          params:
+            - name: language
+              type: String
+              description: Language code
+            - name: script
+              type: String | undefined
+              description: Script code (optional)
+            - name: region
+              type: String | undefined
+              description: Region code (optional)
+          returns:
+            type: Object
+            description: |
+              Object with filled subtags:
+              - language: Language (unchanged)
+              - script: Script (added if missing)
+              - region: Region (added if missing)
+          description: |
+            Add likely script and region using CLDR data.
+            Example: ("en", undefined, undefined) -> {language: "en", script: "Latn", region: "US"}
+
+        - name: remove_likely_subtags
+          params:
+            - name: language
+              type: String
+              description: Language code
+            - name: script
+              type: String | undefined
+              description: Script code
+            - name: region
+              type: String | undefined
+              description: Region code
+          returns:
+            type: Object
+            description: |
+              Object with minimal subtags:
+              - language: Language (unchanged)
+              - script: Script (removed if likely)
+              - region: Region (removed if likely)
+          description: |
+            Remove likely subtags using CLDR data.
+            Example: ("en", "Latn", "US") -> {language: "en", script: undefined, region: undefined}
+
+    - name: LocaleValidation
+      description: Locale validation utilities
+      methods:
+        - name: validate_language
+          params:
+            - name: language
+              type: String
+              description: Language subtag
+          returns:
+            type: bool
+            description: True if valid
+          description: Validate language subtag (2-3 letters, ISO 639)
+
+        - name: validate_script
+          params:
+            - name: script
+              type: String
+              description: Script subtag
+          returns:
+            type: bool
+            description: True if valid
+          description: Validate script subtag (4 letters, ISO 15924)
+
+        - name: validate_region
+          params:
+            - name: region
+              type: String
+              description: Region subtag
+          returns:
+            type: bool
+            description: True if valid
+          description: Validate region subtag (2 letters ISO 3166-1 or 3 digits UN M.49)
+
+        - name: validate_calendar
+          params:
+            - name: calendar
+              type: String
+              description: Calendar identifier
+          returns:
+            type: bool
+            description: True if valid
+          description: Validate calendar identifier against Unicode CLDR
+
+        - name: validate_numbering_system
+          params:
+            - name: numberingSystem
+              type: String
+              description: Numbering system identifier
+          returns:
+            type: bool
+            description: True if valid
+          description: Validate numbering system against Unicode CLDR
+
+dependencies:
+  - name: shared_types
+    version: "^0.2.0"
+    imports:
+      - JSValue
+      - JSString
+      - JSObject
+      - JSBoolean
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - ValueType
+      - create_string
+      - create_boolean
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - create_object
+      - define_property
+
+external_dependencies:
+  - name: Unicode CLDR Likely Subtags
+    version: ">=44.0"
+    description: Unicode Common Locale Data Repository for likely subtag data
+    source: https://github.com/unicode-org/cldr
+    required_data:
+      - likelySubtags.xml (language-script-region mappings)
+
+requirements:
+  functional:
+    - FR-ES24-C-055: Intl.Locale constructor - Create locale from BCP 47 tag with options
+    - FR-ES24-C-056: Locale parsing - Parse BCP 47 strings per RFC 5646
+    - FR-ES24-C-057: Language subtag - baseName and language properties
+    - FR-ES24-C-058: Script subtag - script property (ISO 15924)
+    - FR-ES24-C-059: Region subtag - region property (ISO 3166-1 or UN M.49)
+    - FR-ES24-C-060: Locale extensions - Unicode extension (-u-) handling
+    - FR-ES24-C-061: Calendar extension - calendar property from -u-ca-
+    - FR-ES24-C-062: Numbering system - numberingSystem property from -u-nu-
+    - FR-ES24-C-063: maximize() method - Add likely subtags using CLDR
+    - FR-ES24-C-064: minimize() method - Remove likely subtags using CLDR
+    - FR-ES24-C-065: toString() method - Serialize to canonical BCP 47
+
+  non_functional:
+    - Locale construction <1ms (simple tags)
+    - BCP 47 parsing <500µs per tag
+    - Likely subtag lookup <100µs (CLDR hash table)
+    - Memory: <1KB per locale object
+    - Thread-safe CLDR data access
+
+  testing:
+    - Minimum 101 unit tests (≥9 per requirement)
+    - Test coverage ≥90%
+    - Test262 compliance for Intl.Locale tests
+    - Edge case tests:
+      - Invalid language tags (malformed)
+      - Case normalization (EN-us -> en-US)
+      - Extension parsing (multiple -u- keys)
+      - Option overrides (tag vs options)
+      - maximize/minimize round trips
+      - Private use subtags (-x-)
+      - Grandfathered tags (i-default, i-klingon)
+      - Empty/missing subtags
+      - Unicode extension edge cases
+      - All calendar types (gregory, buddhist, chinese, etc.)
+      - All numbering systems (latn, arab, hanidec, etc.)
+
+performance:
+  locale_construction: "<1ms for simple tags"
+  bcp47_parsing: "<500µs per tag"
+  likely_subtag_lookup: "<100µs (CLDR hash)"
+  memory_per_locale: "<1KB"
+  cldr_data_size: "<500KB (compressed likely subtags)"
+
+error_types:
+  - name: RangeError
+    cases:
+      - Invalid language tag structure
+      - Invalid language subtag (not 2-3 letters)
+      - Invalid script subtag (not 4 letters)
+      - Invalid region subtag (not 2 letters or 3 digits)
+      - Invalid calendar identifier
+      - Invalid numbering system identifier
+      - Invalid hour cycle value
+      - Malformed Unicode extension
+
+validation_rules:
+  bcp47_grammar:
+    language: "[a-z]{2,3}"
+    script: "[A-Z][a-z]{3}"
+    region: "[A-Z]{2}|[0-9]{3}"
+    variant: "[a-z0-9]{5,8}|[0-9][a-z0-9]{3}"
+    extension: "[0-9a-z](-[a-z0-9]{2,8})+"
+    privateuse: "x(-[a-z0-9]{1,8})+"
+
+  unicode_extension_keys:
+    ca: "calendar"
+    co: "collation"
+    hc: "hourCycle"
+    kf: "caseFirst"
+    kn: "numeric"
+    nu: "numberingSystem"
+
+  canonical_values:
+    calendar:
+      - gregory (Gregorian)
+      - buddhist (Buddhist)
+      - chinese (Chinese)
+      - coptic (Coptic)
+      - dangi (Dangi)
+      - ethioaa (Ethiopic Amete Alem)
+      - ethiopic (Ethiopic)
+      - hebrew (Hebrew)
+      - indian (Indian)
+      - islamic (Islamic)
+      - islamic-civil (Islamic Civil)
+      - islamic-rgsa (Islamic Umm al-Qura)
+      - islamic-tbla (Islamic Tabular)
+      - islamic-umalqura (Islamic Umm al-Qura)
+      - iso8601 (ISO-8601)
+      - japanese (Japanese)
+      - persian (Persian)
+      - roc (ROC/Minguo)
+
+    numberingSystem:
+      - arab (Arabic-Indic)
+      - arabext (Extended Arabic-Indic)
+      - bali (Balinese)
+      - beng (Bengali)
+      - deva (Devanagari)
+      - fullwide (Full Width)
+      - gujr (Gujarati)
+      - guru (Gurmukhi)
+      - hanidec (Han Decimal)
+      - khmr (Khmer)
+      - knda (Kannada)
+      - laoo (Lao)
+      - latn (Latin)
+      - limb (Limbu)
+      - mlym (Malayalam)
+      - mong (Mongolian)
+      - mymr (Myanmar)
+      - orya (Oriya)
+      - tamldec (Tamil)
+      - telu (Telugu)
+      - thai (Thai)
+      - tibt (Tibetan)
+
+    hourCycle:
+      - h11 (0-11)
+      - h12 (1-12)
+      - h23 (0-23)
+      - h24 (1-24)
+
+    caseFirst:
+      - upper (Upper case first)
+      - lower (Lower case first)
+      - "false" (No special case ordering)
+
+examples:
+  basic_construction:
+    code: |
+      // Simple locale
+      const locale = new Intl.Locale("en-US");
+      console.log(locale.language);  // "en"
+      console.log(locale.region);    // "US"
+      console.log(locale.baseName);  // "en-US"
+
+  with_options:
+    code: |
+      // Locale with options
+      const locale = new Intl.Locale("en", {
+        region: "GB",
+        calendar: "gregory",
+        numberingSystem: "latn"
+      });
+      console.log(locale.toString());  // "en-GB-u-ca-gregory-nu-latn"
+
+  extensions:
+    code: |
+      // Unicode extensions
+      const locale = new Intl.Locale("zh-Hans-CN-u-ca-chinese-nu-hanidec");
+      console.log(locale.language);        // "zh"
+      console.log(locale.script);          // "Hans"
+      console.log(locale.region);          // "CN"
+      console.log(locale.calendar);        // "chinese"
+      console.log(locale.numberingSystem); // "hanidec"
+
+  maximize:
+    code: |
+      // Add likely subtags
+      const locale = new Intl.Locale("en");
+      const maximized = locale.maximize();
+      console.log(maximized.toString());  // "en-Latn-US"
+
+  minimize:
+    code: |
+      // Remove likely subtags
+      const locale = new Intl.Locale("en-Latn-US");
+      const minimized = locale.minimize();
+      console.log(minimized.toString());  // "en"
+
+  canonicalization:
+    code: |
+      // Case canonicalization
+      const locale = new Intl.Locale("EN-us");
+      console.log(locale.toString());  // "en-US" (canonicalized)
+
+  option_override:
+    code: |
+      // Options override tag
+      const locale = new Intl.Locale("en-US-u-ca-buddhist", {
+        calendar: "gregory"
+      });
+      console.log(locale.calendar);  // "gregory" (option overrides tag)
+
+  round_trip:
+    code: |
+      // Maximize then minimize
+      const locale = new Intl.Locale("ja");
+      const max = locale.maximize();  // "ja-Jpan-JP"
+      const min = max.minimize();     // "ja"
+      console.log(locale.toString() === min.toString());  // true

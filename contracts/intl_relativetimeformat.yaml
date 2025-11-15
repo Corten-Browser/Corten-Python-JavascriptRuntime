@@ -1,0 +1,563 @@
+name: intl_relativetimeformat
+version: 0.1.0
+type: feature
+description: ES2024 Wave C Intl.RelativeTimeFormat for locale-aware relative time formatting
+level: 2
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+      - JSArray
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - ValueType
+      - is_callable
+
+api:
+  classes:
+    - name: RelativeTimeFormat
+      description: Intl.RelativeTimeFormat constructor for locale-aware relative time formatting
+      constructor:
+        params:
+          - name: locales
+            type: String|Array
+            description: BCP 47 language tag(s) or array of language tags
+            optional: true
+            default: default locale
+          - name: options
+            type: Object
+            description: Options object for customizing formatting
+            optional: true
+            fields:
+              - name: localeMatcher
+                type: String
+                values: ["lookup", "best fit"]
+                default: "best fit"
+                description: Locale matching algorithm
+              - name: numeric
+                type: String
+                values: ["always", "auto"]
+                default: "always"
+                description: Whether to use numeric values always or auto ("yesterday" vs "1 day ago")
+              - name: style
+                type: String
+                values: ["long", "short", "narrow"]
+                default: "long"
+                description: Formatting style for the output
+        returns:
+          type: RelativeTimeFormat
+          description: New RelativeTimeFormat instance
+        description: Create RelativeTimeFormat instance with locale and options
+        raises:
+          - RangeError: Invalid locale or option values
+
+      methods:
+        - name: format
+          params:
+            - name: value
+              type: Number
+              description: Numeric value for the relative time (positive for future, negative for past)
+            - name: unit
+              type: String
+              description: Unit of time
+              values: ["year", "years", "quarter", "quarters", "month", "months", "week", "weeks", "day", "days", "hour", "hours", "minute", "minutes", "second", "seconds"]
+          returns:
+            type: String
+            description: Formatted relative time string
+          description: Format relative time as a localized string
+          examples:
+            - input: "format(-1, 'day')"
+              output: "1 day ago"
+              locale: "en-US"
+              style: "long"
+            - input: "format(2, 'day')"
+              output: "in 2 days"
+              locale: "en-US"
+              style: "long"
+            - input: "format(-1, 'day')"
+              output: "yesterday"
+              locale: "en-US"
+              numeric: "auto"
+            - input: "format(2, 'hour')"
+              output: "in 2 hr."
+              locale: "en-US"
+              style: "short"
+            - input: "format(-3, 'month')"
+              output: "3 mo. ago"
+              locale: "en-US"
+              style: "narrow"
+          raises:
+            - TypeError: If value is not a number
+            - RangeError: If unit is not valid
+
+        - name: formatToParts
+          params:
+            - name: value
+              type: Number
+              description: Numeric value for the relative time
+            - name: unit
+              type: String
+              description: Unit of time
+              values: ["year", "years", "quarter", "quarters", "month", "months", "week", "weeks", "day", "days", "hour", "hours", "minute", "minutes", "second", "seconds"]
+          returns:
+            type: Array
+            description: Array of objects with type and value properties
+            element_schema:
+              - name: type
+                type: String
+                values: ["literal", "integer"]
+                description: Part type
+              - name: value
+                type: String
+                description: Part value
+          description: Format relative time as array of parts for custom formatting
+          examples:
+            - input: "formatToParts(-1, 'day')"
+              output: '[{type: "integer", value: "1"}, {type: "literal", value: " day ago"}]'
+              locale: "en-US"
+              style: "long"
+            - input: "formatToParts(2, 'hour')"
+              output: '[{type: "literal", value: "in "}, {type: "integer", value: "2"}, {type: "literal", value: " hours"}]'
+              locale: "en-US"
+              style: "long"
+          raises:
+            - TypeError: If value is not a number
+            - RangeError: If unit is not valid
+
+        - name: resolvedOptions
+          params: []
+          returns:
+            type: Object
+            description: Object with resolved options
+            fields:
+              - name: locale
+                type: String
+                description: Resolved BCP 47 locale
+              - name: style
+                type: String
+                values: ["long", "short", "narrow"]
+                description: Resolved style option
+              - name: numeric
+                type: String
+                values: ["always", "auto"]
+                description: Resolved numeric option
+              - name: numberingSystem
+                type: String
+                description: Numbering system (e.g., "latn")
+          description: Return resolved options used by formatter
+          examples:
+            - code: |
+                const rtf = new Intl.RelativeTimeFormat('en-US', {
+                  style: 'short',
+                  numeric: 'auto'
+                });
+                rtf.resolvedOptions();
+                // {locale: "en-US", style: "short", numeric: "auto", numberingSystem: "latn"}
+
+    - name: RelativeTimeFormatOptions
+      description: Options validator for RelativeTimeFormat
+      methods:
+        - name: validate_style
+          params:
+            - name: style
+              type: String
+              description: Style value to validate
+          returns:
+            type: String
+            description: Validated style ("long", "short", or "narrow")
+          raises:
+            - RangeError: If style is not one of the valid values
+          description: Validate and normalize style option
+
+        - name: validate_numeric
+          params:
+            - name: numeric
+              type: String
+              description: Numeric value to validate
+          returns:
+            type: String
+            description: Validated numeric ("always" or "auto")
+          raises:
+            - RangeError: If numeric is not one of the valid values
+          description: Validate and normalize numeric option
+
+        - name: validate_unit
+          params:
+            - name: unit
+              type: String
+              description: Time unit to validate
+          returns:
+            type: String
+            description: Normalized unit (singular form)
+          raises:
+            - RangeError: If unit is not valid
+          description: Validate and normalize time unit (accepts singular/plural)
+
+    - name: RelativeTimeFormatter
+      description: Core formatter implementation
+      methods:
+        - name: format_numeric
+          params:
+            - name: value
+              type: Number
+              description: Numeric value
+            - name: unit
+              type: String
+              description: Time unit
+            - name: locale
+              type: String
+              description: BCP 47 locale
+            - name: style
+              type: String
+              description: Formatting style
+          returns:
+            type: String
+            description: Formatted string (always numeric)
+          description: Format using numeric mode (always shows number)
+
+        - name: format_auto
+          params:
+            - name: value
+              type: Number
+              description: Numeric value
+            - name: unit
+              type: String
+              description: Time unit
+            - name: locale
+              type: String
+              description: BCP 47 locale
+            - name: style
+              type: String
+              description: Formatting style
+          returns:
+            type: String
+            description: Formatted string (may use words like "yesterday")
+          description: Format using auto mode (uses words when available)
+
+        - name: split_to_parts
+          params:
+            - name: formatted_string
+              type: String
+              description: Formatted relative time string
+            - name: value
+              type: Number
+              description: Original numeric value
+          returns:
+            type: Array
+            description: Array of {type, value} objects
+          description: Split formatted string into parts (literal and integer)
+
+semantics:
+  constructor_behavior:
+    description: Create RelativeTimeFormat with locale resolution
+    steps:
+      - step: 1
+        action: Resolve locale using localeMatcher algorithm
+      - step: 2
+        action: Validate and normalize options (style, numeric)
+      - step: 3
+        action: Create internal state with resolved locale and options
+      - step: 4
+        action: Return new RelativeTimeFormat instance
+    defaults:
+      locale: User's default locale or "en-US"
+      style: "long"
+      numeric: "always"
+      localeMatcher: "best fit"
+
+  numeric_modes:
+    always:
+      description: Always use numeric values
+      examples:
+        - value: -1
+          unit: "day"
+          output: "1 day ago"
+        - value: 1
+          unit: "day"
+          output: "in 1 day"
+        - value: -7
+          unit: "day"
+          output: "7 days ago"
+    auto:
+      description: Use words when available for -1, 0, 1
+      examples:
+        - value: -1
+          unit: "day"
+          output: "yesterday"
+        - value: 0
+          unit: "day"
+          output: "today"
+        - value: 1
+          unit: "day"
+          output: "tomorrow"
+        - value: -2
+          unit: "day"
+          output: "2 days ago"
+        - value: -1
+          unit: "week"
+          output: "last week"
+        - value: 1
+          unit: "week"
+          output: "next week"
+
+  style_variations:
+    long:
+      description: Full words and phrases
+      examples:
+        - "1 day ago"
+        - "in 2 hours"
+        - "3 months ago"
+    short:
+      description: Abbreviated forms
+      examples:
+        - "1 day ago"
+        - "in 2 hr."
+        - "3 mo. ago"
+    narrow:
+      description: Shortest possible forms
+      examples:
+        - "1d ago"
+        - "in 2h"
+        - "3mo ago"
+
+  unit_handling:
+    supported_units:
+      - year/years
+      - quarter/quarters
+      - month/months
+      - week/weeks
+      - day/days
+      - hour/hours
+      - minute/minutes
+      - second/seconds
+    normalization:
+      - Both singular and plural forms accepted
+      - Normalized to singular internally
+      - "day" and "days" are equivalent
+
+  parts_structure:
+    description: formatToParts returns array of {type, value} objects
+    part_types:
+      - literal: Text portions (e.g., "in ", " days", " ago")
+      - integer: Numeric portions (e.g., "1", "2", "10")
+    ordering:
+      past: '[{integer}, {literal: " ... ago"}]'
+      future: '[{literal: "in "}, {integer}, {literal: " ..."}]'
+
+errors:
+  - name: RangeError
+    conditions:
+      - Invalid locale specified
+      - Invalid style option (not "long", "short", or "narrow")
+      - Invalid numeric option (not "always" or "auto")
+      - Invalid unit (not a supported time unit)
+    message_patterns:
+      - "Invalid language tag: {locale}"
+      - "Invalid value for option 'style'"
+      - "Invalid value for option 'numeric'"
+      - "Invalid unit argument: {unit}"
+
+  - name: TypeError
+    conditions:
+      - value parameter is not a number
+      - unit parameter is not a string
+      - options is not an object
+    message_patterns:
+      - "Value must be a number"
+      - "Unit must be a string"
+      - "Options must be an object"
+
+requirements:
+  functional:
+    - id: FR-ES24-C-037
+      description: "Intl.RelativeTimeFormat constructor with locale and options"
+      implementation:
+        - Accept locales (string or array)
+        - Accept options object (style, numeric, localeMatcher)
+        - Resolve locale using BCP 47 algorithm
+        - Validate and normalize all options
+      test_count: 12
+
+    - id: FR-ES24-C-038
+      description: "format() method - Format relative time as string"
+      implementation:
+        - Accept value (number) and unit (string)
+        - Format based on locale, style, and numeric options
+        - Return localized string
+        - Handle positive (future) and negative (past) values
+      test_count: 15
+
+    - id: FR-ES24-C-039
+      description: "formatToParts() method - Format as array of parts"
+      implementation:
+        - Accept value and unit
+        - Return array of {type, value} objects
+        - Split into literal and integer parts
+        - Maintain locale-specific ordering
+      test_count: 10
+
+    - id: FR-ES24-C-040
+      description: "Style option - long, short, narrow formatting"
+      implementation:
+        - Long: Full words ("1 day ago", "in 2 hours")
+        - Short: Abbreviated ("1 day ago", "in 2 hr.")
+        - Narrow: Minimal ("1d ago", "in 2h")
+        - Locale-specific variations
+      test_count: 9
+
+    - id: FR-ES24-C-041
+      description: "Numeric option - always vs auto mode"
+      implementation:
+        - Always: Always numeric ("1 day ago")
+        - Auto: Use words when available ("yesterday", "tomorrow", "last week")
+        - Auto for -1, 0, 1 in common units
+        - Fall back to numeric for other values
+      test_count: 12
+
+    - id: FR-ES24-C-042
+      description: "resolvedOptions() method - Return resolved options"
+      implementation:
+        - Return object with locale, style, numeric, numberingSystem
+        - Reflect actual resolved values (not input values)
+        - Include resolved locale (may differ from requested)
+      test_count: 6
+
+  non_functional:
+    - Constructor instantiation <3ms per instance
+    - format() execution <500µs per call
+    - formatToParts() execution <800µs per call
+    - resolvedOptions() <100µs per call
+    - Memory overhead <2KB per instance
+
+  testing:
+    minimum_tests: 54
+    coverage_target: 90%
+    test_categories:
+      - Constructor with various locales and options
+      - format() with all units and styles
+      - formatToParts() output validation
+      - Style variations (long, short, narrow)
+      - Numeric mode (always vs auto)
+      - resolvedOptions() correctness
+      - Error conditions (invalid locales, options, units)
+      - Edge cases (zero, large numbers, fractional values)
+      - Locale-specific formatting
+      - Unit normalization (singular/plural)
+
+    test262_compliance:
+      expected_tests: ~60
+      test_paths:
+        - test/intl402/RelativeTimeFormat/*
+
+performance:
+  constructor_time: "<3ms per instance"
+  format_time: "<500µs per call"
+  formatToParts_time: "<800µs per call"
+  resolvedOptions_time: "<100µs per call"
+  memory_per_instance: "<2KB"
+
+integration:
+  with_object_runtime:
+    - RelativeTimeFormat is a JSObject
+    - Prototype chain: RelativeTimeFormat.prototype
+    - Constructor property management
+
+  with_value_system:
+    - Type checking for value parameter
+    - Number coercion for numeric values
+    - String validation for unit and options
+
+examples:
+  basic_format:
+    description: Basic relative time formatting
+    code: |
+      const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
+
+      rtf.format(-1, 'day');   // "yesterday"
+      rtf.format(0, 'day');    // "today"
+      rtf.format(1, 'day');    // "tomorrow"
+      rtf.format(2, 'day');    // "in 2 days"
+      rtf.format(-2, 'day');   // "2 days ago"
+
+  style_variations:
+    description: Different style options
+    code: |
+      const rtfLong = new Intl.RelativeTimeFormat('en-US', { style: 'long' });
+      const rtfShort = new Intl.RelativeTimeFormat('en-US', { style: 'short' });
+      const rtfNarrow = new Intl.RelativeTimeFormat('en-US', { style: 'narrow' });
+
+      rtfLong.format(-2, 'hour');    // "2 hours ago"
+      rtfShort.format(-2, 'hour');   // "2 hr. ago"
+      rtfNarrow.format(-2, 'hour');  // "2h ago"
+
+  numeric_modes:
+    description: Numeric always vs auto
+    code: |
+      const rtfAlways = new Intl.RelativeTimeFormat('en-US', { numeric: 'always' });
+      const rtfAuto = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
+
+      rtfAlways.format(-1, 'day');  // "1 day ago"
+      rtfAuto.format(-1, 'day');    // "yesterday"
+
+      rtfAlways.format(1, 'week');  // "in 1 week"
+      rtfAuto.format(1, 'week');    // "next week"
+
+  formatToParts_example:
+    description: Format to parts for custom rendering
+    code: |
+      const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' });
+
+      rtf.formatToParts(-1, 'day');
+      // [{type: "literal", value: "yesterday"}]
+
+      rtf.formatToParts(2, 'day');
+      // [
+      //   {type: "literal", value: "in "},
+      //   {type: "integer", value: "2"},
+      //   {type: "literal", value: " days"}
+      // ]
+
+  resolvedOptions_example:
+    description: Inspect resolved options
+    code: |
+      const rtf = new Intl.RelativeTimeFormat('en-US', {
+        style: 'short',
+        numeric: 'auto'
+      });
+
+      rtf.resolvedOptions();
+      // {
+      //   locale: "en-US",
+      //   style: "short",
+      //   numeric: "auto",
+      //   numberingSystem: "latn"
+      // }
+
+  locale_variations:
+    description: Different locales produce different output
+    code: |
+      const rtfEN = new Intl.RelativeTimeFormat('en-US');
+      const rtfES = new Intl.RelativeTimeFormat('es-ES');
+      const rtfFR = new Intl.RelativeTimeFormat('fr-FR');
+
+      rtfEN.format(-2, 'day');  // "2 days ago"
+      rtfES.format(-2, 'day');  // "hace 2 días"
+      rtfFR.format(-2, 'day');  // "il y a 2 jours"
+
+  all_units:
+    description: All supported time units
+    code: |
+      const rtf = new Intl.RelativeTimeFormat('en-US');
+
+      rtf.format(1, 'second');   // "in 1 second"
+      rtf.format(1, 'minute');   // "in 1 minute"
+      rtf.format(1, 'hour');     // "in 1 hour"
+      rtf.format(1, 'day');      // "in 1 day"
+      rtf.format(1, 'week');     // "in 1 week"
+      rtf.format(1, 'month');    // "in 1 month"
+      rtf.format(1, 'quarter');  // "in 1 quarter"
+      rtf.format(1, 'year');     // "in 1 year"

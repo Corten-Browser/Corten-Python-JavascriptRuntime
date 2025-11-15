@@ -1,0 +1,585 @@
+name: intl_listformat
+version: 0.1.0
+type: feature
+description: ES2021 Intl.ListFormat for locale-aware list formatting
+level: 2
+
+dependencies:
+  - name: value_system
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSString
+      - JSArray
+      - JSObject
+  - name: intl_core
+    version: "^0.1.0"
+    imports:
+      - LocaleResolver
+      - OptionValidator
+      - CanonicalizeLocaleList
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSObject
+      - CreateDataProperty
+
+api:
+  classes:
+    - name: IntlListFormat
+      description: Locale-sensitive list formatting
+      methods:
+        - name: __init__
+          params:
+            - name: locales
+              type: Union[str, List[str], None]
+              description: BCP 47 language tag(s) or undefined
+            - name: options
+              type: Dict[str, Any]
+              description: Formatting options (type, style)
+          returns:
+            type: IntlListFormat
+          description: Create new Intl.ListFormat instance
+          raises:
+            - RangeError: Invalid locale or option value
+            - TypeError: Options is not an object
+          semantics:
+            - Canonicalize locale list
+            - Resolve locale with supported locales
+            - Validate and normalize options
+            - Store resolved locale and options
+
+        - name: format
+          params:
+            - name: list
+              type: Iterable[Any]
+              description: List of values to format
+          returns:
+            type: str
+            description: Formatted list string
+          description: Format list according to locale and options
+          raises:
+            - TypeError: list is not iterable
+          semantics:
+            - Convert list items to strings
+            - Apply locale-specific list formatting
+            - Use appropriate conjunctions/disjunctions
+            - Apply style (long/short/narrow)
+          performance: "<1ms for 10 items"
+
+        - name: formatToParts
+          params:
+            - name: list
+              type: Iterable[Any]
+              description: List of values to format
+          returns:
+            type: Array[Dict[str, str]]
+            description: Array of parts with type and value
+          description: Format list returning parts for each element
+          raises:
+            - TypeError: list is not iterable
+          semantics:
+            - Convert list items to strings
+            - Generate parts for elements and literals
+            - Each part has {type: "element"|"literal", value: string}
+            - Preserve locale-specific separators
+          performance: "<1.5ms for 10 items"
+
+        - name: resolvedOptions
+          params: []
+          returns:
+            type: Dict[str, str]
+            description: Object with resolved locale and options
+          description: Return resolved locale and formatting options
+          semantics:
+            - Return object with locale, type, and style
+            - Values reflect actual resolved options (not input)
+          performance: "<100ns"
+
+      properties:
+        - name: [[Locale]]
+          type: str
+          description: Internal slot - resolved locale
+          internal: true
+
+        - name: [[Type]]
+          type: str
+          description: Internal slot - list type (conjunction/disjunction/unit)
+          internal: true
+
+        - name: [[Style]]
+          type: str
+          description: Internal slot - style (long/short/narrow)
+          internal: true
+
+    - name: ListFormatEngine
+      description: Core list formatting logic
+      methods:
+        - name: __init__
+          params:
+            - name: locale
+              type: str
+              description: Resolved locale
+            - name: type
+              type: str
+              description: List type (conjunction/disjunction/unit)
+            - name: style
+              type: str
+              description: Style (long/short/narrow)
+          returns:
+            type: None
+          description: Initialize list format engine
+
+        - name: format_list
+          params:
+            - name: items
+              type: List[str]
+              description: String items to format
+          returns:
+            type: str
+            description: Formatted list
+          description: Apply locale-specific list formatting
+          semantics:
+            - Handle empty list (return empty string)
+            - Handle single item (return item)
+            - Handle two items (use pair pattern)
+            - Handle 3+ items (use start/middle/end patterns)
+            - Apply type-specific conjunctions
+
+        - name: format_list_to_parts
+          params:
+            - name: items
+              type: List[str]
+              description: String items to format
+          returns:
+            type: List[Dict[str, str]]
+            description: Parts array
+          description: Format list to parts
+          semantics:
+            - Generate element parts for each item
+            - Generate literal parts for separators
+            - Maintain order and structure
+
+        - name: get_pattern
+          params:
+            - name: pattern_type
+              type: str
+              description: Pattern type (start/middle/end/pair/2/etc)
+          returns:
+            type: str
+            description: Locale-specific pattern
+          description: Get formatting pattern for locale
+
+    - name: ListPatternProvider
+      description: Provides locale-specific list formatting patterns
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize pattern provider
+
+        - name: get_patterns
+          params:
+            - name: locale
+              type: str
+              description: BCP 47 locale
+            - name: type
+              type: str
+              description: List type
+            - name: style
+              type: str
+              description: Style
+          returns:
+            type: ListPatterns
+            description: Patterns for locale/type/style
+          description: Get list formatting patterns
+          semantics:
+            - Load from CLDR data
+            - Fall back to parent locale if needed
+            - Fall back to en-US if locale unavailable
+
+  structs:
+    - name: ListPatterns
+      description: List formatting patterns for a locale
+      fields:
+        - name: start
+          type: str
+          description: Pattern for first element (e.g., "{0}, {1}")
+
+        - name: middle
+          type: str
+          description: Pattern for middle elements (e.g., "{0}, {1}")
+
+        - name: end
+          type: str
+          description: Pattern for last element (e.g., "{0}, and {1}")
+
+        - name: pair
+          type: str
+          description: Pattern for two-element list (e.g., "{0} and {1}")
+
+        - name: two
+          type: str
+          description: Alternative pattern for exactly two elements
+          optional: true
+
+    - name: ListFormatOptions
+      description: Options for list formatting
+      fields:
+        - name: localeMatcher
+          type: str
+          description: Locale matching algorithm ("lookup" or "best fit")
+          default: "best fit"
+
+        - name: type
+          type: str
+          description: List type ("conjunction", "disjunction", or "unit")
+          default: "conjunction"
+
+        - name: style
+          type: str
+          description: Format style ("long", "short", or "narrow")
+          default: "long"
+
+  functions:
+    - name: SupportedLocalesOf
+      params:
+        - name: locales
+          type: Union[str, List[str]]
+          description: BCP 47 language tags
+        - name: options
+          type: Dict[str, Any]
+          description: Options with localeMatcher
+      returns:
+        type: Array[str]
+        description: Subset of supported locales
+      description: Return supported locales from requested list
+
+    - name: CanonicalizeListFormatLocaleList
+      params:
+        - name: locales
+          type: Any
+          description: Locale or list of locales
+      returns:
+        type: List[str]
+        description: Canonicalized locale list
+      description: Canonicalize and validate locale list
+
+    - name: CreateListFormatPart
+      params:
+        - name: type
+          type: str
+          description: Part type ("element" or "literal")
+        - name: value
+          type: str
+          description: Part value
+      returns:
+        type: Dict[str, str]
+        description: Part object
+      description: Create a list format part object
+
+# Execution Semantics
+semantics:
+  constructor:
+    description: new Intl.ListFormat(locales, options)
+    steps:
+      - step: 1
+        action: Canonicalize locale list from locales parameter
+      - step: 2
+        action: Get option localeMatcher (default "best fit")
+      - step: 3
+        action: Get option type (default "conjunction")
+      - step: 4
+        action: Validate type is "conjunction", "disjunction", or "unit"
+      - step: 5
+        action: Get option style (default "long")
+      - step: 6
+        action: Validate style is "long", "short", or "narrow"
+      - step: 7
+        action: Resolve locale using requested locales and localeMatcher
+      - step: 8
+        action: Store [[Locale]], [[Type]], [[Style]] in internal slots
+    guarantees:
+      - Constructor always succeeds with valid inputs
+      - Invalid options throw RangeError
+      - Locale resolution follows ECMA-402 algorithm
+
+  format_method:
+    description: formatter.format(list)
+    steps:
+      - step: 1
+        action: Create empty array result
+      - step: 2
+        action: For each item in list, convert to string and add to result
+      - step: 3
+        action: If result is empty, return empty string
+      - step: 4
+        action: Apply list formatting patterns for locale/type/style
+      - step: 5
+        action: Return formatted string
+    examples:
+      - code: |
+          const lf = new Intl.ListFormat('en', { type: 'conjunction' });
+          lf.format(['a', 'b', 'c']); // "a, b, and c"
+      - code: |
+          const lf = new Intl.ListFormat('en', { type: 'disjunction' });
+          lf.format(['a', 'b']); // "a or b"
+
+  formatToParts_method:
+    description: formatter.formatToParts(list)
+    steps:
+      - step: 1
+        action: Create empty array parts
+      - step: 2
+        action: Convert list items to strings
+      - step: 3
+        action: For each item and separator, create part object
+      - step: 4
+        action: Parts have type "element" (for items) or "literal" (for separators)
+      - step: 5
+        action: Return array of parts
+    example:
+      code: |
+        const lf = new Intl.ListFormat('en', { type: 'conjunction' });
+        lf.formatToParts(['a', 'b', 'c']);
+        // [
+        //   { type: "element", value: "a" },
+        //   { type: "literal", value: ", " },
+        //   { type: "element", value: "b" },
+        //   { type: "literal", value: ", and " },
+        //   { type: "element", value: "c" }
+        // ]
+
+  type_option:
+    conjunction:
+      description: "List with 'and' (or locale equivalent)"
+      example_en: "A, B, and C"
+      example_es: "A, B y C"
+    disjunction:
+      description: "List with 'or' (or locale equivalent)"
+      example_en: "A, B, or C"
+      example_es: "A, B o C"
+    unit:
+      description: "List of units (no conjunction)"
+      example_en: "3 feet, 7 inches"
+      example_es: "3 pies, 7 pulgadas"
+
+  style_option:
+    long:
+      description: "Full forms"
+      example: "A, B, and C"
+    short:
+      description: "Abbreviated forms"
+      example: "A, B, & C"
+    narrow:
+      description: "Shortest forms"
+      example: "A, B, C" (or other narrow variants)
+
+# Error Conditions
+errors:
+  - name: RangeError
+    conditions:
+      - Invalid locale identifier
+      - type option not "conjunction", "disjunction", or "unit"
+      - style option not "long", "short", or "narrow"
+      - localeMatcher not "lookup" or "best fit"
+    message_pattern: "Invalid option value"
+
+  - name: TypeError
+    conditions:
+      - options parameter is not undefined or object
+      - list parameter is not iterable
+      - Calling format/formatToParts on non-ListFormat object
+    message_pattern: "Invalid argument type"
+
+# Requirements Mapping
+requirements:
+  functional:
+    - id: FR-ES24-C-043
+      description: "Intl.ListFormat constructor with locale and options"
+      implementation:
+        - IntlListFormat.__init__ canonicalizes locales
+        - Validates and stores type and style options
+        - Resolves locale using localeMatcher algorithm
+      test_count: 12
+
+    - id: FR-ES24-C-044
+      description: "format() method - Format list to string"
+      implementation:
+        - ListFormatEngine.format_list applies patterns
+        - Handles empty, single, two, and multiple items
+        - Uses locale-specific separators and conjunctions
+      test_count: 15
+
+    - id: FR-ES24-C-045
+      description: "formatToParts() method - Return parts array"
+      implementation:
+        - ListFormatEngine.format_list_to_parts generates parts
+        - Each part has type ("element" or "literal") and value
+        - Maintains correct order and structure
+      test_count: 10
+
+    - id: FR-ES24-C-046
+      description: "Type option - conjunction/disjunction/unit"
+      implementation:
+        - ListPatternProvider returns type-specific patterns
+        - Conjunction uses "and" (or locale equivalent)
+        - Disjunction uses "or" (or locale equivalent)
+        - Unit uses minimal separators
+      test_count: 9
+
+    - id: FR-ES24-C-047
+      description: "resolvedOptions() method"
+      implementation:
+        - Returns object with locale, type, style properties
+        - Values reflect actual resolved options
+      test_count: 6
+
+  non_functional:
+    - ListFormat construction <2ms
+    - format() for 10 items <1ms
+    - formatToParts() for 10 items <1.5ms
+    - resolvedOptions() <100ns
+    - Memory overhead <512 bytes per instance
+
+  testing:
+    minimum_tests: 48
+    coverage_target: 85%
+    test_categories:
+      - Constructor with various locales
+      - Type option (conjunction/disjunction/unit)
+      - Style option (long/short/narrow)
+      - format() with different list sizes
+      - formatToParts() output structure
+      - resolvedOptions() correctness
+      - Edge cases (empty list, single item, special characters)
+      - Error conditions (invalid options, non-iterable)
+      - Locale-specific formatting (en, es, fr, de, ja, zh, ar)
+      - Integration with Intl infrastructure
+
+    test262_compliance:
+      expected_tests: ~50
+      test_paths:
+        - test/intl402/ListFormat/constructor-*
+        - test/intl402/ListFormat/prototype/format/*
+        - test/intl402/ListFormat/prototype/formatToParts/*
+        - test/intl402/ListFormat/prototype/resolvedOptions/*
+
+# Performance Targets
+performance:
+  constructor: "<2ms"
+  format_10_items: "<1ms"
+  formatToParts_10_items: "<1.5ms"
+  resolvedOptions: "<100ns"
+  memory_per_instance: "<512 bytes"
+
+# Integration Points
+integration:
+  with_intl_core:
+    - Uses CanonicalizeLocaleList for locale resolution
+    - Uses LocaleResolver for locale matching
+    - Uses OptionValidator for option validation
+
+  with_value_system:
+    - Converts list items to JSString
+    - Returns JSString from format()
+    - Returns JSArray of JSObjects from formatToParts()
+
+  with_object_runtime:
+    - ListFormat is a standard built-in object
+    - Constructor creates proper JSObject instances
+    - Prototype chain follows Intl conventions
+
+# Examples
+examples:
+  basic_conjunction:
+    description: Default conjunction formatting
+    code: |
+      const lf = new Intl.ListFormat('en');
+      console.log(lf.format(['Apple', 'Banana', 'Orange']));
+      // "Apple, Banana, and Orange"
+
+  disjunction:
+    description: Disjunction (or) formatting
+    code: |
+      const lf = new Intl.ListFormat('en', { type: 'disjunction' });
+      console.log(lf.format(['red', 'green', 'blue']));
+      // "red, green, or blue"
+
+  unit_list:
+    description: Unit list formatting
+    code: |
+      const lf = new Intl.ListFormat('en', { type: 'unit', style: 'narrow' });
+      console.log(lf.format(['5 lb', '12 oz']));
+      // "5 lb, 12 oz" (or locale-specific)
+
+  format_to_parts:
+    description: Format to parts for custom rendering
+    code: |
+      const lf = new Intl.ListFormat('en', { type: 'conjunction' });
+      const parts = lf.formatToParts(['HTML', 'CSS', 'JS']);
+      console.log(parts);
+      // [
+      //   { type: "element", value: "HTML" },
+      //   { type: "literal", value: ", " },
+      //   { type: "element", value: "CSS" },
+      //   { type: "literal", value: ", and " },
+      //   { type: "element", value: "JS" }
+      // ]
+
+  locale_specific:
+    description: Spanish conjunction formatting
+    code: |
+      const lf = new Intl.ListFormat('es', { type: 'conjunction' });
+      console.log(lf.format(['manzana', 'plátano', 'naranja']));
+      // "manzana, plátano y naranja"
+
+  short_style:
+    description: Short style formatting
+    code: |
+      const lf = new Intl.ListFormat('en', { style: 'short' });
+      console.log(lf.format(['A', 'B', 'C']));
+      // "A, B, & C" (or locale-specific short form)
+
+  empty_and_single:
+    description: Edge cases - empty and single item
+    code: |
+      const lf = new Intl.ListFormat('en');
+      console.log(lf.format([]));      // ""
+      console.log(lf.format(['Only'])); // "Only"
+
+  resolved_options:
+    description: Check resolved options
+    code: |
+      const lf = new Intl.ListFormat('en-US', { type: 'disjunction' });
+      console.log(lf.resolvedOptions());
+      // { locale: "en-US", type: "disjunction", style: "long" }
+
+# CLDR Data Requirements
+cldr_data:
+  description: Requires CLDR list pattern data
+  data_files:
+    - common/main/{locale}/listPatterns.xml
+  patterns_needed:
+    - standard (conjunction)
+    - standard-short (conjunction short)
+    - standard-narrow (conjunction narrow)
+    - or (disjunction)
+    - or-short (disjunction short)
+    - or-narrow (disjunction narrow)
+    - unit (unit)
+    - unit-short (unit short)
+    - unit-narrow (unit narrow)
+  fallback_strategy:
+    - Try exact locale
+    - Try parent locale (remove region)
+    - Try language only
+    - Fall back to "en" (English)
+
+# Compliance
+compliance:
+  ecma402: "ECMA-402 Intl.ListFormat specification"
+  ecma262_integration: "ES2021 Intl.ListFormat feature"
+  cldr_version: "CLDR 42 or later"
+  unicode_version: "Unicode 15.0 or later"
