@@ -535,6 +535,51 @@ class JSPromise:
 
         return JSPromise(create_result_promise, event_loop)
 
+    @staticmethod
+    def withResolvers(event_loop):
+        """Create a Promise with exposed resolve/reject functions.
+
+        This is the deferred promise pattern, useful when you need to
+        control promise resolution from outside the executor.
+
+        Returns a dictionary with three keys:
+        - promise: The Promise instance
+        - resolve: Function to fulfill the promise
+        - reject: Function to reject the promise
+
+        Args:
+            event_loop: EventLoop instance
+
+        Returns:
+            Dictionary with {promise, resolve, reject}
+
+        Example:
+            >>> loop = EventLoop()
+            >>> deferred = JSPromise.withResolvers(loop)
+            >>> deferred["promise"].then(lambda x: print(x))
+            >>> deferred["resolve"](42)
+            >>> loop.run()
+            42
+        """
+        # Store resolve/reject references
+        resolve_ref = [None]
+        reject_ref = [None]
+
+        def executor(resolve, reject):
+            # Capture resolve/reject functions
+            resolve_ref[0] = resolve
+            reject_ref[0] = reject
+
+        # Create the promise
+        promise = JSPromise(executor, event_loop)
+
+        # Return object with promise and control functions
+        return {
+            "promise": promise,
+            "resolve": resolve_ref[0],
+            "reject": reject_ref[0]
+        }
+
 
 class AggregateError(Exception):
     """Error representing multiple Promise rejections.

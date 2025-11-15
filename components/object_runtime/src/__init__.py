@@ -46,6 +46,7 @@ from .js_object import JSObject, UNDEFINED_VALUE
 from .js_array import JSArray
 from .js_function import JSFunction
 from .js_string import JSString
+from .object_constructor import ObjectConstructor, Object
 
 # Export prototype factory functions
 from .prototypes import (
@@ -60,6 +61,8 @@ __all__ = [
     "JSArray",
     "JSFunction",
     "JSString",
+    "ObjectConstructor",
+    "Object",
     # Constants
     "UNDEFINED_VALUE",
     # Factory functions

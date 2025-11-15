@@ -56,6 +56,7 @@ class TokenType(Enum):
     NUMBER = auto()
     STRING = auto()
     TEMPLATE_LITERAL = auto()
+    REGEXP = auto()
     TRUE = auto()
     FALSE = auto()
     NULL = auto()

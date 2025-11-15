@@ -57,6 +57,11 @@ SYMBOL_SEARCH = SymbolValue("Symbol.search")
 # Method for String.prototype.split
 SYMBOL_SPLIT = SymbolValue("Symbol.split")
 
+# Symbol.asyncIterator - Default async iterator for objects
+# Used by for await...of loops
+# FR-P3.5-016: Symbol.asyncIterator for async iteration protocol
+SYMBOL_ASYNC_ITERATOR = SymbolValue("Symbol.asyncIterator")
+
 
 # Export all well-known symbols
 __all__ = [
@@ -71,4 +76,5 @@ __all__ = [
     'SYMBOL_REPLACE',
     'SYMBOL_SEARCH',
     'SYMBOL_SPLIT',
+    'SYMBOL_ASYNC_ITERATOR',
 ]
