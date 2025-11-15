@@ -13,7 +13,7 @@ from components.object_runtime.src import JSObject, JSFunction
 
 def _is_object(value: Any) -> bool:
     """
-    Check if value is an object (JSObject or JSFunction).
+    Check if value is an object (JSObject, JSFunction, Proxy, or callable).
 
     Args:
         value: Value to check
@@ -21,7 +21,15 @@ def _is_object(value: Any) -> bool:
     Returns:
         True if value is an object, False otherwise
     """
-    return isinstance(value, (JSObject, JSFunction))
+    # Check by class name to avoid circular import
+    # Allow JSObject, JSFunction, Proxy (for nested proxies), or any callable
+    if isinstance(value, (JSObject, JSFunction)):
+        return True
+    if type(value).__name__ == 'Proxy':  # Check for Proxy instances
+        return True
+    if callable(value):
+        return True
+    return False
 
 
 class Proxy:
@@ -89,3 +97,45 @@ class Proxy:
         self._revoked = True
         self._target = None
         self._handler = None
+
+    @staticmethod
+    def revocable(target: Any, handler: Any) -> dict:
+        """
+        Create a revocable proxy.
+
+        Per ECMAScript 2024: Proxy.revocable(target, handler)
+
+        Args:
+            target: Target object to wrap
+            handler: Handler object with trap methods
+
+        Returns:
+            Dict with 'proxy' and 'revoke' keys:
+            {
+                'proxy': Proxy object,
+                'revoke': Function that revokes the proxy
+            }
+
+        Raises:
+            TypeError: If target or handler is not an object
+
+        Example:
+            >>> result = Proxy.revocable(target, handler)
+            >>> proxy = result['proxy']
+            >>> revoke = result['revoke']
+            >>> # Use proxy...
+            >>> revoke()  # Revoke proxy
+            >>> # Any further operations on proxy will throw TypeError
+        """
+        # Create proxy
+        proxy = Proxy(target, handler)
+
+        # Create revoke function
+        def revoke():
+            """Revoke the proxy. Safe to call multiple times."""
+            proxy._revoke()
+
+        return {
+            'proxy': proxy,
+            'revoke': revoke
+        }
