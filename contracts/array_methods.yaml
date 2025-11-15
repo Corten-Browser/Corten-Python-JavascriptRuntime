@@ -1,0 +1,199 @@
+name: array_methods
+version: 0.1.0
+type: feature
+description: ES2024 Array.prototype method gaps (at, flat, flatMap, includes, Array.from/of)
+
+api:
+  classes:
+    - name: ArrayMethods
+      description: Array.prototype ES2024 method implementations
+      methods:
+        - name: at
+          params:
+            - name: array
+              type: Array
+              description: Source array
+            - name: index
+              type: int
+              description: Index (negative from end)
+          returns:
+            type: Any
+            description: Element at index or undefined
+          description: Get element at index (supports negative indices)
+
+        - name: flat
+          params:
+            - name: array
+              type: Array
+              description: Source array
+            - name: depth
+              type: int
+              description: Flattening depth (default: 1)
+          returns:
+            type: Array
+            description: Flattened array
+          description: Flatten nested arrays to specified depth
+
+        - name: flat_map
+          params:
+            - name: array
+              type: Array
+              description: Source array
+            - name: callback
+              type: Function
+              description: Mapping function
+            - name: this_arg
+              type: Any
+              description: Optional this binding
+          returns:
+            type: Array
+            description: Mapped and flattened array
+          description: Map and flatten (depth 1)
+
+        - name: includes
+          params:
+            - name: array
+              type: Array
+              description: Source array
+            - name: search_element
+              type: Any
+              description: Element to search for
+            - name: from_index
+              type: int
+              description: Starting index
+          returns:
+            type: bool
+            description: True if found
+          description: Check if array includes element (uses SameValueZero)
+
+        - name: copy_within
+          params:
+            - name: array
+              type: Array
+              description: Target array (mutated)
+            - name: target
+              type: int
+              description: Target index
+            - name: start
+              type: int
+              description: Source start index
+            - name: end
+              type: int
+              description: Source end index
+          returns:
+            type: Array
+            description: Mutated array
+          description: Copy sequence within array
+
+        - name: fill
+          params:
+            - name: array
+              type: Array
+              description: Target array (mutated)
+            - name: value
+              type: Any
+              description: Fill value
+            - name: start
+              type: int
+              description: Start index
+            - name: end
+              type: int
+              description: End index
+          returns:
+            type: Array
+            description: Mutated array
+          description: Fill array with value
+
+    - name: ArrayConstructorMethods
+      description: Array constructor static methods
+      methods:
+        - name: from_iterable
+          params:
+            - name: iterable
+              type: Iterable
+              description: Iterable object
+            - name: map_fn
+              type: Function
+              description: Optional mapping function
+            - name: this_arg
+              type: Any
+              description: Optional this binding
+          returns:
+            type: Array
+            description: New array from iterable
+          description: Create array from iterable with optional mapping
+
+        - name: of
+          params:
+            - name: elements
+              type: List[Any]
+              description: Elements for new array
+          returns:
+            type: Array
+            description: New array
+          description: Create array from arguments
+
+        - name: is_array
+          params:
+            - name: value
+              type: Any
+              description: Value to check
+          returns:
+            type: bool
+            description: True if array
+          description: Check if value is array
+
+    - name: ArraySorting
+      description: Stable array sorting
+      methods:
+        - name: sort_stable
+          params:
+            - name: array
+              type: Array
+              description: Array to sort (mutated)
+            - name: compare_fn
+              type: Function
+              description: Optional comparison function
+          returns:
+            type: Array
+            description: Sorted array
+          description: Stable sort (ES2024 requirement)
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSArray
+  - name: iterators
+    version: "^0.2.0"
+    imports:
+      - Iterator
+
+requirements:
+  functional:
+    - FR-ES24-026: Array.prototype.at()
+    - FR-ES24-027: Array.prototype.flat()
+    - FR-ES24-028: Array.prototype.flatMap()
+    - FR-ES24-029: Array.prototype.includes()
+    - FR-ES24-030: Array.from() improvements (mapping, iterable)
+    - FR-ES24-031: Array.of()
+    - FR-ES24-032: Array.prototype.sort() stability guarantee
+    - FR-ES24-033: Array.prototype.copyWithin()
+    - FR-ES24-034: Array.prototype.fill()
+    - FR-ES24-035: Array.prototype[Symbol.iterator]
+
+  non_functional:
+    - Array operations O(n) time complexity
+    - Stable sort O(n log n)
+    - Flat operation <10ms for depth 5, 10k elements
+
+  testing:
+    - Minimum 50 unit tests
+    - Test coverage ≥85%
+    - Test262 compliance (~300 tests)
+    - Sort stability verification tests
+
+performance:
+  flat_time: "<10ms for depth 5, 10k elements"
+  sort_complexity: "O(n log n)"

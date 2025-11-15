@@ -1,0 +1,137 @@
+name: object_methods
+version: 0.1.0
+type: feature
+description: ES2024 Object method gaps (fromEntries, entries, values, getOwnPropertyDescriptors, is)
+
+api:
+  classes:
+    - name: ObjectMethods
+      description: Object static method implementations
+      methods:
+        - name: from_entries
+          params:
+            - name: entries
+              type: Iterable
+              description: Iterable of [key, value] pairs
+          returns:
+            type: Object
+            description: New object from entries
+          description: Create object from key-value pairs
+
+        - name: entries
+          params:
+            - name: obj
+              type: Object
+              description: Source object
+          returns:
+            type: Array
+            description: Array of [key, value] pairs
+          description: Get enumerable own property [key, value] pairs
+
+        - name: values
+          params:
+            - name: obj
+              type: Object
+              description: Source object
+          returns:
+            type: Array
+            description: Array of values
+          description: Get enumerable own property values
+
+        - name: get_own_property_descriptors
+          params:
+            - name: obj
+              type: Object
+              description: Source object
+          returns:
+            type: Object
+            description: Descriptors object
+          description: Get all own property descriptors
+
+        - name: set_prototype_of
+          params:
+            - name: obj
+              type: Object
+              description: Target object
+            - name: prototype
+              type: Object
+              description: New prototype (or null)
+          returns:
+            type: Object
+            description: Modified object
+          description: Set object prototype (with edge case handling)
+
+        - name: is_equal
+          params:
+            - name: value1
+              type: Any
+              description: First value
+            - name: value2
+              type: Any
+              description: Second value
+          returns:
+            type: bool
+            description: True if same value
+          description: SameValue equality (Object.is)
+
+        - name: assign
+          params:
+            - name: target
+              type: Object
+              description: Target object
+            - name: sources
+              type: List[Object]
+              description: Source objects
+          returns:
+            type: Object
+            description: Modified target
+          description: Copy properties (with edge cases)
+
+    - name: ObjectIteration
+      description: Object iteration support
+      methods:
+        - name: get_iterator
+          params:
+            - name: obj
+              type: Object
+              description: Source object
+          returns:
+            type: Iterator
+            description: Iterator of [key, value] pairs
+          description: Get iterator for Object (Symbol.iterator)
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+  - name: iterators
+    version: "^0.2.0"
+    imports:
+      - Iterator
+
+requirements:
+  functional:
+    - FR-ES24-036: Object.fromEntries()
+    - FR-ES24-037: Object.entries()
+    - FR-ES24-038: Object.values()
+    - FR-ES24-039: Object.getOwnPropertyDescriptors()
+    - FR-ES24-040: Object.setPrototypeOf() edge cases
+    - FR-ES24-041: Object.is()
+    - FR-ES24-042: Object.assign() edge cases
+    - FR-ES24-043: Object[Symbol.iterator] for entries
+
+  non_functional:
+    - Property enumeration <1ms for <1000 properties
+    - O(n) time complexity for entries/values
+
+  testing:
+    - Minimum 40 unit tests
+    - Test coverage ≥85%
+    - Test262 compliance (~200 tests)
+    - Edge case tests (circular refs, frozen objects)
+
+performance:
+  enumeration_time: "<1ms for <1000 properties"
+  complexity: "O(n)"

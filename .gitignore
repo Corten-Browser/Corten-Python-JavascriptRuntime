@@ -36,6 +36,7 @@ __pycache__/
 *.pyd
 .coverage
 .coverage.*
+coverage.json
 htmlcov/
 *.cover
 .pytest_cache/
