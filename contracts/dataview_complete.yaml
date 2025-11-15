@@ -1,0 +1,856 @@
+contract:
+  name: dataview_complete
+  version: 0.1.0
+  description: Complete DataView implementation for binary data handling with full ES2024 compliance
+
+metadata:
+  component_type: feature
+  wave: ES2024-B
+  requirements_count: 8
+  estimated_complexity: moderate
+
+requirements:
+  functional:
+    - FR-ES24-B-020: DataView constructor - Create view on ArrayBuffer
+    - FR-ES24-B-021: DataView get methods - getInt8, getUint8, getInt16, getUint16, getInt32, getUint32, getFloat32, getFloat64
+    - FR-ES24-B-022: DataView set methods - setInt8, setUint8, setInt16, setUint16, setInt32, setUint32, setFloat32, setFloat64
+    - FR-ES24-B-023: DataView endianness - Little-endian and big-endian support
+    - FR-ES24-B-024: DataView boundary checks - Throw on out-of-bounds access
+    - FR-ES24-B-025: DataView with offset/length - Partial buffer views
+    - FR-ES24-B-026: DataView detached buffer - Throw on detached buffer access
+    - FR-ES24-B-027: DataView properties - buffer, byteOffset, byteLength
+
+  non_functional:
+    - Read operation performance: <10ns per get operation
+    - Write operation performance: <10ns per set operation
+    - Constructor performance: <50ns
+    - Zero-copy view creation
+    - Minimal memory overhead (<24 bytes per DataView instance)
+
+  testing:
+    - Minimum 125 unit tests (8 get methods × 8 tests + 8 set methods × 8 tests + constructor/properties × 15 tests + error cases × 20 tests)
+    - Integration tests: ≥15
+    - Test coverage: ≥90%
+    - Test262 compliance for DataView
+    - Endianness verification tests
+    - Boundary condition tests
+    - Detached buffer tests
+
+api:
+  classes:
+    - name: DataView
+      description: Low-level interface for reading and writing multiple number types in a binary ArrayBuffer
+
+      constructor:
+        signature: new DataView(buffer[, byteOffset[, byteLength]])
+        parameters:
+          - name: buffer
+            type: ArrayBuffer
+            required: true
+            description: The ArrayBuffer to create a view of
+
+          - name: byteOffset
+            type: number
+            required: false
+            default: 0
+            description: Offset in bytes from start of buffer to begin view
+            constraints:
+              - Must be non-negative
+              - Must be less than buffer.byteLength
+              - Must be integer (fractional values are converted to integer)
+
+          - name: byteLength
+            type: number
+            required: false
+            default: buffer.byteLength - byteOffset
+            description: Number of bytes in the view
+            constraints:
+              - Must be non-negative
+              - byteOffset + byteLength must be ≤ buffer.byteLength
+              - Must be integer (fractional values are converted to integer)
+
+        throws:
+          - type: TypeError
+            condition: buffer is not an ArrayBuffer
+            message: "First argument to DataView constructor must be an ArrayBuffer"
+
+          - type: RangeError
+            condition: byteOffset is negative or beyond buffer length
+            message: "Start offset is outside the bounds of the buffer"
+
+          - type: RangeError
+            condition: byteOffset + byteLength exceeds buffer.byteLength
+            message: "Invalid DataView length"
+
+        description: Creates a new DataView instance over the specified ArrayBuffer
+
+      properties:
+        - name: buffer
+          type: ArrayBuffer
+          readonly: true
+          description: The ArrayBuffer referenced by this view
+          accessor: true
+
+        - name: byteLength
+          type: number
+          readonly: true
+          description: The length (in bytes) of this view
+          accessor: true
+
+        - name: byteOffset
+          type: number
+          readonly: true
+          description: The offset (in bytes) of this view from the start of its ArrayBuffer
+          accessor: true
+
+      methods:
+        # ========== GET METHODS (8 total) ==========
+
+        - name: getInt8
+          category: getter
+          signature: getInt8(byteOffset)
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+          returns:
+            type: number
+            range: -128 to 127
+            description: Signed 8-bit integer
+          throws:
+            - type: RangeError
+              condition: byteOffset would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getInt8 on a detached ArrayBuffer"
+          description: Get signed 8-bit integer (byte) at specified byte offset
+          performance: <10ns
+
+        - name: getUint8
+          category: getter
+          signature: getUint8(byteOffset)
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+          returns:
+            type: number
+            range: 0 to 255
+            description: Unsigned 8-bit integer
+          throws:
+            - type: RangeError
+              condition: byteOffset would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getUint8 on a detached ArrayBuffer"
+          description: Get unsigned 8-bit integer (byte) at specified byte offset
+          performance: <10ns
+
+        - name: getInt16
+          category: getter
+          signature: getInt16(byteOffset[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, read as little-endian; if false, read as big-endian
+          returns:
+            type: number
+            range: -32768 to 32767
+            description: Signed 16-bit integer
+          throws:
+            - type: RangeError
+              condition: byteOffset + 1 would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getInt16 on a detached ArrayBuffer"
+          description: Get signed 16-bit integer (short) at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: getUint16
+          category: getter
+          signature: getUint16(byteOffset[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, read as little-endian; if false, read as big-endian
+          returns:
+            type: number
+            range: 0 to 65535
+            description: Unsigned 16-bit integer
+          throws:
+            - type: RangeError
+              condition: byteOffset + 1 would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getUint16 on a detached ArrayBuffer"
+          description: Get unsigned 16-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: getInt32
+          category: getter
+          signature: getInt32(byteOffset[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, read as little-endian; if false, read as big-endian
+          returns:
+            type: number
+            range: -2147483648 to 2147483647
+            description: Signed 32-bit integer
+          throws:
+            - type: RangeError
+              condition: byteOffset + 3 would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getInt32 on a detached ArrayBuffer"
+          description: Get signed 32-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: getUint32
+          category: getter
+          signature: getUint32(byteOffset[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, read as little-endian; if false, read as big-endian
+          returns:
+            type: number
+            range: 0 to 4294967295
+            description: Unsigned 32-bit integer
+          throws:
+            - type: RangeError
+              condition: byteOffset + 3 would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getUint32 on a detached ArrayBuffer"
+          description: Get unsigned 32-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: getFloat32
+          category: getter
+          signature: getFloat32(byteOffset[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, read as little-endian; if false, read as big-endian
+          returns:
+            type: number
+            format: IEEE-754 single-precision (32-bit)
+            description: 32-bit floating point number
+          throws:
+            - type: RangeError
+              condition: byteOffset + 3 would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getFloat32 on a detached ArrayBuffer"
+          description: Get 32-bit floating point number at specified byte offset
+          performance: <10ns
+          endianness: configurable
+          special_values: Handles NaN, +Infinity, -Infinity, +0, -0
+
+        - name: getFloat64
+          category: getter
+          signature: getFloat64(byteOffset[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to read from
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, read as little-endian; if false, read as big-endian
+          returns:
+            type: number
+            format: IEEE-754 double-precision (64-bit)
+            description: 64-bit floating point number
+          throws:
+            - type: RangeError
+              condition: byteOffset + 7 would read beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform getFloat64 on a detached ArrayBuffer"
+          description: Get 64-bit floating point number at specified byte offset
+          performance: <10ns
+          endianness: configurable
+          special_values: Handles NaN, +Infinity, -Infinity, +0, -0
+
+        # ========== SET METHODS (8 total) ==========
+
+        - name: setInt8
+          category: setter
+          signature: setInt8(byteOffset, value)
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to int8)
+              conversion: ToInt8 (wrap to -128..127)
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setInt8 on a detached ArrayBuffer"
+          description: Set signed 8-bit integer at specified byte offset
+          performance: <10ns
+
+        - name: setUint8
+          category: setter
+          signature: setUint8(byteOffset, value)
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to uint8)
+              conversion: ToUint8 (wrap to 0..255)
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setUint8 on a detached ArrayBuffer"
+          description: Set unsigned 8-bit integer at specified byte offset
+          performance: <10ns
+
+        - name: setInt16
+          category: setter
+          signature: setInt16(byteOffset, value[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to int16)
+              conversion: ToInt16 (wrap to -32768..32767)
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, write as little-endian; if false, write as big-endian
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset + 1 would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setInt16 on a detached ArrayBuffer"
+          description: Set signed 16-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: setUint16
+          category: setter
+          signature: setUint16(byteOffset, value[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to uint16)
+              conversion: ToUint16 (wrap to 0..65535)
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, write as little-endian; if false, write as big-endian
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset + 1 would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setUint16 on a detached ArrayBuffer"
+          description: Set unsigned 16-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: setInt32
+          category: setter
+          signature: setInt32(byteOffset, value[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to int32)
+              conversion: ToInt32 (wrap to -2^31..2^31-1)
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, write as little-endian; if false, write as big-endian
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset + 3 would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setInt32 on a detached ArrayBuffer"
+          description: Set signed 32-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: setUint32
+          category: setter
+          signature: setUint32(byteOffset, value[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to uint32)
+              conversion: ToUint32 (wrap to 0..2^32-1)
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, write as little-endian; if false, write as big-endian
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset + 3 would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setUint32 on a detached ArrayBuffer"
+          description: Set unsigned 32-bit integer at specified byte offset
+          performance: <10ns
+          endianness: configurable
+
+        - name: setFloat32
+          category: setter
+          signature: setFloat32(byteOffset, value[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to float32)
+              conversion: Round to IEEE-754 single precision
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, write as little-endian; if false, write as big-endian
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset + 3 would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setFloat32 on a detached ArrayBuffer"
+          description: Set 32-bit floating point number at specified byte offset
+          performance: <10ns
+          endianness: configurable
+          special_values: Preserves NaN, +Infinity, -Infinity, +0, -0
+
+        - name: setFloat64
+          category: setter
+          signature: setFloat64(byteOffset, value[, littleEndian])
+          parameters:
+            - name: byteOffset
+              type: number
+              required: true
+              description: Byte offset from start of view to write to
+            - name: value
+              type: number
+              required: true
+              description: Value to set (converted to float64)
+              conversion: IEEE-754 double precision
+            - name: littleEndian
+              type: boolean
+              required: false
+              default: false
+              description: If true, write as little-endian; if false, write as big-endian
+          returns:
+            type: undefined
+          throws:
+            - type: RangeError
+              condition: byteOffset + 7 would write beyond view boundary
+              message: "Offset is outside the bounds of the DataView"
+            - type: TypeError
+              condition: ArrayBuffer is detached
+              message: "Cannot perform setFloat64 on a detached ArrayBuffer"
+          description: Set 64-bit floating point number at specified byte offset
+          performance: <10ns
+          endianness: configurable
+          special_values: Preserves NaN, +Infinity, -Infinity, +0, -0
+
+endianness:
+  default: big-endian
+  description: |
+    DataView operations default to big-endian (network byte order) unless
+    littleEndian parameter is explicitly set to true.
+
+  byte_orders:
+    big_endian:
+      description: Most significant byte first (network byte order)
+      default: true
+      example: "0x12345678 stored as [12, 34, 56, 78]"
+
+    little_endian:
+      description: Least significant byte first (Intel/AMD x86)
+      default: false
+      example: "0x12345678 stored as [78, 56, 34, 12]"
+
+  platform_independence: |
+    DataView provides platform-independent binary I/O. The same data can be
+    read/written consistently across different architectures by explicitly
+    specifying endianness.
+
+boundary_checking:
+  strategy: fail-fast
+  description: All DataView operations perform bounds checking before access
+
+  checks:
+    - check: Constructor byteOffset validation
+      condition: "byteOffset >= 0 && byteOffset < buffer.byteLength"
+      error: RangeError
+
+    - check: Constructor byteLength validation
+      condition: "byteOffset + byteLength <= buffer.byteLength"
+      error: RangeError
+
+    - check: Read operation bounds
+      condition: "byteOffset + sizeof(type) <= this.byteLength"
+      error: RangeError
+
+    - check: Write operation bounds
+      condition: "byteOffset + sizeof(type) <= this.byteLength"
+      error: RangeError
+
+    - check: Detached buffer check
+      condition: "!buffer.detached"
+      error: TypeError
+      timing: Before every read/write operation
+
+  type_sizes:
+    Int8: 1 byte
+    Uint8: 1 byte
+    Int16: 2 bytes
+    Uint16: 2 bytes
+    Int32: 4 bytes
+    Uint32: 4 bytes
+    Float32: 4 bytes
+    Float64: 8 bytes
+
+detached_buffers:
+  behavior: throw_on_access
+  description: |
+    When an ArrayBuffer is detached (e.g., via transfer()), any attempt to
+    read from or write to a DataView backed by that buffer throws TypeError.
+
+  checks:
+    - operation: Any getter method
+      error: TypeError
+      message: "Cannot perform get{Type} on a detached ArrayBuffer"
+
+    - operation: Any setter method
+      error: TypeError
+      message: "Cannot perform set{Type} on a detached ArrayBuffer"
+
+    - operation: Property access (buffer, byteLength, byteOffset)
+      behavior: Return cached values (properties are set at construction)
+
+errors:
+  - type: TypeError
+    conditions:
+      - First argument to DataView constructor is not an ArrayBuffer
+      - Attempting to read/write on a detached ArrayBuffer
+    examples:
+      - "new DataView({})"
+      - "view.getInt32(0) // when buffer is detached"
+
+  - type: RangeError
+    conditions:
+      - byteOffset is negative
+      - byteOffset >= buffer.byteLength
+      - byteOffset + byteLength > buffer.byteLength
+      - Read/write byteOffset would access beyond view boundaries
+    examples:
+      - "new DataView(buffer, -1)"
+      - "new DataView(buffer, 1000) // buffer only 100 bytes"
+      - "view.getInt32(view.byteLength - 2) // would read past end"
+
+type_conversions:
+  Int8: "ToInt8: ((value % 256) + 256) % 256, then subtract 256 if > 127"
+  Uint8: "ToUint8: ((value % 256) + 256) % 256"
+  Int16: "ToInt16: ((value % 65536) + 65536) % 65536, then subtract 65536 if > 32767"
+  Uint16: "ToUint16: ((value % 65536) + 65536) % 65536"
+  Int32: "ToInt32: value >> 0 (bitwise conversion)"
+  Uint32: "ToUint32: value >>> 0 (unsigned bitwise conversion)"
+  Float32: "Round to IEEE-754 single precision"
+  Float64: "IEEE-754 double precision (no conversion needed for JS numbers)"
+
+dependencies:
+  - component: typed_arrays
+    version: "^0.3.0"
+    interface: ArrayBuffer base implementation
+    description: DataView operates on ArrayBuffer instances
+
+  - component: memory_gc
+    version: "^0.3.0"
+    interface: Memory allocation and detachment tracking
+    description: Track ArrayBuffer detachment state
+
+  - component: value_system
+    version: "^0.3.0"
+    interface: JSValue type system
+    description: Type conversions and number handling
+
+integration_points:
+  - component: typed_arrays
+    description: DataView provides alternative access pattern to TypedArrays
+    relationship: Both operate on ArrayBuffer but with different interfaces
+
+  - component: memory_gc
+    description: DataView must check ArrayBuffer detachment before every operation
+    critical: true
+
+  - component: value_system
+    description: Number to binary conversions follow ECMAScript ToInt32/ToUint32 semantics
+
+performance:
+  targets:
+    constructor: "<50ns (zero-copy view creation)"
+    getInt8: "<10ns"
+    getUint8: "<10ns"
+    getInt16: "<10ns"
+    getUint16: "<10ns"
+    getInt32: "<10ns"
+    getUint32: "<10ns"
+    getFloat32: "<10ns"
+    getFloat64: "<10ns"
+    setInt8: "<10ns"
+    setUint8: "<10ns"
+    setInt16: "<10ns"
+    setUint16: "<10ns"
+    setInt32: "<10ns"
+    setUint32: "<10ns"
+    setFloat32: "<10ns"
+    setFloat64: "<10ns"
+
+  optimization_strategies:
+    - Inline endianness checks
+    - Bounds checking with branch prediction hints
+    - Direct memory access without abstractions
+    - Cache buffer detachment state checks
+    - Use platform intrinsics for byte swapping
+
+memory:
+  instance_size: "≤24 bytes per DataView (pointer to buffer + byteOffset + byteLength)"
+  overhead: minimal
+  zero_copy: true
+  description: DataView is a lightweight view; it doesn't copy the underlying buffer
+
+test_requirements:
+  unit_tests:
+    minimum: 125
+    breakdown:
+      constructor: 15 tests
+      properties: 10 tests
+      getInt8: 8 tests
+      getUint8: 8 tests
+      getInt16: 8 tests
+      getUint16: 8 tests
+      getInt32: 8 tests
+      getUint32: 8 tests
+      getFloat32: 8 tests
+      getFloat64: 8 tests
+      setInt8: 8 tests
+      setUint8: 8 tests
+      setInt16: 8 tests
+      setUint16: 8 tests
+      setInt32: 8 tests
+      setUint32: 8 tests
+      setFloat32: 8 tests
+      setFloat64: 8 tests
+      error_cases: 20 tests
+
+  integration_tests:
+    minimum: 15
+    areas:
+      - Cross-endian read/write consistency
+      - Integration with TypedArrays
+      - ArrayBuffer transfer and detachment
+      - Partial view operations
+      - Float special values (NaN, Infinity)
+
+  coverage:
+    target: "≥90%"
+    critical_paths: "100% (error handling, boundary checks, detachment checks)"
+
+  test262_compliance:
+    required: true
+    suite: built-ins/DataView/**
+    estimated_tests: ~150 tests
+
+success_criteria:
+  - All 8 get methods implemented and working correctly
+  - All 8 set methods implemented and working correctly
+  - Constructor validates parameters and creates views correctly
+  - Properties (buffer, byteOffset, byteLength) accessible
+  - Endianness parameter respected for multi-byte types
+  - Boundary checks prevent out-of-bounds access
+  - Detached buffer access throws TypeError
+  - Partial buffer views work correctly
+  - Type conversions follow ECMAScript spec
+  - Performance targets met (<10ns per operation)
+  - All 125+ tests passing
+  - Test262 DataView tests passing
+  - Integration with typed_arrays component verified
+  - Zero regressions in existing ArrayBuffer functionality
+
+examples:
+  basic_usage: |
+    const buffer = new ArrayBuffer(16);
+    const view = new DataView(buffer);
+
+    // Write values with different endianness
+    view.setInt32(0, 0x12345678, false);  // Big-endian
+    view.setInt32(4, 0x12345678, true);   // Little-endian
+
+    // Read values
+    console.log(view.getInt32(0, false)); // 305419896 (0x12345678)
+    console.log(view.getInt32(4, true));  // 305419896 (0x12345678)
+
+    // Mixed types
+    view.setFloat64(8, Math.PI);
+    console.log(view.getFloat64(8)); // 3.141592653589793
+
+  partial_view: |
+    const buffer = new ArrayBuffer(16);
+    const fullView = new DataView(buffer);
+    const partialView = new DataView(buffer, 4, 8);
+
+    fullView.setInt32(4, 42);
+    console.log(partialView.getInt32(0)); // 42 (offset 0 in view = offset 4 in buffer)
+
+  endianness: |
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+
+    view.setUint32(0, 0x12345678, false); // Big-endian
+    console.log(view.getUint8(0)); // 0x12
+    console.log(view.getUint8(1)); // 0x34
+    console.log(view.getUint8(2)); // 0x56
+    console.log(view.getUint8(3)); // 0x78
+
+    view.setUint32(0, 0x12345678, true); // Little-endian
+    console.log(view.getUint8(0)); // 0x78
+    console.log(view.getUint8(1)); // 0x56
+    console.log(view.getUint8(2)); // 0x34
+    console.log(view.getUint8(3)); // 0x12
+
+  error_handling: |
+    const buffer = new ArrayBuffer(16);
+    const view = new DataView(buffer);
+
+    // RangeError: Out of bounds
+    try {
+      view.getInt32(15); // Would read bytes 15-18, but buffer is only 16 bytes
+    } catch (e) {
+      console.log(e.name); // "RangeError"
+    }
+
+    // TypeError: Detached buffer
+    const detached = buffer.transfer();
+    try {
+      view.getInt8(0);
+    } catch (e) {
+      console.log(e.name); // "TypeError"
+    }
+
+notes:
+  - DataView provides platform-independent binary I/O with explicit endianness control
+  - Unlike TypedArrays, DataView doesn't require alignment
+  - DataView is essential for network protocols, file formats, and binary data interchange
+  - All multi-byte operations require explicit endianness specification for portability
+  - Single-byte operations (Int8, Uint8) don't have endianness parameters
+  - Constructor parameters are converted to integers (fractional values truncated)
+  - Detachment check occurs before every read/write, not just at construction
+  - Properties (buffer, byteOffset, byteLength) are cached and don't reflect buffer detachment

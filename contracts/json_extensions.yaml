@@ -1,0 +1,345 @@
+name: json_extensions
+version: 0.1.0
+type: feature
+description: ES2024 Wave B JSON API improvements and edge cases (reviver, replacer, Unicode, circular detection)
+
+api:
+  classes:
+    - name: JSONParser
+      description: Enhanced JSON.parse with improved reviver support
+      methods:
+        - name: parse
+          params:
+            - name: text
+              type: String
+              description: JSON text to parse
+            - name: reviver
+              type: Function
+              description: Optional reviver function (key, value) -> transformed value
+          returns:
+            type: Any
+            description: Parsed and optionally transformed value
+          description: Parse JSON with enhanced reviver support (proper this binding, property order)
+
+        - name: parse_with_source
+          params:
+            - name: text
+              type: String
+              description: JSON text to parse
+            - name: reviver
+              type: Function
+              description: Reviver with access to source text
+          returns:
+            type: Any
+            description: Parsed value
+          description: Parse with reviver receiving source text context
+
+    - name: JSONStringifier
+      description: Enhanced JSON.stringify with replacer, space, and Unicode improvements
+      methods:
+        - name: stringify
+          params:
+            - name: value
+              type: Any
+              description: Value to serialize
+            - name: replacer
+              type: Function|Array|None
+              description: Optional replacer function or property whitelist
+            - name: space
+              type: String|Number|None
+              description: Indentation (string or number of spaces)
+          returns:
+            type: String
+            description: JSON string
+          description: Stringify with enhanced replacer and space handling
+
+        - name: stringify_well_formed
+          params:
+            - name: value
+              type: Any
+              description: Value to serialize
+            - name: replacer
+              type: Function|Array|None
+              description: Optional replacer
+            - name: space
+              type: String|Number|None
+              description: Indentation
+          returns:
+            type: String
+            description: Well-formed JSON (proper Unicode surrogates)
+          description: Stringify with proper Unicode surrogate pair handling (no unpaired surrogates)
+
+        - name: detect_circular
+          params:
+            - name: value
+              type: Any
+              description: Value to check for circular references
+          returns:
+            type: bool
+            description: True if circular reference exists
+          description: Detect circular references before stringification
+
+    - name: JSONReviverContext
+      description: Context object passed to reviver functions
+      methods:
+        - name: get_source
+          params: []
+          returns:
+            type: String
+            description: Source text for current value
+          description: Get original source text for parsed value
+
+        - name: get_key
+          params: []
+          returns:
+            type: String
+            description: Property key
+          description: Get current property key
+
+        - name: get_holder
+          params: []
+          returns:
+            type: Object
+            description: Containing object
+          description: Get object containing current property
+
+    - name: JSONReplacerContext
+      description: Context for replacer functions
+      methods:
+        - name: get_key
+          params: []
+          returns:
+            type: String
+            description: Property key
+          description: Get current property key
+
+        - name: get_holder
+          params: []
+          returns:
+            type: Object
+            description: Containing object
+          description: Get object containing current property
+
+        - name: get_path
+          params: []
+          returns:
+            type: Array
+            description: Path from root to current value
+          description: Get path to current value
+
+    - name: JSONEdgeCases
+      description: JSON edge case handling
+      methods:
+        - name: handle_circular_reference
+          params:
+            - name: value
+              type: Any
+              description: Value with circular reference
+          returns:
+            type: Error
+            description: TypeError
+          throws: "TypeError: Converting circular structure to JSON"
+          description: Detect and throw on circular references
+
+        - name: handle_bigint
+          params:
+            - name: value
+              type: BigInt
+              description: BigInt value
+          returns:
+            type: Error
+            description: TypeError
+          throws: "TypeError: Do not know how to serialize a BigInt"
+          description: Reject BigInt serialization
+
+        - name: handle_symbol
+          params:
+            - name: value
+              type: Symbol
+              description: Symbol value
+          returns:
+            type: undefined
+            description: Symbols are skipped
+          description: Skip symbols in JSON (return undefined)
+
+        - name: handle_function
+          params:
+            - name: value
+              type: Function
+              description: Function value
+          returns:
+            type: undefined
+            description: Functions are skipped
+          description: Skip functions in JSON (return undefined)
+
+        - name: handle_undefined_in_array
+          params:
+            - name: array
+              type: Array
+              description: Array with undefined elements
+          returns:
+            type: String
+            description: JSON with null for undefined
+          description: Convert undefined to null in arrays
+
+        - name: handle_toJSON
+          params:
+            - name: value
+              type: Object
+              description: Object with toJSON method
+          returns:
+            type: Any
+            description: Result of toJSON()
+          description: Call toJSON() if present before stringification
+
+    - name: JSONUnicode
+      description: Unicode handling for JSON
+      methods:
+        - name: escape_surrogate_pair
+          params:
+            - name: high
+              type: int
+              description: High surrogate (U+D800 to U+DBFF)
+            - name: low
+              type: int
+              description: Low surrogate (U+DC00 to U+DFFF)
+          returns:
+            type: String
+            description: Properly escaped surrogate pair
+          description: Escape complete surrogate pairs
+
+        - name: escape_unpaired_surrogate
+          params:
+            - name: code
+              type: int
+              description: Unpaired surrogate code point
+          returns:
+            type: String
+            description: Escaped as \uXXXX
+          description: Escape unpaired surrogates (well-formed JSON requirement)
+
+        - name: validate_unicode
+          params:
+            - name: text
+              type: String
+              description: JSON text
+          returns:
+            type: bool
+            description: True if valid Unicode
+          description: Validate Unicode in JSON strings
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+      - JSArray
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - ValueType
+      - is_callable
+
+requirements:
+  functional:
+    - FR-ES24-B-034: JSON.parse reviver improvements (proper this binding, property order, source access)
+    - FR-ES24-B-035: JSON.stringify replacer improvements (function/array replacer, proper invocation)
+    - FR-ES24-B-036: Well-formed JSON.stringify (proper Unicode surrogate handling, no unpaired surrogates)
+    - FR-ES24-B-037: JSON.stringify space parameter (string/number indentation, max 10 spaces)
+    - FR-ES24-B-038: JSON edge cases (circular refs, BigInt, symbols, functions, toJSON)
+
+  non_functional:
+    - Parse/stringify performance <1ms per KB of JSON
+    - Circular detection O(n) time complexity (reference tracking)
+    - Unicode validation <0.1ms per 1000 characters
+    - Memory overhead <20% for reference tracking
+
+  testing:
+    - Minimum 52 unit tests (one per requirement detail)
+    - Test coverage ≥90%
+    - Test262 compliance for JSON tests
+    - Edge case tests:
+      - Circular references (direct, indirect)
+      - BigInt rejection
+      - Symbol/function skipping
+      - Undefined in objects vs arrays
+      - toJSON() method calls
+      - Unpaired surrogates
+      - Replacer as function vs array
+      - Space parameter (string, number, >10)
+      - Reviver this binding
+      - Reviver property order (depth-first)
+
+performance:
+  parse_stringify_time: "<1ms per KB JSON"
+  circular_detection: "O(n)"
+  unicode_validation: "<0.1ms per 1000 chars"
+  memory_overhead: "<20% for tracking"
+
+error_types:
+  - name: TypeError
+    cases:
+      - Circular structure to JSON
+      - BigInt serialization attempt
+  - name: SyntaxError
+    cases:
+      - Invalid JSON text
+      - Malformed Unicode sequences
+
+examples:
+  reviver:
+    code: |
+      // Proper reviver this binding and order
+      JSON.parse('{"a":1,"b":2}', function(key, val) {
+        console.log(this);  // Properly bound to holder object
+        return val;
+      });
+
+      // Source access (proposal)
+      JSON.parse('{"date":"2024-01-01"}', function(key, val, context) {
+        if (key === 'date') return new Date(val);
+        return val;
+      });
+
+  replacer:
+    code: |
+      // Function replacer
+      JSON.stringify({a:1, b:2}, function(key, val) {
+        return typeof val === 'number' ? val * 2 : val;
+      });  // '{"a":2,"b":4}'
+
+      // Array replacer (whitelist)
+      JSON.stringify({a:1, b:2, c:3}, ['a', 'c']);
+      // '{"a":1,"c":3}'
+
+  well_formed:
+    code: |
+      // Well-formed Unicode (ES2024)
+      JSON.stringify('\uD800');  // "\\ud800" (escaped unpaired surrogate)
+      JSON.stringify('\uD800\uDC00');  // Valid surrogate pair preserved
+
+  circular:
+    code: |
+      const obj = {a: 1};
+      obj.self = obj;
+      JSON.stringify(obj);  // TypeError: Converting circular structure to JSON
+
+  edge_cases:
+    code: |
+      // BigInt rejection
+      JSON.stringify({n: 123n});  // TypeError
+
+      // Symbol/function skipping
+      JSON.stringify({a: Symbol(), b: () => {}, c: 1});  // '{"c":1}'
+
+      // Undefined handling
+      JSON.stringify({a: undefined});  // '{}'
+      JSON.stringify([undefined]);     // '[null]'
+
+      // toJSON method
+      const obj = {
+        value: 42,
+        toJSON() { return this.value; }
+      };
+      JSON.stringify(obj);  // '42'

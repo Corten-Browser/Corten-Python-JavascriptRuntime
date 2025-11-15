@@ -1,0 +1,314 @@
+name: weakref_finalization
+version: 0.1.0
+type: feature
+description: ES2021 WeakRef and FinalizationRegistry for weak references and cleanup callbacks
+
+api:
+  classes:
+    - name: WeakRef
+      description: Weak reference to an object that doesn't prevent garbage collection
+      methods:
+        - name: __init__
+          params:
+            - name: target
+              type: Object
+              description: Target object to weakly reference
+          returns:
+            type: WeakRef
+          description: Create weak reference to target object
+          throws:
+            - TypeError: If target is not an object (symbols allowed)
+          notes:
+            - Creates weak reference that doesn't prevent GC
+            - Target must be object or symbol
+            - Primitives (number, string, boolean, null, undefined) throw TypeError
+
+        - name: deref
+          params: []
+          returns:
+            type: Object | undefined
+            description: Target object if alive, undefined if collected
+          description: Dereference weak reference
+          notes:
+            - Returns target if not yet garbage collected
+            - Returns undefined if target has been collected
+            - Multiple deref() calls in same turn return same value (kept alive)
+            - No guarantee target stays alive after deref() returns
+
+    - name: FinalizationRegistry
+      description: Registry for cleanup callbacks invoked when objects are garbage collected
+      methods:
+        - name: __init__
+          params:
+            - name: cleanup_callback
+              type: Function
+              description: Callback invoked when registered object is collected
+          returns:
+            type: FinalizationRegistry
+          description: Create finalization registry with cleanup callback
+          throws:
+            - TypeError: If cleanup_callback is not callable
+          notes:
+            - Callback signature: cleanup_callback(held_value)
+            - Callback runs as microtask after GC
+            - Multiple callbacks may be batched in one microtask
+
+        - name: register
+          params:
+            - name: target
+              type: Object
+              description: Object to monitor for collection
+            - name: held_value
+              type: Any
+              description: Value passed to cleanup callback
+            - name: unregister_token
+              type: Object
+              optional: true
+              description: Token to later unregister this registration
+          returns:
+            type: None
+          description: Register object for cleanup callback
+          throws:
+            - TypeError: If target is not an object
+            - TypeError: If target is same as unregister_token
+          notes:
+            - Target must be object (not symbol)
+            - held_value can be any value (including primitives)
+            - unregister_token must be object if provided
+            - Target and unregister_token must be different objects
+            - Multiple registrations allowed for same target
+
+        - name: unregister
+          params:
+            - name: unregister_token
+              type: Object
+              description: Token provided during register()
+          returns:
+            type: bool
+            description: True if any registrations were removed
+          description: Unregister all registrations with given token
+          notes:
+            - Removes all registrations with matching token
+            - Returns true if at least one was removed
+            - Returns false if no matching registrations
+            - Does not affect already-queued cleanup callbacks
+
+  structs:
+    - name: WeakRefInternal
+      description: Internal representation of weak reference
+      fields:
+        - name: target_ptr
+          type: void*
+          description: Weak pointer to target object
+        - name: target_collected
+          type: bool
+          description: Flag indicating target was collected
+        - name: last_deref_turn
+          type: int
+          description: Event loop turn when last deref() called
+
+    - name: FinalizationRegistration
+      description: Internal registration entry
+      fields:
+        - name: target_ptr
+          type: void*
+          description: Weak pointer to monitored object
+        - name: held_value
+          type: Any
+          description: Value to pass to cleanup callback
+        - name: unregister_token_ptr
+          type: void*
+          description: Weak pointer to unregister token (if provided)
+        - name: registry
+          type: FinalizationRegistry
+          description: Owning registry
+
+    - name: CleanupJob
+      description: Microtask for cleanup callback
+      fields:
+        - name: registry
+          type: FinalizationRegistry
+          description: Registry whose callback to invoke
+        - name: held_values
+          type: List[Any]
+          description: Held values to pass to callback
+
+  gc_integration:
+    - name: on_object_collected
+      description: GC hook called when object with weak refs/registrations is collected
+      params:
+        - name: object_ptr
+          type: void*
+          description: Pointer to collected object
+      behavior:
+        - Mark all WeakRef targets as collected
+        - Queue cleanup callbacks for FinalizationRegistry registrations
+        - Schedule cleanup microtask if not already scheduled
+
+    - name: process_cleanup_callbacks
+      description: Process queued cleanup callbacks as microtask
+      params: []
+      behavior:
+        - Group registrations by registry
+        - Call each registry's cleanup callback with held values
+        - Remove processed registrations
+        - Callbacks run in microtask (before next task)
+
+dependencies:
+  - name: memory_gc
+    version: "^0.1.0"
+    imports:
+      - GarbageCollector
+      - HeapObject
+    notes:
+      - GC must notify WeakRef system when objects collected
+      - WeakRef must integrate with GC marking phase
+
+  - name: value_system
+    version: "^0.1.0"
+    imports:
+      - JSValue
+      - JSObject
+    notes:
+      - WeakRef and FinalizationRegistry are JSObject types
+      - held_value uses JSValue
+
+  - name: event_loop
+    version: "^0.1.0"
+    imports:
+      - schedule_microtask
+    notes:
+      - Cleanup callbacks run as microtasks
+      - Must not run during GC (scheduled after)
+
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - create_builtin_constructor
+    notes:
+      - WeakRef and FinalizationRegistry are built-in constructors
+
+requirements:
+  functional:
+    - FR-ES24-B-028: WeakRef constructor - Create weak reference to object
+    - FR-ES24-B-029: WeakRef.prototype.deref() - Dereference weak ref (or undefined)
+    - FR-ES24-B-030: WeakRef GC behavior - Object collected when no strong refs
+    - FR-ES24-B-031: FinalizationRegistry constructor - Create finalization registry
+    - FR-ES24-B-032: FinalizationRegistry.register() - Register cleanup callback
+    - FR-ES24-B-033: FinalizationRegistry cleanup - Callback invoked on GC
+
+  non_functional:
+    - WeakRef creation overhead <1µs
+    - deref() operation <100ns when target alive
+    - deref() operation <50ns when target collected
+    - Registration overhead <500ns per object
+    - Cleanup callback scheduling <10µs per batch
+    - No observable GC pause increase (cleanup runs in microtask)
+
+  testing:
+    - Minimum 69 unit tests
+    - Test coverage ≥85%
+    - Test262 compliance for WeakRef and FinalizationRegistry
+    - GC integration tests (force collection, verify behavior)
+    - Edge cases:
+      - WeakRef to symbol (allowed)
+      - WeakRef to primitive (TypeError)
+      - Multiple registrations per object
+      - Unregister before/after collection
+      - deref() stability within same turn
+      - Cleanup callback exceptions (catch and continue)
+      - Same target in multiple registries
+
+  security:
+    - WeakRef must not extend object lifetime
+    - No observable GC timing attacks through deref()
+    - Cleanup callbacks cannot resurrect collected objects
+    - Held values properly isolated between registrations
+
+performance:
+  weakref_creation: "<1µs"
+  deref_alive: "<100ns"
+  deref_collected: "<50ns"
+  register_overhead: "<500ns"
+  cleanup_scheduling: "<10µs per batch"
+
+gc_semantics:
+  weakref_behavior:
+    - WeakRef does NOT prevent GC of target
+    - Target collected when no strong references remain
+    - deref() returns undefined after collection
+    - deref() result stable within same event loop turn
+
+  finalization_behavior:
+    - Cleanup callback scheduled as microtask after GC
+    - Multiple callbacks may be batched
+    - Callback runs even if registry itself is collected
+    - Callback must not throw (catch and log)
+    - Callback cannot prevent target collection (target already gone)
+
+  turn_stability:
+    - Within same event loop turn, deref() returns same value
+    - Implementation may keep target alive during turn
+    - Subsequent turns may return undefined if collected
+
+  ordering_guarantees:
+    - No guaranteed order of cleanup callbacks
+    - Cleanup runs before next task (microtask timing)
+    - Multiple registrations for same object may batch
+
+error_handling:
+  constructor_errors:
+    - WeakRef(primitive) → TypeError
+    - WeakRef(null) → TypeError
+    - WeakRef(undefined) → TypeError
+    - FinalizationRegistry(non_callable) → TypeError
+
+  register_errors:
+    - register(primitive) → TypeError
+    - register(null) → TypeError
+    - register(target, held, target) → TypeError (token same as target)
+
+  cleanup_errors:
+    - Callback exception → Caught, logged, continue processing
+    - Registry collected → Callback still runs for pending registrations
+
+test_categories:
+  basic_functionality:
+    - WeakRef constructor and deref
+    - FinalizationRegistry constructor and register
+    - Simple cleanup callback invocation
+
+  gc_integration:
+    - Target collected when no strong refs
+    - deref returns undefined after collection
+    - Cleanup callback invoked after GC
+    - Multiple GC cycles
+
+  edge_cases:
+    - WeakRef to symbol (allowed)
+    - Multiple registrations per object
+    - Unregister before callback
+    - deref stability within turn
+    - Callback exceptions handled
+    - Registry collected but callbacks run
+
+  error_cases:
+    - TypeError for invalid targets
+    - TypeError for invalid callbacks
+    - TypeError for invalid unregister tokens
+
+  performance_tests:
+    - Benchmark WeakRef creation
+    - Benchmark deref operations
+    - Benchmark registration overhead
+    - Verify no GC pause increase
+
+notes:
+  - WeakRef and FinalizationRegistry are separate but related features
+  - WeakRef allows checking if object still alive
+  - FinalizationRegistry allows cleanup when object collected
+  - Both integrate deeply with garbage collector
+  - Cleanup callbacks run asynchronously (microtask)
+  - No guarantees WHEN gc runs, only THAT cleanup eventually happens
+  - Implementation must prevent WeakRef from keeping objects alive
+  - held_value in register() must not be target (would keep alive)

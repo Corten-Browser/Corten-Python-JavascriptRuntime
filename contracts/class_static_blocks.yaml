@@ -1,0 +1,431 @@
+name: class_static_blocks
+version: 0.1.0
+type: feature
+description: ES2022 static initialization blocks for classes
+level: 2
+
+dependencies:
+  - name: parser
+    version: "^0.2.0"
+    imports:
+      - ClassDeclaration
+      - ClassBody
+      - Statement
+      - ASTNode
+  - name: private_class_features
+    version: "^0.1.0"
+    imports:
+      - PrivateFieldManager
+      - StaticInitializationManager
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - ExecutionContext
+      - evaluate_statement
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+
+api:
+  # AST Node Extensions
+  ast_nodes:
+    - name: StaticBlock
+      type: class
+      inherits: Statement
+      description: Static initialization block AST node
+      fields:
+        - name: body
+          type: List[Statement]
+          description: Statements in the static block
+        - name: location
+          type: SourceLocation
+          description: Source location of the static block
+
+    - name: ClassDeclarationExtension
+      description: Extension to ClassDeclaration to include static blocks
+      adds_field:
+        - name: static_blocks
+          type: List[StaticBlock]
+          description: Static initialization blocks in the class
+
+  # Parser Extensions
+  parser_extensions:
+    - name: parse_class_static_block
+      type: method
+      params:
+        - name: self
+          type: Parser
+          description: Parser instance
+      returns:
+        type: StaticBlock
+        description: Parsed static block
+      description: Parse static { ... } block inside class body
+      raises:
+        - SyntaxError: If static block syntax is invalid
+
+    - name: is_static_block
+      type: method
+      params:
+        - name: self
+          type: Parser
+          description: Parser instance
+      returns:
+        type: bool
+        description: True if current position is start of static block
+      description: Check if 'static' token is followed by '{'
+
+  # Runtime Classes
+  classes:
+    - name: StaticBlockExecutor
+      description: Executes static initialization blocks
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize static block executor
+
+        - name: execute_static_block
+          params:
+            - name: block
+              type: StaticBlock
+              description: Static block to execute
+            - name: class_constructor
+              type: JSObject
+              description: Class constructor function
+            - name: context
+              type: ExecutionContext
+              description: Execution context
+          returns:
+            type: None
+          description: Execute static block with proper 'this' binding
+          raises:
+            - RuntimeError: If error occurs during execution
+            - TypeError: If 'this' binding fails
+          semantics:
+            - this_binding: class_constructor
+            - execution_order: After all static fields initialized
+            - private_access: Can access private static fields/methods
+            - scope: Class scope with access to outer scope
+
+        - name: execute_all_static_blocks
+          params:
+            - name: blocks
+              type: List[StaticBlock]
+              description: All static blocks for the class
+            - name: class_constructor
+              type: JSObject
+              description: Class constructor function
+            - name: context
+              type: ExecutionContext
+              description: Execution context
+          returns:
+            type: None
+          description: Execute all static blocks in definition order
+          raises:
+            - RuntimeError: If any block throws an error
+
+    - name: StaticBlockScope
+      description: Scope management for static blocks
+      methods:
+        - name: __init__
+          params:
+            - name: parent_scope
+              type: Scope
+              description: Parent class scope
+            - name: class_constructor
+              type: JSObject
+              description: Class constructor for 'this' binding
+          returns:
+            type: None
+          description: Initialize static block scope
+
+        - name: resolve_this
+          params: []
+          returns:
+            type: JSObject
+            description: The class constructor
+          description: Resolve 'this' to class constructor
+
+        - name: can_access_private
+          params:
+            - name: field_name
+              type: str
+              description: Private field/method name (with #)
+          returns:
+            type: bool
+            description: True if field is accessible
+          description: Check if private static member is accessible
+
+  # Structs
+  structs:
+    - name: StaticBlockDescriptor
+      description: Descriptor for a static block
+      fields:
+        - name: block
+          type: StaticBlock
+          description: The AST node
+        - name: index
+          type: int
+          description: Definition order index
+        - name: class_id
+          type: int
+          description: Owning class identifier
+
+# Execution Semantics
+semantics:
+  syntax:
+    pattern: "static { ... }"
+    location: Inside class body
+    restrictions:
+      - Cannot be used outside class bodies
+      - Cannot have parameters
+      - Cannot be async or generator
+      - Cannot be named
+
+  execution_order:
+    description: Static blocks execute in definition order
+    steps:
+      - step: 1
+        action: Parse all static fields and blocks in class
+      - step: 2
+        action: Initialize all static fields (in definition order)
+      - step: 3
+        action: Execute static blocks (in definition order)
+      - step: 4
+        action: Class constructor ready for use
+    guarantees:
+      - Static blocks run after all static fields initialized
+      - Multiple static blocks execute in source order
+      - Each block executes exactly once
+      - Errors in one block prevent subsequent blocks from running
+
+  this_binding:
+    description: "'this' refers to class constructor"
+    behavior:
+      - this === ClassConstructor
+      - Can set properties on constructor (ClassConstructor.foo = value)
+      - Can access static methods via this.staticMethod()
+      - Can access private static fields via this.#privateStatic
+    examples:
+      - code: "class C { static x = 1; static { console.log(this.x); } }"
+        this_value: C
+        output: 1
+
+  private_access:
+    description: Static blocks can access private static members
+    capabilities:
+      - Read private static fields (this.#field)
+      - Write private static fields (this.#field = value)
+      - Call private static methods (this.#method())
+      - Access private static accessors (this.#accessor)
+    restrictions:
+      - Cannot access private instance members (class not instantiated yet)
+      - Cannot access private members from other classes
+
+  scope:
+    description: Static block has its own lexical scope
+    characteristics:
+      - Variables declared in block are block-scoped
+      - Can access outer class scope
+      - Can access module/script scope
+      - Can declare let/const without leaking to class
+    example:
+      code: |
+        class C {
+          static {
+            let temp = 42; // Not visible outside block
+            this.value = temp;
+          }
+          static { console.log(temp); } // ReferenceError
+        }
+
+# Error Conditions
+errors:
+  - name: SyntaxError
+    conditions:
+      - Static block outside class body
+      - Static block with parameters: "static(x) { }"
+      - Static block with name: "static foo { }"
+      - Static block with async/await decorator: "async static { }"
+      - Static block with generator: "static* { }"
+    message_pattern: "Unexpected token in static block"
+
+  - name: TypeError
+    conditions:
+      - Accessing private field from wrong class
+      - Calling non-static method on constructor
+    message_pattern: "Cannot access private member"
+
+  - name: ReferenceError
+    conditions:
+      - Accessing variable from another static block's scope
+      - Accessing 'super' in static block (invalid)
+    message_pattern: "Variable not defined"
+
+  - name: RuntimeError
+    conditions:
+      - Exception thrown during static block execution
+      - Static field initializer throws before block runs
+    message_pattern: "Error in static initialization"
+
+# Requirements Mapping
+requirements:
+  functional:
+    - id: FR-ES24-B-011
+      description: "Static initialization blocks `static { ... }` syntax"
+      implementation:
+        - Parser recognizes "static {" pattern in class body
+        - Creates StaticBlock AST node
+        - Validates syntax (no params, no name, no decorators)
+      test_count: 15
+
+    - id: FR-ES24-B-012
+      description: "Static block execution order - Runs after static fields"
+      implementation:
+        - StaticBlockExecutor tracks execution order
+        - Static fields initialize first
+        - Static blocks execute in definition order
+        - Multiple blocks supported
+      test_count: 12
+
+    - id: FR-ES24-B-013
+      description: "Static block this binding - `this` refers to class constructor"
+      implementation:
+        - StaticBlockScope resolves 'this' to class constructor
+        - Can set properties on constructor
+        - Can call static methods via 'this'
+      test_count: 10
+
+    - id: FR-ES24-B-014
+      description: "Static block private access - Can access private static fields"
+      implementation:
+        - StaticBlockScope integrates with PrivateFieldManager
+        - Can read/write private static fields
+        - Can call private static methods
+        - Cannot access private instance members
+      test_count: 13
+
+  non_functional:
+    - Static block execution overhead <200ns per block
+    - No memory leak from block scopes
+    - Parser handles static blocks in <100us
+    - Private access in static blocks <100ns overhead
+
+  testing:
+    minimum_tests: 50
+    coverage_target: 85%
+    test_categories:
+      - Syntax parsing (valid and invalid)
+      - Execution order verification
+      - This binding correctness
+      - Private field access
+      - Scope isolation
+      - Error conditions
+      - Integration with static fields
+      - Multiple static blocks
+      - Edge cases (empty blocks, nested classes)
+
+    test262_compliance:
+      expected_tests: ~80
+      test_paths:
+        - test/language/statements/class/elements/static-init-*
+        - test/language/statements/class/elements/private-static-*
+
+# Performance Targets
+performance:
+  static_block_parse: "<100us per block"
+  static_block_execute: "<200ns overhead per block"
+  private_field_access: "<100ns overhead in static blocks"
+  memory_overhead: "<64 bytes per static block"
+
+# Integration Points
+integration:
+  with_parser:
+    - Extends ClassDeclaration parsing
+    - Adds StaticBlock to class body elements
+    - Validates syntax during parse
+
+  with_private_class_features:
+    - Uses PrivateFieldManager for private access
+    - Integrates with StaticInitializationManager
+    - Shares class_id for brand checking
+
+  with_interpreter:
+    - Executes during class definition evaluation
+    - Creates proper ExecutionContext
+    - Handles exceptions during execution
+
+  with_object_runtime:
+    - Binds 'this' to JSObject (class constructor)
+    - Sets properties on constructor object
+    - Manages class constructor lifecycle
+
+# Examples
+examples:
+  basic_static_block:
+    description: Simple static initialization
+    code: |
+      class C {
+        static x;
+        static {
+          this.x = 42;
+        }
+      }
+      console.log(C.x); // 42
+
+  execution_order:
+    description: Static blocks run after static fields
+    code: |
+      class C {
+        static x = 1;
+        static {
+          console.log(this.x); // 1 (field already initialized)
+          this.y = 2;
+        }
+        static z = 3;
+        static {
+          console.log(this.z); // 3 (field initialized before this block)
+        }
+      }
+
+  private_access:
+    description: Static block accesses private static fields
+    code: |
+      class C {
+        static #secret = 42;
+        static {
+          console.log(this.#secret); // 42
+          this.#secret = 100;
+        }
+        static getSecret() {
+          return this.#secret; // 100
+        }
+      }
+
+  scope_isolation:
+    description: Block variables are scoped
+    code: |
+      class C {
+        static {
+          let temp = "hidden";
+          this.value = temp;
+        }
+        static {
+          // console.log(temp); // ReferenceError: temp not defined
+          console.log(this.value); // "hidden"
+        }
+      }
+
+  this_binding:
+    description: "'this' is the class constructor"
+    code: |
+      class C {
+        static {
+          console.log(this === C); // true
+          this.method = () => "static method added in block";
+        }
+      }
+      console.log(C.method()); // "static method added in block"

@@ -1,0 +1,917 @@
+openapi: 3.0.0
+info:
+  title: Function Edge Cases Component Contract
+  version: 0.1.0
+  description: |
+    Contract for function API completeness and edge cases including:
+    - Function.prototype.name edge cases (FR-ES24-B-039)
+    - Function.prototype.toString() (FR-ES24-B-040)
+    - Function.prototype.bind() edge cases (FR-ES24-B-041)
+    - Function.prototype.call/apply edge cases (FR-ES24-B-042)
+    - Function length property (FR-ES24-B-043)
+    - Arrow function this binding (FR-ES24-B-044)
+    - Function constructor edge cases (FR-ES24-B-045)
+    - Generator function edge cases (FR-ES24-B-046)
+
+x-component-metadata:
+  component_name: function_edge_cases
+  component_type: core
+  dependencies:
+    imports:
+      - name: object_runtime
+        version: "^0.1.0"
+        import_from: "components.object_runtime"
+        uses:
+          - ObjectPrototype
+          - PropertyDescriptor
+          - DefineProperty
+      - name: interpreter
+        version: "^0.1.0"
+        import_from: "components.interpreter"
+        uses:
+          - ExecutionContext
+          - ThisBinding
+          - CallFunction
+      - name: parser
+        version: "^0.1.0"
+        import_from: "components.parser"
+        uses:
+          - ParseFunctionSource
+          - FunctionNode
+  requirements:
+    - FR-ES24-B-039
+    - FR-ES24-B-040
+    - FR-ES24-B-041
+    - FR-ES24-B-042
+    - FR-ES24-B-043
+    - FR-ES24-B-044
+    - FR-ES24-B-045
+    - FR-ES24-B-046
+  test_requirements:
+    minimum_tests: 91
+    categories:
+      - name_inference: 15
+      - toString: 12
+      - bind: 15
+      - call_apply: 12
+      - length_property: 10
+      - arrow_this: 10
+      - function_constructor: 10
+      - generator_functions: 7
+
+x-performance-requirements:
+  name_inference_latency:
+    max_duration_microseconds: 1
+    description: "Name inference must complete in <1µs"
+  toString_latency:
+    max_duration_microseconds: 5
+    description: "toString() must complete in <5µs for typical functions"
+  bind_latency:
+    max_duration_microseconds: 2
+    description: "bind() must complete in <2µs"
+  call_apply_latency:
+    max_duration_microseconds: 1
+    description: "call/apply overhead must be <1µs vs direct call"
+
+components:
+  schemas:
+    FunctionObject:
+      type: object
+      description: Internal representation of a JavaScript function
+      required:
+        - type
+        - name
+        - length
+        - prototype
+      properties:
+        type:
+          type: string
+          enum:
+            - function
+            - arrow
+            - async
+            - generator
+            - async_generator
+            - bound
+            - constructor
+        name:
+          type: string
+          description: "Function name (inferred or explicit)"
+        length:
+          type: integer
+          minimum: 0
+          description: "Number of formal parameters (excluding rest)"
+        prototype:
+          type: object
+          description: "Function prototype object (null for arrow/bound)"
+        source:
+          type: string
+          description: "Original source code"
+        boundThis:
+          description: "Bound this value (for bound functions)"
+        boundArgs:
+          type: array
+          description: "Bound arguments (for bound functions)"
+        targetFunction:
+          description: "Original function (for bound functions)"
+        isArrow:
+          type: boolean
+          description: "True if arrow function"
+        isGenerator:
+          type: boolean
+          description: "True if generator function"
+        isAsync:
+          type: boolean
+          description: "True if async function"
+
+    NameInferenceContext:
+      type: object
+      description: Context for function name inference
+      properties:
+        assignmentTarget:
+          type: string
+          description: "Variable/property name in assignment"
+        objectLiteralKey:
+          type: string
+          description: "Key in object literal"
+        classMethodName:
+          type: string
+          description: "Method name in class"
+        defaultName:
+          type: string
+          enum: ["anonymous", ""]
+          description: "Default name if no inference possible"
+
+    ToStringOptions:
+      type: object
+      description: Options for Function.prototype.toString()
+      properties:
+        includeSource:
+          type: boolean
+          default: true
+          description: "Include original source if available"
+        syntactic:
+          type: boolean
+          default: true
+          description: "Preserve syntactic form"
+        nativeCodePlaceholder:
+          type: string
+          default: "[native code]"
+          description: "Placeholder for native functions"
+
+    BindOptions:
+      type: object
+      description: Options for Function.prototype.bind()
+      required:
+        - thisArg
+      properties:
+        thisArg:
+          description: "Value to bind as this"
+        args:
+          type: array
+          description: "Arguments to prepend"
+        preserveName:
+          type: boolean
+          default: true
+          description: "Preserve original name with 'bound ' prefix"
+
+    CallApplyOptions:
+      type: object
+      description: Options for call/apply invocation
+      required:
+        - thisArg
+      properties:
+        thisArg:
+          description: "Value to use as this"
+        args:
+          type: array
+          description: "Arguments array (for apply)"
+
+    LengthCalculation:
+      type: object
+      description: Rules for calculating function.length
+      properties:
+        countRequired:
+          type: boolean
+          default: true
+          description: "Count required parameters"
+        countOptional:
+          type: boolean
+          default: true
+          description: "Count parameters with defaults"
+        stopAtRest:
+          type: boolean
+          default: true
+          description: "Stop counting at rest parameter"
+        stopAtDefault:
+          type: boolean
+          default: true
+          description: "Stop counting at first default parameter"
+
+    FunctionConstructorOptions:
+      type: object
+      description: Options for Function constructor
+      properties:
+        parameters:
+          type: array
+          items:
+            type: string
+          description: "Parameter names"
+        body:
+          type: string
+          required: true
+          description: "Function body"
+        strict:
+          type: boolean
+          default: false
+          description: "Create in strict mode"
+
+    GeneratorFunctionMetadata:
+      type: object
+      description: Metadata for generator functions
+      properties:
+        isGenerator:
+          type: boolean
+          description: "True for generator functions"
+        generatorKind:
+          type: string
+          enum: ["sync", "async"]
+        prototypeConstructor:
+          type: string
+          description: "Constructor name for generator prototype"
+
+    FunctionError:
+      type: object
+      required:
+        - type
+        - message
+      properties:
+        type:
+          type: string
+          enum:
+            - TypeError
+            - SyntaxError
+            - ReferenceError
+        message:
+          type: string
+        context:
+          type: object
+          properties:
+            operation:
+              type: string
+              enum:
+                - name_inference
+                - toString
+                - bind
+                - call
+                - apply
+                - length_calculation
+                - constructor
+                - this_binding
+
+paths:
+  /function/name/infer:
+    post:
+      summary: Infer function name (FR-ES24-B-039)
+      description: |
+        Infer function name from context:
+        - Assignment: const f = function() {} → name is "f"
+        - Object literal: {foo: function() {}} → name is "foo"
+        - Class method: class C { foo() {} } → name is "foo"
+        - Default export: export default function() {} → name is "default"
+        - Variable declaration: let x = () => {} → name is "x"
+        - Property assignment: obj.method = function() {} → name is "method"
+      operationId: inferFunctionName
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+                context:
+                  $ref: '#/components/schemas/NameInferenceContext'
+      responses:
+        '200':
+          description: Name inferred successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - name
+                properties:
+                  name:
+                    type: string
+                    description: "Inferred or explicit name"
+                  source:
+                    type: string
+                    enum: ["explicit", "inferred", "default"]
+        '400':
+          description: Invalid function object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/toString:
+    post:
+      summary: Convert function to string (FR-ES24-B-040)
+      description: |
+        Return string representation of function:
+        - Original source code if available
+        - Syntactic form preserved
+        - Native functions return "function name() { [native code] }"
+        - Bound functions show "bound " prefix
+        - Arrow functions show arrow syntax
+      operationId: functionToString
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+                options:
+                  $ref: '#/components/schemas/ToStringOptions'
+      responses:
+        '200':
+          description: String representation
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - source
+                properties:
+                  source:
+                    type: string
+                    description: "Function source code"
+                  synthetic:
+                    type: boolean
+                    description: "True if source was reconstructed"
+        '400':
+          description: Invalid function
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/bind:
+    post:
+      summary: Create bound function (FR-ES24-B-041)
+      description: |
+        Create bound function with edge cases:
+        - Bind this value (primitive or object)
+        - Prepend arguments
+        - Preserve name with "bound " prefix
+        - Set length = max(0, original.length - boundArgs.length)
+        - Remove prototype property
+        - Bind is non-configurable for built-ins
+        - Multiple binds create chain
+      operationId: bindFunction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+                - bindOptions
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+                bindOptions:
+                  $ref: '#/components/schemas/BindOptions'
+      responses:
+        '200':
+          description: Bound function created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - boundFunction
+                properties:
+                  boundFunction:
+                    $ref: '#/components/schemas/FunctionObject'
+                  originalLength:
+                    type: integer
+                  newLength:
+                    type: integer
+        '400':
+          description: Cannot bind (not a function)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/call:
+    post:
+      summary: Call function with this (FR-ES24-B-042)
+      description: |
+        Call function with explicit this:
+        - Normal functions: this is thisArg
+        - Arrow functions: this is lexical (ignore thisArg)
+        - Bound functions: this is bound value (ignore thisArg)
+        - Strict mode: this is thisArg (no boxing)
+        - Non-strict: undefined/null → global object, primitives boxed
+      operationId: callFunction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+                - options
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+                options:
+                  $ref: '#/components/schemas/CallApplyOptions'
+      responses:
+        '200':
+          description: Function called successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - result
+                properties:
+                  result:
+                    description: "Return value"
+                  thisValue:
+                    description: "Actual this value used"
+        '400':
+          description: Not callable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/apply:
+    post:
+      summary: Apply function with arguments array (FR-ES24-B-042)
+      description: |
+        Apply function with arguments array:
+        - Same this binding rules as call
+        - Arguments must be array-like
+        - null/undefined args treated as empty array
+        - Non-array-like throws TypeError
+      operationId: applyFunction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+                - options
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+                options:
+                  $ref: '#/components/schemas/CallApplyOptions'
+      responses:
+        '200':
+          description: Function applied successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - result
+                properties:
+                  result:
+                    description: "Return value"
+                  thisValue:
+                    description: "Actual this value used"
+                  argsUsed:
+                    type: array
+                    description: "Arguments actually used"
+        '400':
+          description: Not callable or invalid args
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/length/calculate:
+    post:
+      summary: Calculate function length (FR-ES24-B-043)
+      description: |
+        Calculate function.length property:
+        - Count parameters before first default parameter
+        - Exclude rest parameters
+        - Include destructured parameters
+        - Bound functions: max(0, original.length - boundArgs.length)
+        - Built-in functions: defined by implementation
+      operationId: calculateLength
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+                calculation:
+                  $ref: '#/components/schemas/LengthCalculation'
+      responses:
+        '200':
+          description: Length calculated
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - length
+                properties:
+                  length:
+                    type: integer
+                    minimum: 0
+                  breakdown:
+                    type: object
+                    properties:
+                      requiredParams:
+                        type: integer
+                      defaultParams:
+                        type: integer
+                      restParam:
+                        type: boolean
+        '400':
+          description: Invalid function
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/arrow/this:
+    post:
+      summary: Resolve arrow function this (FR-ES24-B-044)
+      description: |
+        Arrow function this binding:
+        - Lexically bound at creation
+        - call/apply/bind cannot change this
+        - Inherits from enclosing scope
+        - No own this binding
+        - No arguments object
+      operationId: resolveArrowThis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - arrowFunction
+                - enclosingScope
+              properties:
+                arrowFunction:
+                  $ref: '#/components/schemas/FunctionObject'
+                enclosingScope:
+                  type: object
+                  required:
+                    - thisBinding
+                  properties:
+                    thisBinding:
+                      description: "This value from enclosing scope"
+      responses:
+        '200':
+          description: Lexical this resolved
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - thisValue
+                properties:
+                  thisValue:
+                    description: "Lexical this value"
+                  source:
+                    type: string
+                    enum: ["lexical", "global"]
+        '400':
+          description: Not an arrow function
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/constructor:
+    post:
+      summary: Create function with Function constructor (FR-ES24-B-045)
+      description: |
+        Function constructor edge cases:
+        - Function(arg1, arg2, ..., argN, body)
+        - Function(body) for no parameters
+        - Created in global scope (not lexical)
+        - Strict mode from body or environment
+        - Parameters are string concatenation
+        - SyntaxError if invalid
+      operationId: createDynamicFunction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FunctionConstructorOptions'
+      responses:
+        '200':
+          description: Function created
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - function
+                properties:
+                  function:
+                    $ref: '#/components/schemas/FunctionObject'
+                  parsedParams:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Syntax error in function code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+  /function/generator/metadata:
+    post:
+      summary: Get generator function metadata (FR-ES24-B-046)
+      description: |
+        Generator function edge cases:
+        - function* name() {} has name "name"
+        - Generator.prototype.constructor is GeneratorFunction
+        - toString shows "function*"
+        - length calculated same as normal functions
+        - No prototype property on generator instances
+        - Async generators have AsyncGeneratorFunction constructor
+      operationId: getGeneratorMetadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - function
+              properties:
+                function:
+                  $ref: '#/components/schemas/FunctionObject'
+      responses:
+        '200':
+          description: Generator metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratorFunctionMetadata'
+        '400':
+          description: Not a generator function
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionError'
+
+x-test-specifications:
+  name_inference_tests:
+    - scenario: "Assignment expression"
+      input: "const foo = function() {}"
+      expected_name: "foo"
+    - scenario: "Object literal method"
+      input: "{bar: function() {}}"
+      expected_name: "bar"
+    - scenario: "Class method"
+      input: "class C { baz() {} }"
+      expected_name: "baz"
+    - scenario: "Arrow function in variable"
+      input: "let arrow = () => {}"
+      expected_name: "arrow"
+    - scenario: "Default export"
+      input: "export default function() {}"
+      expected_name: "default"
+    - scenario: "Property assignment"
+      input: "obj.method = function() {}"
+      expected_name: "method"
+    - scenario: "Computed property"
+      input: "{[computed]: function() {}}"
+      expected_name: "computed value or empty"
+    - scenario: "Anonymous function"
+      input: "(function() {})"
+      expected_name: ""
+    - scenario: "Named function expression"
+      input: "const f = function namedFn() {}"
+      expected_name: "namedFn"
+    - scenario: "Generator in object"
+      input: "{*gen() {}}"
+      expected_name: "gen"
+
+  toString_tests:
+    - scenario: "Normal function"
+      input: "function foo(a, b) { return a + b; }"
+      expected_output: "function foo(a, b) { return a + b; }"
+    - scenario: "Arrow function"
+      input: "(x) => x * 2"
+      expected_output: "(x) => x * 2"
+    - scenario: "Bound function"
+      input: "foo.bind(null, 1)"
+      expected_output: "function () { [native code] }"
+    - scenario: "Native function"
+      input: "Array.prototype.map"
+      expected_output: "function map() { [native code] }"
+    - scenario: "Generator function"
+      input: "function* gen() { yield 1; }"
+      expected_output: "function* gen() { yield 1; }"
+    - scenario: "Async function"
+      input: "async function foo() {}"
+      expected_output: "async function foo() {}"
+
+  bind_tests:
+    - scenario: "Bind this value"
+      this_arg: "{value: 42}"
+      expected_behavior: "Function receives bound this"
+    - scenario: "Bind with arguments"
+      bound_args: "[1, 2]"
+      call_args: "[3]"
+      expected_args: "[1, 2, 3]"
+    - scenario: "Bound function name"
+      original_name: "foo"
+      expected_name: "bound foo"
+    - scenario: "Bound function length"
+      original_length: 3
+      bound_args_count: 1
+      expected_length: 2
+    - scenario: "Double bind"
+      first_bind: "obj1"
+      second_bind: "obj2"
+      expected_this: "obj1"
+    - scenario: "Bind arrow function"
+      function_type: "arrow"
+      expected_behavior: "This still lexical"
+
+  call_apply_tests:
+    - scenario: "Call with object this"
+      this_arg: "{x: 1}"
+      strict: false
+      expected_this: "{x: 1}"
+    - scenario: "Call with primitive this (non-strict)"
+      this_arg: "42"
+      strict: false
+      expected_this: "Number(42)"
+    - scenario: "Call with undefined this (strict)"
+      this_arg: "undefined"
+      strict: true
+      expected_this: "undefined"
+    - scenario: "Apply with array"
+      args: "[1, 2, 3]"
+      expected_args: "[1, 2, 3]"
+    - scenario: "Apply with null args"
+      args: "null"
+      expected_args: "[]"
+
+  length_tests:
+    - scenario: "No parameters"
+      params: "[]"
+      expected_length: 0
+    - scenario: "Required parameters"
+      params: "[a, b, c]"
+      expected_length: 3
+    - scenario: "With default parameter"
+      params: "[a, b = 1, c]"
+      expected_length: 1
+    - scenario: "With rest parameter"
+      params: "[a, ...rest]"
+      expected_length: 1
+    - scenario: "Destructured parameters"
+      params: "[{a, b}, c]"
+      expected_length: 2
+
+  arrow_this_tests:
+    - scenario: "Lexical this from function"
+      context: "function() { return () => this; }"
+      expected_behavior: "Arrow inherits function this"
+    - scenario: "Lexical this from global"
+      context: "global scope"
+      expected_this: "global object"
+    - scenario: "Arrow in object method"
+      context: "obj.method = function() { return () => this; }"
+      expected_this: "obj"
+    - scenario: "call on arrow"
+      operation: "arrow.call(obj)"
+      expected_behavior: "This unchanged (lexical)"
+
+  constructor_tests:
+    - scenario: "No parameters"
+      input: "Function('return 42')"
+      expected_result: "42"
+    - scenario: "With parameters"
+      input: "Function('a', 'b', 'return a + b')"
+      expected_params: 2
+    - scenario: "Syntax error in body"
+      input: "Function('return {')"
+      expected_error: "SyntaxError"
+    - scenario: "Strict mode body"
+      input: "Function('\"use strict\"; return this')"
+      expected_behavior: "Strict mode function"
+
+  generator_tests:
+    - scenario: "Generator name"
+      input: "function* gen() {}"
+      expected_name: "gen"
+    - scenario: "Generator toString"
+      input: "function* gen() {}"
+      expected_output: "function* gen() {}"
+    - scenario: "Generator length"
+      input: "function* gen(a, b = 1) {}"
+      expected_length: 1
+
+x-implementation-notes:
+  name_inference:
+    - "Use AST context to infer names"
+    - "Cache inferred names on function objects"
+    - "Handle computed property names"
+    - "Anonymous functions have empty string name"
+
+  toString:
+    - "Store original source if possible"
+    - "Reconstruct source for synthetic functions"
+    - "Use [native code] for built-ins"
+    - "Preserve syntactic form (function* vs function)"
+
+  bind:
+    - "Create new function object with bound slots"
+    - "Chain bound functions correctly"
+    - "Prepend bound arguments"
+    - "Calculate new length"
+
+  call_apply:
+    - "Check arrow function flag for this binding"
+    - "Check bound function flag for this binding"
+    - "Box primitives in non-strict mode"
+    - "Convert undefined/null to global in non-strict"
+
+  length:
+    - "Count parameters until first default or rest"
+    - "Destructured parameters count as 1"
+    - "Update on bind() operation"
+
+  arrow_this:
+    - "Capture this at arrow creation time"
+    - "Store as lexical slot"
+    - "Never override with call/apply/bind"
+
+  function_constructor:
+    - "Parse parameter strings"
+    - "Parse body string"
+    - "Create in global scope"
+    - "Detect strict mode from body"
+
+  generators:
+    - "Set isGenerator flag"
+    - "Use function* in toString"
+    - "Set constructor to GeneratorFunction"
+    - "Same length rules as normal functions"
+
+x-error-handling:
+  TypeError:
+    - "Calling bind/call/apply on non-function"
+    - "apply() with non-array-like arguments"
+    - "Invalid function constructor usage"
+
+  SyntaxError:
+    - "Function constructor with invalid syntax"
+    - "Invalid parameter list"
+
+  ReferenceError:
+    - "Function constructor accessing undeclared variables"
+
+x-edge-cases:
+  - "Bound function of bound function"
+  - "call on bound arrow function (lexical this prevails)"
+  - "Function constructor in strict mode"
+  - "Generator function length with defaults"
+  - "Async generator toString"
+  - "Name inference for computed properties"
+  - "toString on revoked proxy of function"
+  - "bind with non-writable length property"
+  - "Arrow function in eval"
+  - "Function constructor with CSP restrictions"

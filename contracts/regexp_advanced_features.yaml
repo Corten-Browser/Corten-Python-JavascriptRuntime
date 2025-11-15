@@ -1,0 +1,528 @@
+name: regexp_advanced_features
+version: 0.1.0
+type: feature
+description: ES2024 advanced RegExp features including named groups, unicode properties, lookbehind, flags, and symbol methods
+
+api:
+  classes:
+    - name: RegExpParser
+      description: Enhanced RegExp parser for advanced syntax
+      methods:
+        - name: parse_named_capture_group
+          params:
+            - name: pattern
+              type: str
+              description: Pattern containing (?<name>...) syntax
+          returns:
+            type: CaptureGroup
+            description: Named capture group descriptor
+          description: Parse named capture group syntax
+          requirement: FR-ES24-B-001
+
+        - name: parse_unicode_property
+          params:
+            - name: property_expr
+              type: str
+              description: Property expression like \p{Script=Latin}
+            - name: negated
+              type: bool
+              description: True for \P{...}, false for \p{...}
+          returns:
+            type: UnicodePropertySet
+            description: Set of matching code points
+          description: Parse unicode property escape
+          requirement: FR-ES24-B-002
+
+        - name: parse_lookbehind
+          params:
+            - name: pattern
+              type: str
+              description: Lookbehind pattern
+            - name: positive
+              type: bool
+              description: True for (?<=...), false for (?<!...)
+          returns:
+            type: LookbehindAssertion
+            description: Lookbehind assertion descriptor
+          description: Parse lookbehind assertion
+          requirement: FR-ES24-B-003
+
+        - name: parse_flags
+          params:
+            - name: flags_str
+              type: str
+              description: Flag string (e.g., "gimsduv")
+          returns:
+            type: RegExpFlags
+            description: Parsed flag configuration
+          description: Parse all RegExp flags including s, d, v, u
+          requirements: [FR-ES24-B-004, FR-ES24-B-005, FR-ES24-B-006, FR-ES24-B-009]
+
+    - name: RegExpExecutor
+      description: RegExp execution engine with advanced features
+      methods:
+        - name: execute_with_dotall
+          params:
+            - name: pattern
+              type: RegExp
+              description: Pattern with s flag
+            - name: input
+              type: str
+              description: Input string
+          returns:
+            type: MatchResult
+            description: Match result with . matching newlines
+          description: Execute pattern with dotAll (s flag)
+          requirement: FR-ES24-B-004
+
+        - name: execute_with_indices
+          params:
+            - name: pattern
+              type: RegExp
+              description: Pattern with d flag
+            - name: input
+              type: str
+              description: Input string
+          returns:
+            type: MatchResultWithIndices
+            description: Match result with .indices property
+          description: Execute pattern with indices flag
+          requirement: FR-ES24-B-005
+
+        - name: execute_lookbehind
+          params:
+            - name: assertion
+              type: LookbehindAssertion
+              description: Lookbehind assertion
+            - name: position
+              type: int
+              description: Current position in string
+            - name: input
+              type: str
+              description: Input string
+          returns:
+            type: bool
+            description: True if assertion matches
+          description: Execute lookbehind assertion
+          requirement: FR-ES24-B-003
+
+        - name: match_unicode_property
+          params:
+            - name: code_point
+              type: int
+              description: Unicode code point
+            - name: property_set
+              type: UnicodePropertySet
+              description: Property set to test against
+          returns:
+            type: bool
+            description: True if code point has property
+          description: Test code point against unicode property
+          requirement: FR-ES24-B-002
+
+    - name: RegExpPrototype
+      description: Enhanced RegExp.prototype methods
+      methods:
+        - name: flags_getter
+          params:
+            - name: regexp
+              type: RegExp
+              description: RegExp instance
+          returns:
+            type: str
+            description: Flag string (e.g., "gimsduv")
+          description: Get RegExp.prototype.flags property
+          requirement: FR-ES24-B-008
+
+        - name: symbol_match
+          params:
+            - name: regexp
+              type: RegExp
+              description: RegExp instance
+            - name: string
+              type: str
+              description: String to match
+          returns:
+            type: MatchResult
+            description: Match result or null
+          description: Implement RegExp.prototype[@@match]
+          requirement: FR-ES24-B-010
+
+        - name: symbol_match_all
+          params:
+            - name: regexp
+              type: RegExp
+              description: RegExp instance (must have g flag)
+            - name: string
+              type: str
+              description: String to match
+          returns:
+            type: Iterator[MatchResult]
+            description: Iterator of all matches
+          description: Implement RegExp.prototype[@@matchAll]
+          requirement: FR-ES24-B-010
+
+    - name: UnicodePropertyDatabase
+      description: Unicode property database for \p{...} and \P{...}
+      methods:
+        - name: get_property_set
+          params:
+            - name: property_name
+              type: str
+              description: Property name (e.g., "Script", "General_Category")
+            - name: property_value
+              type: str
+              description: Optional property value (e.g., "Latin", "Letter")
+          returns:
+            type: UnicodePropertySet
+            description: Set of matching code points
+          description: Get unicode property set
+          requirement: FR-ES24-B-002
+
+        - name: has_property
+          params:
+            - name: code_point
+              type: int
+              description: Unicode code point
+            - name: property_name
+              type: str
+              description: Property name
+            - name: property_value
+              type: str
+              description: Optional property value
+          returns:
+            type: bool
+            description: True if code point has property
+          description: Check if code point has property
+          requirement: FR-ES24-B-002
+
+    - name: SetNotationProcessor
+      description: Process set notation in /v flag
+      methods:
+        - name: parse_set_operations
+          params:
+            - name: pattern
+              type: str
+              description: Character class with set operations
+          returns:
+            type: CharacterSet
+            description: Resulting character set
+          description: Parse and evaluate set operations (union, intersection, subtraction)
+          requirement: FR-ES24-B-006
+
+        - name: evaluate_union
+          params:
+            - name: sets
+              type: List[CharacterSet]
+              description: Sets to union
+          returns:
+            type: CharacterSet
+            description: Union of sets
+          description: Evaluate union operation
+          requirement: FR-ES24-B-006
+
+        - name: evaluate_intersection
+          params:
+            - name: sets
+              type: List[CharacterSet]
+              description: Sets to intersect
+          returns:
+            type: CharacterSet
+            description: Intersection of sets
+          description: Evaluate intersection operation
+          requirement: FR-ES24-B-006
+
+        - name: evaluate_subtraction
+          params:
+            - name: base_set
+              type: CharacterSet
+              description: Base set
+            - name: subtract_set
+              type: CharacterSet
+              description: Set to subtract
+          returns:
+            type: CharacterSet
+            description: Difference of sets
+          description: Evaluate subtraction operation
+          requirement: FR-ES24-B-006
+
+        - name: parse_string_property
+          params:
+            - name: property_expr
+              type: str
+              description: String property in /v mode
+          returns:
+            type: StringPropertySet
+            description: Set of matching strings
+          description: Parse unicode string properties in /v flag
+          requirement: FR-ES24-B-007
+
+  structs:
+    - name: CaptureGroup
+      fields:
+        - name: name
+          type: str
+          description: Capture group name
+        - name: pattern
+          type: str
+          description: Group pattern
+        - name: index
+          type: int
+          description: Group index in pattern
+
+    - name: UnicodePropertySet
+      fields:
+        - name: property_name
+          type: str
+          description: Property name
+        - name: property_value
+          type: str
+          description: Property value (optional)
+        - name: code_points
+          type: Set[int]
+          description: Set of matching code points
+        - name: negated
+          type: bool
+          description: True for \P{...}
+
+    - name: LookbehindAssertion
+      fields:
+        - name: pattern
+          type: str
+          description: Lookbehind pattern
+        - name: positive
+          type: bool
+          description: True for (?<=...), false for (?<!...)
+        - name: max_length
+          type: int
+          description: Maximum length to look back
+
+    - name: RegExpFlags
+      fields:
+        - name: global_flag
+          type: bool
+          description: g flag
+        - name: ignore_case
+          type: bool
+          description: i flag
+        - name: multiline
+          type: bool
+          description: m flag
+        - name: dotall
+          type: bool
+          description: s flag (. matches newlines)
+        - name: unicode
+          type: bool
+          description: u flag
+        - name: sticky
+          type: bool
+          description: y flag
+        - name: indices
+          type: bool
+          description: d flag (match indices)
+        - name: unicode_sets
+          type: bool
+          description: v flag (unicode sets mode)
+
+    - name: MatchResult
+      fields:
+        - name: matched
+          type: bool
+          description: True if match succeeded
+        - name: match_text
+          type: str
+          description: Matched text
+        - name: groups
+          type: Dict[str, str]
+          description: Named capture groups
+        - name: captures
+          type: List[str]
+          description: Indexed captures
+
+    - name: MatchResultWithIndices
+      fields:
+        - name: matched
+          type: bool
+          description: True if match succeeded
+        - name: match_text
+          type: str
+          description: Matched text
+        - name: groups
+          type: Dict[str, str]
+          description: Named capture groups
+        - name: captures
+          type: List[str]
+          description: Indexed captures
+        - name: indices
+          type: MatchIndices
+          description: Match indices information
+
+    - name: MatchIndices
+      fields:
+        - name: start
+          type: int
+          description: Match start index
+        - name: end
+          type: int
+          description: Match end index
+        - name: groups
+          type: Dict[str, Tuple[int, int]]
+          description: Named group indices
+        - name: captures
+          type: List[Tuple[int, int]]
+          description: Indexed capture indices
+
+    - name: CharacterSet
+      fields:
+        - name: code_points
+          type: Set[int]
+          description: Set of code points
+        - name: ranges
+          type: List[Tuple[int, int]]
+          description: Code point ranges
+
+    - name: StringPropertySet
+      fields:
+        - name: property_name
+          type: str
+          description: String property name
+        - name: strings
+          type: Set[str]
+          description: Set of matching strings
+
+dependencies:
+  - name: parser
+    version: "^0.2.0"
+    imports:
+      - RegExpNode
+      - PatternParser
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+      - JSString
+  - name: shared_types
+    version: "^0.1.0"
+    imports:
+      - ErrorType
+      - ValueError
+
+requirements:
+  functional:
+    - FR-ES24-B-001: Named capture groups (?<name>...) syntax
+    - FR-ES24-B-002: Unicode property escapes \p{...} and \P{...}
+    - FR-ES24-B-003: Lookbehind assertions (?<=...) and (?<!...)
+    - FR-ES24-B-004: dotAll flag (s) - . matches newlines
+    - FR-ES24-B-005: Indices flag (d) - Match indices in results
+    - FR-ES24-B-006: Set notation in /v flag - Advanced set operations
+    - FR-ES24-B-007: String properties in /v - Unicode property syntax
+    - FR-ES24-B-008: RegExp.prototype.flags - Getter for all flags
+    - FR-ES24-B-009: Unicode mode (/u) edge cases - Surrogate pairs, properties
+    - FR-ES24-B-010: RegExp.prototype[@@match/@@matchAll] - Symbol method behavior
+
+  non_functional:
+    - Named group access <50ns overhead vs indexed
+    - Unicode property lookup <100ns per code point
+    - Lookbehind execution <200ns overhead vs lookahead
+    - Flags getter <10ns
+    - Set operations <500ns for typical character classes
+
+  testing:
+    - Minimum 135 unit tests (>=13 per requirement, 1 extra)
+    - Test coverage ≥90%
+    - Test262 compliance for all ES2024 RegExp features
+    - Edge case testing for all flags combinations
+    - Performance regression tests
+    - Unicode property database completeness tests
+    - Lookbehind boundary condition tests
+
+performance:
+  named_group_access: "<50ns overhead"
+  unicode_property_lookup: "<100ns per code point"
+  lookbehind_execution: "<200ns overhead"
+  flags_getter: "<10ns"
+  set_operations: "<500ns typical"
+
+error_conditions:
+  - Invalid named capture group syntax: SyntaxError
+  - Unknown unicode property: SyntaxError
+  - Invalid lookbehind pattern: SyntaxError
+  - Invalid flag combination: SyntaxError
+  - Lookbehind with unbounded quantifier: SyntaxError
+  - Set operation parse error: SyntaxError
+  - Named group reference to non-existent group: SyntaxError
+  - @@matchAll without global flag: TypeError
+  - Invalid string property in /v: SyntaxError
+
+examples:
+  named_capture_groups:
+    - pattern: "(?<year>\\d{4})-(?<month>\\d{2})-(?<day>\\d{2})"
+      input: "2024-11-15"
+      result:
+        groups:
+          year: "2024"
+          month: "11"
+          day: "15"
+
+  unicode_properties:
+    - pattern: "\\p{Script=Greek}+"
+      flags: "u"
+      input: "Hello Κόσμε"
+      result: "Κόσμε"
+    - pattern: "\\p{Emoji}"
+      flags: "u"
+      input: "Hello 👋 World"
+      result: "👋"
+
+  lookbehind:
+    - pattern: "(?<=\\$)\\d+\\.\\d{2}"
+      input: "Price: $19.99"
+      result: "19.99"
+    - pattern: "(?<!\\d)\\d{4}(?!\\d)"
+      input: "Year 2024 not 20244"
+      result: "2024"
+
+  dotall_flag:
+    - pattern: "start.+end"
+      flags: "s"
+      input: "start\\nmiddle\\nend"
+      result: "start\\nmiddle\\nend"
+
+  indices_flag:
+    - pattern: "(\\d+)-(\\d+)"
+      flags: "d"
+      input: "foo 123-456 bar"
+      result:
+        indices:
+          start: 4
+          end: 11
+          groups: [[4, 7], [8, 11]]
+
+  set_notation:
+    - pattern: "[\\p{Script=Latin}&&[A-Z]]"
+      flags: "v"
+      description: "Intersection: Latin uppercase"
+    - pattern: "[\\p{Letter}--[a-z]]"
+      flags: "v"
+      description: "Subtraction: Letters except lowercase ASCII"
+
+  symbol_methods:
+    - method: "@@match"
+      pattern: "/test/g"
+      input: "test test"
+      result: ["test", "test"]
+    - method: "@@matchAll"
+      pattern: "/t(e)(st)/g"
+      input: "test test"
+      result: "Iterator of match objects with captures"
+
+notes:
+  - Unicode property database must be kept up-to-date with latest Unicode standard
+  - Lookbehind assertions have complexity O(n*m) worst case, bounded by max lookback
+  - Set notation in /v flag is mutually exclusive with character class escapes in /u
+  - Named groups can be referenced with \k<name> in pattern and accessed in match result
+  - Indices flag adds .indices property to match results with start/end positions
+  - Symbol methods @@match and @@matchAll enable custom RegExp behavior
+  - dotAll (s) flag makes . match any character including line terminators
+  - Unicode mode (/u) handles surrogate pairs correctly
