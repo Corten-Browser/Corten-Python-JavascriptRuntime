@@ -1,0 +1,59 @@
+name: deoptimization
+version: 0.1.0
+type: feature
+description: Safe fallback from optimized code to interpreter when speculation fails
+
+dependencies:
+  imports:
+    - name: optimizing_jit
+      version: "^0.1.0"
+      import_from: "components.optimizing_jit"
+      uses:
+        - OptimizedCode
+        - IRGraph
+        - SSAGraph
+        - GuardNode
+    - name: interpreter
+      version: "^0.2.0"
+      import_from: "components.interpreter"
+      uses:
+        - InterpreterState
+        - ExecutionContext
+    - name: bytecode
+      version: "^0.2.0"
+      import_from: "components.bytecode"
+      uses:
+        - BytecodeArray
+    - name: object_runtime
+      version: "^0.3.0"
+      import_from: "components.object_runtime"
+      uses:
+        - JSValue
+        - JSObject
+    - name: hidden_classes
+      version: "^0.1.0"
+      import_from: "components.hidden_classes"
+      uses:
+        - Shape
+
+requirements:
+  functional:
+    - FR-P4-068: Deoptimization metadata generation
+    - FR-P4-069: Frame reconstruction (JIT → interpreter)
+    - FR-P4-070: Deopt triggers (failed guards, type mismatches)
+    - FR-P4-071: Lazy deoptimization
+    - FR-P4-072: Eager deoptimization
+    - FR-P4-073: Deopt bailout points
+    - FR-P4-074: State materialization (recreate interpreter state)
+    - FR-P4-075: Deopt statistics and profiling
+
+testing:
+  minimum_tests: 40
+  coverage_target: 85
+  test_types:
+    - unit
+    - integration
+
+performance:
+  deopt_overhead: "<1ms"
+  state_reconstruction_accuracy: "100%"

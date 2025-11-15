@@ -1,0 +1,438 @@
+name: deoptimization
+version: 0.1.0
+type: feature
+description: Safe fallback from optimized code to interpreter when speculation fails
+
+api:
+  classes:
+    - name: DeoptimizationManager
+      description: Main manager for deoptimization operations
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize deoptimization manager
+
+        - name: register_optimized_function
+          params:
+            - name: function_id
+              type: int
+              description: Function identifier
+            - name: optimized_code
+              type: OptimizedCode
+              description: Optimized code with deopt metadata
+          returns:
+            type: None
+          description: Register optimized function for potential deoptimization
+
+        - name: deoptimize
+          params:
+            - name: function_id
+              type: int
+              description: Function to deoptimize
+            - name: deopt_point
+              type: int
+              description: Deoptimization point offset
+            - name: reason
+              type: DeoptReason
+              description: Deoptimization reason
+            - name: mode
+              type: DeoptMode
+              description: Eager or lazy deoptimization
+          returns:
+            type: InterpreterState
+            description: Reconstructed interpreter state
+          description: Perform deoptimization
+
+        - name: get_stats
+          params: []
+          returns:
+            type: DeoptStats
+            description: Deoptimization statistics
+          description: Get deoptimization statistics
+
+    - name: FrameReconstructor
+      description: Reconstruct interpreter stack frames from JIT state
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize frame reconstructor
+
+        - name: reconstruct_frame
+          params:
+            - name: jit_frame
+              type: JITFrame
+              description: JIT stack frame
+            - name: deopt_info
+              type: DeoptInfo
+              description: Deoptimization metadata
+          returns:
+            type: InterpreterFrame
+            description: Reconstructed interpreter frame
+          description: Reconstruct interpreter frame from JIT frame
+
+        - name: materialize_values
+          params:
+            - name: value_map
+              type: Dict[str, Any]
+              description: JIT value locations (registers, stack)
+            - name: deopt_info
+              type: DeoptInfo
+              description: Value mapping metadata
+          returns:
+            type: Dict[str, JSValue]
+            description: Materialized interpreter values
+          description: Materialize values from JIT locations to interpreter values
+
+    - name: DeoptTriggerHandler
+      description: Handle deoptimization triggers from guard failures
+      methods:
+        - name: __init__
+          params:
+            - name: manager
+              type: DeoptimizationManager
+              description: Deoptimization manager
+          returns:
+            type: None
+          description: Initialize trigger handler
+
+        - name: handle_guard_failure
+          params:
+            - name: guard_id
+              type: int
+              description: Failed guard identifier
+            - name: guard_location
+              type: int
+              description: Guard location in code
+            - name: actual_value
+              type: JSValue
+              description: Actual value that failed guard
+          returns:
+            type: InterpreterState
+            description: Interpreter state to resume execution
+          description: Handle guard failure and trigger deoptimization
+
+        - name: handle_type_mismatch
+          params:
+            - name: expected_type
+              type: str
+              description: Expected type
+            - name: actual_type
+              type: str
+              description: Actual type
+            - name: location
+              type: int
+              description: Code location
+          returns:
+            type: InterpreterState
+            description: Interpreter state
+          description: Handle type mismatch deoptimization
+
+    - name: LazyDeoptimizer
+      description: Defer deoptimization until safe point
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize lazy deoptimizer
+
+        - name: schedule_deopt
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+            - name: deopt_point
+              type: int
+              description: Deoptimization point
+            - name: reason
+              type: DeoptReason
+              description: Reason for deopt
+          returns:
+            type: None
+          description: Schedule lazy deoptimization
+
+        - name: process_pending
+          params: []
+          returns:
+            type: List[InterpreterState]
+            description: Interpreter states from processed deopts
+          description: Process all pending lazy deoptimizations
+
+    - name: EagerDeoptimizer
+      description: Immediate deoptimization (bailout)
+      methods:
+        - name: __init__
+          params:
+            - name: manager
+              type: DeoptimizationManager
+              description: Deoptimization manager
+          returns:
+            type: None
+          description: Initialize eager deoptimizer
+
+        - name: bailout
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+            - name: bailout_point
+              type: int
+              description: Bailout location
+            - name: jit_state
+              type: JITState
+              description: Current JIT state
+          returns:
+            type: InterpreterState
+            description: Interpreter state to resume
+          description: Immediate bailout to interpreter
+
+    - name: StateMaterializer
+      description: Materialize interpreter state from JIT state
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize state materializer
+
+        - name: materialize
+          params:
+            - name: jit_state
+              type: JITState
+              description: JIT execution state
+            - name: deopt_info
+              type: DeoptInfo
+              description: Deoptimization metadata
+          returns:
+            type: InterpreterState
+            description: Materialized interpreter state
+          description: Create complete interpreter state from JIT state
+
+        - name: materialize_object
+          params:
+            - name: object_data
+              type: Dict[str, Any]
+              description: Object field values
+            - name: shape
+              type: Shape
+              description: Object shape
+          returns:
+            type: JSObject
+            description: Materialized object
+          description: Materialize JSObject from escaped data
+
+    - name: DeoptProfiler
+      description: Profile and analyze deoptimization patterns
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize deopt profiler
+
+        - name: record_deopt
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+            - name: reason
+              type: DeoptReason
+              description: Deopt reason
+            - name: location
+              type: int
+              description: Deopt location
+          returns:
+            type: None
+          description: Record deoptimization event
+
+        - name: get_stats
+          params: []
+          returns:
+            type: DeoptStats
+            description: Deoptimization statistics
+          description: Get profiling statistics
+
+        - name: get_hot_deopts
+          params:
+            - name: threshold
+              type: int
+              default: 100
+              description: Deopt count threshold
+          returns:
+            type: List[DeoptHotspot]
+            description: Frequently deoptimized locations
+          description: Identify hot deoptimization points
+
+  structs:
+    - name: DeoptInfo
+      fields:
+        - name: deopt_id
+          type: int
+          description: Unique deopt point identifier
+        - name: bytecode_offset
+          type: int
+          description: Corresponding bytecode offset
+        - name: value_map
+          type: Dict[str, ValueLocation]
+          description: Maps interpreter values to JIT locations
+        - name: frame_size
+          type: int
+          description: Interpreter frame size
+        - name: reason
+          type: DeoptReason
+          description: Deoptimization reason
+
+    - name: ValueLocation
+      fields:
+        - name: location_type
+          type: str
+          description: register, stack, constant
+        - name: location_id
+          type: int
+          description: Register number or stack offset
+        - name: value_type
+          type: str
+          description: Expected value type
+
+    - name: JITFrame
+      fields:
+        - name: return_address
+          type: int
+          description: Return address
+        - name: registers
+          type: Dict[str, int]
+          description: Register values
+        - name: stack
+          type: List[int]
+          description: Stack contents
+
+    - name: InterpreterFrame
+      fields:
+        - name: bytecode_offset
+          type: int
+          description: Current bytecode offset
+        - name: locals
+          type: List[JSValue]
+          description: Local variables
+        - name: stack
+          type: List[JSValue]
+          description: Operand stack
+
+    - name: JITState
+      fields:
+        - name: registers
+          type: Dict[str, int]
+          description: Register state
+        - name: stack_pointer
+          type: int
+          description: Stack pointer
+        - name: instruction_pointer
+          type: int
+          description: Current instruction pointer
+
+    - name: DeoptStats
+      fields:
+        - name: total_deopts
+          type: int
+          description: Total deoptimizations
+        - name: eager_deopts
+          type: int
+          description: Eager deoptimizations
+        - name: lazy_deopts
+          type: int
+          description: Lazy deoptimizations
+        - name: reason_counts
+          type: Dict[DeoptReason, int]
+          description: Deoptimization counts by reason
+
+    - name: DeoptHotspot
+      fields:
+        - name: function_id
+          type: int
+          description: Function ID
+        - name: location
+          type: int
+          description: Deopt location
+        - name: count
+          type: int
+          description: Deopt count
+        - name: reason
+          type: DeoptReason
+          description: Primary deopt reason
+
+  enums:
+    - name: DeoptReason
+      values:
+        - GUARD_FAILURE
+        - TYPE_MISMATCH
+        - OVERFLOW
+        - DIV_BY_ZERO
+        - NULL_DEREFERENCE
+        - OUT_OF_BOUNDS
+        - SHAPE_MISMATCH
+        - IC_MISS
+        - ASSUMPTION_VIOLATED
+      description: Reasons for deoptimization
+
+    - name: DeoptMode
+      values:
+        - EAGER
+        - LAZY
+      description: Deoptimization modes
+
+dependencies:
+  - name: optimizing_jit
+    version: "^0.1.0"
+    imports:
+      - OptimizedCode
+      - IRGraph
+      - SSAGraph
+      - GuardNode
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - InterpreterState
+      - ExecutionContext
+  - name: bytecode
+    version: "^0.2.0"
+    imports:
+      - BytecodeArray
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+  - name: hidden_classes
+    version: "^0.1.0"
+    imports:
+      - Shape
+
+requirements:
+  functional:
+    - FR-P4-068: Deoptimization metadata generation
+    - FR-P4-069: Frame reconstruction (JIT → interpreter)
+    - FR-P4-070: Deopt triggers (failed guards, type mismatches)
+    - FR-P4-071: Lazy deoptimization
+    - FR-P4-072: Eager deoptimization
+    - FR-P4-073: Deopt bailout points
+    - FR-P4-074: State materialization (recreate interpreter state)
+    - FR-P4-075: Deopt statistics and profiling
+
+  non_functional:
+    - Deoptimization overhead <1ms
+    - Correct state reconstruction 100% of time
+    - Minimal runtime overhead for deopt checks
+
+  testing:
+    - Minimum 40 unit tests
+    - Test coverage ≥85%
+    - Integration tests with optimizing_jit
+    - Stress tests for state reconstruction
+
+performance:
+  deopt_overhead: "<1ms"
+  state_reconstruction_accuracy: "100%"

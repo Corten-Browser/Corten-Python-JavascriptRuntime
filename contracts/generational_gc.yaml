@@ -1,0 +1,285 @@
+name: generational_gc
+version: 0.1.0
+type: core
+description: High-performance generational garbage collector with young and old generations
+
+api:
+  classes:
+    - name: GenerationalGC
+      description: Main generational garbage collector
+      methods:
+        - name: __init__
+          params:
+            - name: young_size
+              type: int
+              default: 8388608
+              description: Young generation size in bytes (default 8MB)
+            - name: old_size
+              type: int
+              default: 67108864
+              description: Old generation size in bytes (default 64MB)
+          returns:
+            type: None
+          description: Initialize generational GC
+
+        - name: allocate
+          params:
+            - name: size
+              type: int
+              description: Size of object in bytes
+          returns:
+            type: int
+            description: Pointer to allocated memory
+          description: Allocate object in young generation
+
+        - name: minor_gc
+          params: []
+          returns:
+            type: GCStats
+            description: Statistics from minor collection
+          description: Perform minor GC (scavenge young generation)
+
+        - name: major_gc
+          params: []
+          returns:
+            type: GCStats
+            description: Statistics from major collection
+          description: Perform major GC (mark-sweep old generation)
+
+        - name: should_trigger_minor_gc
+          params: []
+          returns:
+            type: bool
+            description: True if minor GC should run
+          description: Check if minor GC should be triggered
+
+        - name: should_trigger_major_gc
+          params: []
+          returns:
+            type: bool
+            description: True if major GC should run
+          description: Check if major GC should be triggered
+
+    - name: YoungGeneration
+      description: Nursery space for newly allocated objects
+      methods:
+        - name: __init__
+          params:
+            - name: size
+              type: int
+              description: Size in bytes
+          returns:
+            type: None
+          description: Create young generation space
+
+        - name: allocate
+          params:
+            - name: size
+              type: int
+              description: Object size
+          returns:
+            type: Optional[int]
+            description: Pointer or None if full
+          description: Bump-pointer allocation
+
+        - name: scavenge
+          params:
+            - name: old_gen
+              type: OldGeneration
+              description: Old generation for promotions
+            - name: remembered_set
+              type: RememberedSet
+              description: Cross-generational pointers
+          returns:
+            type: ScavengeStats
+            description: Scavenge statistics
+          description: Scavenge young generation (copy live objects)
+
+    - name: OldGeneration
+      description: Tenured space for long-lived objects
+      methods:
+        - name: __init__
+          params:
+            - name: size
+              type: int
+              description: Size in bytes
+          returns:
+            type: None
+          description: Create old generation space
+
+        - name: promote
+          params:
+            - name: obj_ptr
+              type: int
+              description: Object to promote
+            - name: size
+              type: int
+              description: Object size
+          returns:
+            type: int
+            description: New pointer in old generation
+          description: Promote object from young to old generation
+
+        - name: mark_sweep
+          params:
+            - name: roots
+              type: List[int]
+              description: GC roots
+          returns:
+            type: MarkSweepStats
+            description: Mark-sweep statistics
+          description: Perform mark-sweep collection
+
+    - name: WriteBarrier
+      description: Track cross-generational pointers
+      methods:
+        - name: record_pointer
+          params:
+            - name: from_ptr
+              type: int
+              description: Source object (old gen)
+            - name: to_ptr
+              type: int
+              description: Target object (young gen)
+          returns:
+            type: None
+          description: Record old→young pointer
+
+        - name: execute
+          params:
+            - name: obj_ptr
+              type: int
+              description: Object being modified
+            - name: field_offset
+              type: int
+              description: Field offset
+            - name: value
+              type: int
+              description: New value
+          returns:
+            type: None
+          description: Execute write barrier on store
+
+    - name: RememberedSet
+      description: Set of cross-generational pointers (old→young)
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Create empty remembered set
+
+        - name: add
+          params:
+            - name: ptr
+              type: int
+              description: Pointer to add
+          returns:
+            type: None
+          description: Add pointer to remembered set
+
+        - name: clear
+          params: []
+          returns:
+            type: None
+          description: Clear remembered set
+
+        - name: iterate
+          params: []
+          returns:
+            type: Iterator[int]
+            description: Iterator over pointers
+          description: Iterate remembered set pointers
+
+    - name: LargeObjectSpace
+      description: Space for objects >64KB
+      methods:
+        - name: allocate
+          params:
+            - name: size
+              type: int
+              description: Large object size
+          returns:
+            type: int
+            description: Pointer to allocated object
+          description: Allocate large object
+
+        - name: mark_sweep
+          params:
+            - name: roots
+              type: List[int]
+              description: GC roots
+          returns:
+            type: int
+            description: Bytes freed
+          description: Collect dead large objects
+
+  structs:
+    - name: GCStats
+      fields:
+        - name: minor_collections
+          type: int
+          description: Number of minor GCs
+        - name: major_collections
+          type: int
+          description: Number of major GCs
+        - name: bytes_allocated
+          type: int
+          description: Total bytes allocated
+        - name: bytes_freed
+          type: int
+          description: Total bytes freed
+        - name: pause_time_ms
+          type: float
+          description: GC pause time in milliseconds
+        - name: throughput_percent
+          type: float
+          description: Application throughput percentage
+
+dependencies:
+  - name: memory_gc
+    version: "^0.2.0"
+    imports:
+      - GCAllocator
+      - MarkAndSweep
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - TaggedValue
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSObject
+
+requirements:
+  functional:
+    - FR-P4-056: Young generation (nursery)
+    - FR-P4-057: Old generation (tenured space)
+    - FR-P4-058: Minor GC (scavenge young generation)
+    - FR-P4-059: Major GC (mark-sweep old generation)
+    - FR-P4-060: Write barrier implementation
+    - FR-P4-061: Remembered set (cross-generational pointers)
+    - FR-P4-062: Object promotion (young → old)
+    - FR-P4-063: Allocation in young generation
+    - FR-P4-064: Large object space
+    - FR-P4-065: GC triggering heuristics
+    - FR-P4-066: GC statistics and tuning
+    - FR-P4-067: Integration with existing GC
+
+  non_functional:
+    - Minor GC pause time <5ms for 8MB young gen
+    - Major GC pause time <50ms for 64MB old gen
+    - 2-5x throughput improvement over mark-sweep
+    - Young generation survival rate <10%
+
+  testing:
+    - Minimum 60 unit tests
+    - Test coverage ≥85%
+    - GC stress tests
+    - Integration tests with existing GC
+
+performance:
+  minor_gc_pause: "<5ms"
+  major_gc_pause: "<50ms"
+  throughput_improvement: "2-5x"
+  survival_rate: "<10%"

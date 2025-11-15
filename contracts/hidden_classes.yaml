@@ -1,0 +1,209 @@
+name: hidden_classes
+version: 0.1.0
+type: core
+description: Shape-based optimization for object property layout and fast property access
+
+api:
+  classes:
+    - name: Shape
+      description: Hidden class representing object structure
+      methods:
+        - name: __init__
+          params:
+            - name: parent
+              type: Optional[Shape]
+              description: Parent shape in transition tree
+            - name: property_name
+              type: Optional[str]
+              description: Property added in this transition
+            - name: property_attributes
+              type: Optional[PropertyAttributes]
+              description: Property descriptor attributes
+          returns:
+            type: None
+          description: Create new shape
+
+        - name: add_property
+          params:
+            - name: name
+              type: str
+              description: Property name
+            - name: attributes
+              type: PropertyAttributes
+              description: Property attributes (writable, enumerable, configurable)
+          returns:
+            type: Shape
+            description: New shape with property added
+          description: Add property and return new shape (creates transition)
+
+        - name: get_property_offset
+          params:
+            - name: name
+              type: str
+              description: Property name
+          returns:
+            type: Optional[int]
+            description: Property offset or None if not found
+          description: Get property offset for O(1) access
+
+        - name: get_property_attributes
+          params:
+            - name: name
+              type: str
+              description: Property name
+          returns:
+            type: Optional[PropertyAttributes]
+            description: Property attributes or None
+          description: Get cached property descriptor
+
+        - name: is_deprecated
+          params: []
+          returns:
+            type: bool
+            description: True if shape deprecated
+          description: Check if shape has been deprecated
+
+        - name: get_migration_target
+          params: []
+          returns:
+            type: Optional[Shape]
+            description: New shape to migrate to, or None
+          description: Get target shape for migration if deprecated
+
+    - name: ShapeTree
+      description: Transition tree for shape evolution
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Create empty shape tree
+
+        - name: get_or_create_child
+          params:
+            - name: parent
+              type: Shape
+              description: Parent shape
+            - name: property_name
+              type: str
+              description: Property being added
+            - name: attributes
+              type: PropertyAttributes
+              description: Property attributes
+          returns:
+            type: Shape
+            description: Child shape (existing or newly created)
+          description: Get or create child shape in transition tree
+
+        - name: deprecate_shape
+          params:
+            - name: shape
+              type: Shape
+              description: Shape to deprecate
+            - name: target
+              type: Shape
+              description: Target shape for migration
+          returns:
+            type: None
+          description: Mark shape as deprecated
+
+        - name: get_root_shape
+          params: []
+          returns:
+            type: Shape
+            description: Root shape (empty object)
+          description: Get root shape for empty objects
+
+    - name: PropertyAttributes
+      description: Property descriptor attributes
+      methods:
+        - name: __init__
+          params:
+            - name: writable
+              type: bool
+              default: true
+            - name: enumerable
+              type: bool
+              default: true
+            - name: configurable
+              type: bool
+              default: true
+          returns:
+            type: None
+          description: Create property attributes
+
+    - name: ArrayShape
+      description: Specialized shape for arrays
+      inherits: Shape
+      methods:
+        - name: __init__
+          params:
+            - name: element_kind
+              type: str
+              description: Type of elements (SMI, DOUBLE, OBJECT)
+          returns:
+            type: None
+          description: Create array shape
+
+        - name: transition_element_kind
+          params:
+            - name: new_kind
+              type: str
+              description: New element kind
+          returns:
+            type: ArrayShape
+            description: New array shape with different element kind
+          description: Transition to different element representation
+
+  enums:
+    - name: ElementKind
+      values:
+        - SMI_ELEMENTS
+        - DOUBLE_ELEMENTS
+        - OBJECT_ELEMENTS
+        - HOLEY_SMI_ELEMENTS
+        - HOLEY_DOUBLE_ELEMENTS
+        - HOLEY_OBJECT_ELEMENTS
+      description: Array element representations
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSObject
+      - JSArray
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - TaggedValue
+
+requirements:
+  functional:
+    - FR-P4-011: Shape (hidden class) data structure
+    - FR-P4-012: Shape transitions on property add
+    - FR-P4-013: Shape tree (transition tree)
+    - FR-P4-014: Property descriptor caching
+    - FR-P4-015: Property offset calculation
+    - FR-P4-016: Shape invalidation
+    - FR-P4-017: Shape deprecation and migration
+    - FR-P4-018: Array shape specialization
+    - FR-P4-019: Function shape specialization
+    - FR-P4-020: Shape statistics and profiling
+    - FR-P4-021: Integration with inline caching
+    - FR-P4-022: Shape deoptimization
+
+  non_functional:
+    - Property access O(1) time complexity
+    - Minimal memory overhead per shape
+    - Fast shape transitions (<50ns)
+
+  testing:
+    - Minimum 60 unit tests
+    - Test coverage ≥85%
+    - Integration tests with object_runtime
+    - Shape migration tests
+
+performance:
+  property_access: "O(1)"
+  shape_transition: "<50ns"
+  memory_per_shape: "<200 bytes"

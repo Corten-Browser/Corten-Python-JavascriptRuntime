@@ -1,0 +1,40 @@
+name: baseline_jit
+version: 0.1.0
+type: feature
+description: Fast JIT compiler with simple optimizations for bytecode → machine code translation
+
+dependencies:
+  - name: bytecode
+    version: "^0.2.0"
+  - name: interpreter
+    version: "^0.2.0"
+  - name: inline_caching
+    version: "^0.1.0"
+  - name: hidden_classes
+    version: "^0.1.0"
+
+requirements:
+  - FR-P4-023: Bytecode → machine code compiler
+  - FR-P4-024: Register allocation (simple linear scan)
+  - FR-P4-025: Code generation for all opcodes
+  - FR-P4-026: Call convention implementation
+  - FR-P4-027: Stack frame management
+  - FR-P4-028: IC integration in JIT code
+  - FR-P4-029: Profiling counters in JIT code
+  - FR-P4-030: OSR (On-Stack Replacement) entry
+  - FR-P4-031: Exception handling in JIT code
+  - FR-P4-032: Deoptimization metadata generation
+  - FR-P4-033: Code cache management
+  - FR-P4-034: Tier-up triggers (interpreter → baseline)
+  - FR-P4-035: Platform-specific backends (x64, ARM64)
+  - FR-P4-036: JIT code execution
+  - FR-P4-037: Baseline JIT testing infrastructure
+
+performance:
+  speedup: 5-10x
+  compilation_latency: <100ms
+  code_cache_size: <10MB
+
+testing:
+  min_tests: 75
+  min_coverage: 80
