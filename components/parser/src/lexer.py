@@ -82,6 +82,7 @@ class Lexer:
         self.line = 1
         self.column = 1
         self._token_buffer: List[Token] = []
+        self._last_token: Token = None
 
     def next_token(self) -> Token:
         """
@@ -98,9 +99,12 @@ class Lexer:
         """
         # Check if we have buffered tokens from peek
         if self._token_buffer:
-            return self._token_buffer.pop(0)
+            token = self._token_buffer.pop(0)
+        else:
+            token = self._scan_token()
 
-        return self._scan_token()
+        self._last_token = token
+        return token
 
     def peek_token(self, offset: int = 0) -> Token:
         """
@@ -161,6 +165,12 @@ class Lexer:
         # Template literals
         if char == "`":
             return self._scan_template_literal()
+
+        # Regular expressions
+        # Note: This is a simplified check. In a full implementation,
+        # we'd need to check if division is expected based on previous token.
+        if char == "/" and self._is_regexp_context():
+            return self._scan_regexp()
 
         # Three-character operators
         if self.position + 2 < len(self.source):
@@ -469,6 +479,191 @@ class Lexer:
 
             # Not whitespace or comment
             break
+
+    def _scan_regexp(self) -> Token:
+        """
+        Scan a regular expression literal.
+
+        Regular expressions are delimited by forward slashes and can have flags
+        after the closing slash. Supports the /v flag for set operations.
+
+        Returns:
+            Token: RegExp token with pattern and flags
+
+        Example:
+            >>> lexer = Lexer("/[a-z]/giv", "test.js")
+            >>> token = lexer.next_token()
+            >>> token.value["pattern"]
+            '[a-z]'
+            >>> token.value["flags"]
+            'giv'
+        """
+        start_line = self.line
+        start_column = self.column
+        start_offset = self.position
+
+        # Skip opening /
+        self.position += 1
+        self.column += 1
+
+        # Scan pattern until closing /
+        pattern_start = self.position
+        escaped = False
+
+        while self.position < len(self.source):
+            char = self.source[self.position]
+
+            # Handle escape sequences
+            if escaped:
+                escaped = False
+                self.position += 1
+                self.column += 1
+                continue
+
+            if char == "\\":
+                escaped = True
+                self.position += 1
+                self.column += 1
+                continue
+
+            # Check for closing /
+            if char == "/":
+                break
+
+            # Handle character classes [...]
+            if char == "[":
+                # Scan until closing ]
+                self.position += 1
+                self.column += 1
+                char_class_escaped = False
+
+                while self.position < len(self.source):
+                    char = self.source[self.position]
+
+                    if char_class_escaped:
+                        char_class_escaped = False
+                        self.position += 1
+                        self.column += 1
+                        continue
+
+                    if char == "\\":
+                        char_class_escaped = True
+                        self.position += 1
+                        self.column += 1
+                        continue
+
+                    if char == "]":
+                        self.position += 1
+                        self.column += 1
+                        break
+
+                    self.position += 1
+                    self.column += 1
+                continue
+
+            # Regular character
+            if char == "\n":
+                self.line += 1
+                self.column = 1
+            else:
+                self.column += 1
+            self.position += 1
+
+        pattern = self.source[pattern_start : self.position]
+
+        # Skip closing /
+        if self.position < len(self.source) and self.source[self.position] == "/":
+            self.position += 1
+            self.column += 1
+
+        # Scan flags
+        flags_start = self.position
+        while self.position < len(self.source) and self.source[self.position].isalpha():
+            self.position += 1
+            self.column += 1
+
+        flags = self.source[flags_start : self.position]
+
+        return Token(
+            type=TokenType.REGEXP,
+            value={"pattern": pattern, "flags": flags},
+            location=SourceLocation(
+                filename=self.filename,
+                line=start_line,
+                column=start_column,
+                offset=start_offset,
+            ),
+        )
+
+    def _is_regexp_context(self) -> bool:
+        """
+        Check if current position is in a context where regexp is expected.
+
+        Uses the previous token to determine if / starts a regexp or is division.
+        After operators, keywords, and punctuation that can't be followed by
+        division, / starts a regexp.
+
+        Returns:
+            bool: True if regexp is expected
+        """
+        # Look ahead to see if this looks like a comment or division assignment
+        if self.position + 1 < len(self.source):
+            next_char = self.source[self.position + 1]
+            # Definitely a comment
+            if next_char == "/" or next_char == "*":
+                return False
+            # Division assignment
+            if next_char == "=":
+                return False
+
+        # If we have no previous token, assume regexp (e.g., at start of file)
+        if self._last_token is None:
+            return True
+
+        # Regexp is expected after these tokens:
+        # - Operators: =, (, [, {, ,, ;, :, !, &, |, ^, ~, ?, +, -, *, /, %
+        # - Keywords: return, new, throw, typeof, void, delete, await
+        # - Arrow: =>
+        regexp_contexts = {
+            TokenType.ASSIGN,
+            TokenType.LPAREN,
+            TokenType.LBRACKET,
+            TokenType.LBRACE,
+            TokenType.COMMA,
+            TokenType.SEMICOLON,
+            TokenType.COLON,
+            TokenType.ARROW,
+            TokenType.RETURN,
+            TokenType.NEW,
+            TokenType.EQUAL,
+            TokenType.NOT_EQUAL,
+            TokenType.LESS_THAN,
+            TokenType.GREATER_THAN,
+        }
+
+        # Division is expected after these tokens:
+        # - Identifiers, numbers, strings, ), ], }
+        # - true, false, null, undefined, this
+        division_contexts = {
+            TokenType.IDENTIFIER,
+            TokenType.NUMBER,
+            TokenType.STRING,
+            TokenType.RPAREN,
+            TokenType.RBRACKET,
+            TokenType.RBRACE,
+            TokenType.TRUE,
+            TokenType.FALSE,
+            TokenType.NULL,
+            TokenType.UNDEFINED,
+        }
+
+        if self._last_token.type in regexp_contexts:
+            return True
+        if self._last_token.type in division_contexts:
+            return False
+
+        # Default to division for safety
+        return False
 
     def _make_token(self, token_type: TokenType, value) -> Token:
         """
