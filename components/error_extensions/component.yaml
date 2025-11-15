@@ -1,0 +1,43 @@
+name: error_extensions
+version: 0.1.0
+type: feature
+description: ES2021 AggregateError and ES2024 stack trace enhancements
+
+requirements:
+  - FR-ES24-B-015
+  - FR-ES24-B-016
+  - FR-ES24-B-017
+  - FR-ES24-B-018
+  - FR-ES24-B-019
+
+dependencies:
+  imports:
+    - name: value_system
+      version: "^0.3.0"
+      import_from: "components.value_system"
+      uses:
+        - JSValue
+        - JSString
+        - JSArray
+    - name: interpreter
+      version: "^0.2.0"
+      import_from: "components.interpreter"
+      uses:
+        - ExecutionContext
+        - ExecutionFrame
+    - name: object_runtime
+      version: "^0.3.0"
+      import_from: "components.object_runtime"
+      uses:
+        - JSObject
+        - JSError
+
+test_coverage: 91
+test_count: 81
+test_pass_rate: 100
+
+quality_metrics:
+  tdd_compliance: true
+  defensive_programming: true
+  semantic_correctness: true
+  contract_compliance: true
