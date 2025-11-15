@@ -580,6 +580,62 @@ class JSPromise:
             "reject": reject_ref[0]
         }
 
+    def __await__(self):
+        """
+        Make JSPromise awaitable by Python's asyncio.
+
+        This allows async functions using asyncio to await JSPromise instances.
+        Coordinates between asyncio event loop and custom EventLoop.
+
+        Returns:
+            Generator that can be used by asyncio's await mechanism
+        """
+        import asyncio
+
+        # If already settled, return immediately
+        if self.state == PromiseState.FULFILLED:
+            async def immediate_value():
+                return self.value
+            return immediate_value().__await__()
+
+        if self.state == PromiseState.REJECTED:
+            async def immediate_error():
+                raise self.value
+            return immediate_error().__await__()
+
+        # Promise is pending - need to wait for resolution
+        # Create asyncio Future to bridge the two event loop systems
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop, try to get event loop
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+
+        future = loop.create_future()
+
+        # Link JSPromise resolution to asyncio Future
+        def on_fulfilled(value):
+            if not future.done():
+                loop.call_soon_threadsafe(future.set_result, value)
+
+        def on_rejected(reason):
+            if not future.done():
+                if isinstance(reason, Exception):
+                    loop.call_soon_threadsafe(future.set_exception, reason)
+                else:
+                    # Wrap non-exception rejections
+                    loop.call_soon_threadsafe(future.set_exception, PromiseRejection(reason))
+
+        # Attach callbacks to JSPromise
+        self.then(on_fulfilled, on_rejected)
+
+        # Return future's __await__
+        return future.__await__()
+
 
 class AggregateError(Exception):
     """Error representing multiple Promise rejections.
