@@ -1,0 +1,22 @@
+contract:
+  name: iterator_helpers
+  version: 0.3.5
+
+methods:
+  - Iterator.prototype.map(fn)
+  - Iterator.prototype.filter(fn)
+  - Iterator.prototype.take(limit)
+  - Iterator.prototype.drop(limit)
+  - Iterator.prototype.flatMap(fn)
+  - Iterator.prototype.reduce(fn, initial)
+  - Iterator.prototype.toArray()
+  - Iterator.prototype.forEach(fn)
+  - Iterator.prototype.some(fn)
+  - Iterator.prototype.every(fn)
+  - Iterator.prototype.find(fn)
+
+lazy_evaluation: true
+
+test_requirements:
+  unit_tests: ≥65
+  coverage: ≥90%

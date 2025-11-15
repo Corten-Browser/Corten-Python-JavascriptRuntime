@@ -1,0 +1,33 @@
+contract:
+  name: proxies_reflect_complete
+  version: 0.3.5
+  description: Complete remaining 13 Proxy traps and Reflect API methods
+
+# This extends the existing proxies_reflect component
+
+remaining_traps:
+  - set: "Intercept property writes"
+  - has: "Intercept 'in' operator"
+  - deleteProperty: "Intercept delete operator"
+  - ownKeys: "Intercept Object.keys/for-in"
+  - getOwnPropertyDescriptor: "Property descriptor access"
+  - defineProperty: "Property definition"
+  - getPrototypeOf: "Prototype access"
+  - setPrototypeOf: "Prototype mutation"
+  - isExtensible: "Extensibility check"
+  - preventExtensions: "Freeze object"
+  - apply: "Function call interception"
+  - construct: "new operator interception"
+
+revocable_proxies:
+  method: Proxy.revocable(target, handler)
+  returns: "{proxy, revoke}"
+
+reflect_methods:
+  count: 13
+  all_mirror_traps: true
+
+test_requirements:
+  unit_tests: ≥140
+  integration_tests: ≥20
+  coverage: ≥85%

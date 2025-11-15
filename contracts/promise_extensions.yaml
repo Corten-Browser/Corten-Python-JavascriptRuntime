@@ -1,0 +1,27 @@
+contract:
+  name: promise_extensions
+  version: 0.3.5
+  description: ES2024 Promise static methods
+
+api:
+  static_methods:
+    - name: Promise.any
+      signature: Promise.any(iterable)
+      returns: Promise
+      resolves_on: First fulfillment
+      rejects_with: AggregateError if all reject
+      
+    - name: Promise.allSettled
+      signature: Promise.allSettled(iterable)
+      returns: Promise<Array<{status, value|reason}>>
+      always_fulfills: true
+      
+    - name: Promise.withResolvers
+      signature: Promise.withResolvers()
+      returns: "{promise, resolve, reject}"
+      use_case: Deferred promise
+
+test_requirements:
+  unit_tests: ≥20
+  integration_tests: ≥5
+  coverage: ≥95%
