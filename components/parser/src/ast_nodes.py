@@ -150,6 +150,31 @@ class BinaryExpression(Expression):
 
 
 @dataclass
+class UnaryExpression(Expression):
+    """
+    Unary operator expression.
+
+    Represents expressions with one operand and a prefix operator.
+    Examples: -x, +y, !condition, typeof value
+
+    Attributes:
+        operator: Operator string (-, +, !, typeof, void, delete)
+        argument: Operand expression
+        location: Source location
+
+    Example:
+        >>> UnaryExpression(
+        ...     operator="-",
+        ...     argument=Literal(value=42, location=loc),
+        ...     location=loc
+        ... )
+    """
+
+    operator: str
+    argument: Expression
+
+
+@dataclass
 class CallExpression(Expression):
     """
     Function call expression.

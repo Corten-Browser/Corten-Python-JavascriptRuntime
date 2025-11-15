@@ -20,6 +20,7 @@ from .ast_nodes import (
     Identifier,
     TemplateLiteral,
     BinaryExpression,
+    UnaryExpression,
     CallExpression,
     MemberExpression,
     FunctionExpression,
@@ -1274,7 +1275,7 @@ class Parser:
         return left
 
     def _parse_unary_expression(self) -> Expression:
-        """Parse unary expression (await, etc.)."""
+        """Parse unary expression (await, unary operators)."""
         # Await expression
         if self.current_token.type == TokenType.AWAIT:
             start_location = self.current_token.location
@@ -1282,7 +1283,24 @@ class Parser:
             argument = self._parse_unary_expression()
             return AwaitExpression(argument=argument, location=start_location)
 
-        # Other unary operators can be added here in the future
+        # Unary operators: -, +
+        # Note: ! (NOT), typeof, void, delete can be added later as needed
+        if self.current_token.type in (TokenType.MINUS, TokenType.PLUS):
+            start_location = self.current_token.location
+            operator_token = self.current_token
+            self._advance()  # consume operator
+            argument = self._parse_unary_expression()
+
+            # Map token type to operator string
+            operator_map = {
+                TokenType.MINUS: "-",
+                TokenType.PLUS: "+",
+            }
+            operator = operator_map[operator_token.type]
+
+            return UnaryExpression(
+                operator=operator, argument=argument, location=start_location
+            )
 
         # Fall through to call expression
         return self._parse_call_expression()

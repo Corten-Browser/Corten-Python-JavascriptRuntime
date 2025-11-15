@@ -358,7 +358,8 @@ class TestAsyncAwaitEdgeCases:
         interpreter = Interpreter(gc, event_loop)
 
         # When
-        interpreter.execute(bytecode)
+        result = interpreter.execute(bytecode)
+        promise = result.value.to_object()  # Get promise before event loop
         event_loop.run()
 
         # Then
