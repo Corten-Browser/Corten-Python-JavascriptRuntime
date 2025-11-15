@@ -1,0 +1,218 @@
+contract:
+  name: bigint
+  version: 0.3.0
+  description: BigInt arbitrary-precision integers
+
+api:
+  syntax:
+    - pattern: "123n"
+      description: BigInt literal (decimal)
+
+    - pattern: "0xFFn"
+      description: BigInt literal (hexadecimal)
+
+    - pattern: "0o77n"
+      description: BigInt literal (octal)
+
+    - pattern: "0b1010n"
+      description: BigInt literal (binary)
+
+  classes:
+    - name: BigInt
+      description: BigInt constructor (not new BigInt)
+      methods:
+        - name: BigInt
+          type: function
+          parameters:
+            - name: value
+              type: number | string | boolean | bigint
+          returns: bigint
+          throws: RangeError if number has fractional part
+          description: Convert value to BigInt
+
+        - name: BigInt.asIntN
+          type: static
+          parameters:
+            - name: bits
+              type: number
+            - name: bigint
+              type: bigint
+          returns: bigint
+          description: Wrap BigInt to N-bit signed integer
+
+        - name: BigInt.asUintN
+          type: static
+          parameters:
+            - name: bits
+              type: number
+            - name: bigint
+              type: bigint
+          returns: bigint
+          description: Wrap BigInt to N-bit unsigned integer
+
+    - name: BigIntPrototype
+      methods:
+        - name: toString
+          parameters:
+            - name: radix
+              type: number
+              optional: true
+              default: 10
+          returns: string
+          description: Convert BigInt to string in given radix
+
+        - name: toLocaleString
+          parameters: []
+          returns: string
+          description: Locale-specific string representation
+
+        - name: valueOf
+          parameters: []
+          returns: bigint
+          description: Return primitive BigInt value
+
+operations:
+  arithmetic:
+    - operator: "+"
+      signature: bigint + bigint
+      returns: bigint
+      error: TypeError if mixing BigInt and Number
+
+    - operator: "-"
+      signature: bigint - bigint
+      returns: bigint
+
+    - operator: "*"
+      signature: bigint * bigint
+      returns: bigint
+
+    - operator: "/"
+      signature: bigint / bigint
+      returns: bigint
+      description: Truncates toward zero
+
+    - operator: "%"
+      signature: bigint % bigint
+      returns: bigint
+
+    - operator: "**"
+      signature: bigint ** bigint
+      returns: bigint
+
+    - operator: "-"
+      signature: "-bigint"
+      returns: bigint
+      description: Unary negation
+
+  bitwise:
+    - operator: "&"
+      signature: bigint & bigint
+      returns: bigint
+
+    - operator: "|"
+      signature: bigint | bigint
+      returns: bigint
+
+    - operator: "^"
+      signature: bigint ^ bigint
+      returns: bigint
+
+    - operator: "~"
+      signature: "~bigint"
+      returns: bigint
+
+    - operator: "<<"
+      signature: bigint << bigint
+      returns: bigint
+
+    - operator: ">>"
+      signature: bigint >> bigint
+      returns: bigint
+      description: Sign-propagating right shift
+
+    - operator: ">>>"
+      signature: bigint >>> bigint
+      error: TypeError (no unsigned right shift for BigInt)
+
+  comparison:
+    - operator: "==="
+      signature: bigint === bigint
+      returns: boolean
+      description: Strict equality (value comparison)
+
+    - operator: "=="
+      signature: bigint == number
+      returns: boolean
+      description: Abstract equality (mathematical value comparison)
+
+    - operator: "<"
+      signature: bigint < bigint
+      returns: boolean
+
+    - operator: "<="
+      signature: bigint <= bigint
+      returns: boolean
+
+    - operator: ">"
+      signature: bigint > bigint
+      returns: boolean
+
+    - operator: ">="
+      signature: bigint >= bigint
+      returns: boolean
+
+type_system:
+  bigint:
+    typeof: "bigint"
+    equality: value_equality
+    coercion_to_number: explicit_Number(bigint) only
+    coercion_to_string: String(bigint)
+    coercion_to_boolean: 0n → false, others → true
+
+restrictions:
+  - no_mixing: Cannot mix BigInt and Number in arithmetic (TypeError)
+  - no_math_functions: Math.* functions throw TypeError with BigInt
+  - no_unary_plus: +bigint throws TypeError
+  - no_unsigned_right_shift: bigint >>> n throws TypeError
+
+errors:
+  - TypeError: When mixing BigInt and Number in arithmetic
+  - TypeError: When using Math.* with BigInt
+  - TypeError: When using unary + with BigInt
+  - TypeError: When using >>> with BigInt
+  - RangeError: When BigInt(number) has fractional part
+  - RangeError: When exponent is negative in BigInt ** BigInt
+
+integration_points:
+  - component: value_system
+    interface: Add BigInt type to tagged pointer scheme
+
+  - component: parser
+    interface: Parse BigInt literals (123n, 0xFFn, etc.)
+
+  - component: bytecode
+    interface: BIGINT_* opcodes for arithmetic/bitwise
+
+  - component: interpreter
+    interface: Execute BigInt operations
+
+  - component: typed_arrays
+    interface: BigInt64Array, BigUint64Array
+
+implementation_notes:
+  - Use arbitrary-precision arithmetic library (e.g., GMP or custom)
+  - Small BigInt optimization: fit in pointer if ≤ 64 bits
+  - Efficient multiplication for large numbers (Karatsuba, Toom-Cook)
+
+test_requirements:
+  unit_tests: ≥60
+  integration_tests: ≥10
+  coverage: ≥90%
+
+success_criteria:
+  - BigInt literals parse correctly
+  - All arithmetic operations work
+  - All bitwise operations work
+  - Comparison operators work correctly
+  - Type mixing throws TypeError
+  - Very large numbers (>2^64) work correctly

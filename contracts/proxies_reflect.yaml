@@ -1,0 +1,375 @@
+contract:
+  name: proxies_reflect
+  version: 0.3.0
+  description: Proxy object meta-programming and Reflect API
+
+api:
+  classes:
+    - name: Proxy
+      description: Create proxy object with custom behavior
+      constructor:
+        parameters:
+          - name: target
+            type: object | function
+          - name: handler
+            type: ProxyHandler
+        throws: TypeError if target or handler not object
+        description: Create proxy wrapping target with handler traps
+
+      static_methods:
+        - name: Proxy.revocable
+          parameters:
+            - name: target
+              type: object | function
+            - name: handler
+              type: ProxyHandler
+          returns: "{ proxy: Proxy, revoke: () => void }"
+          description: Create revocable proxy
+
+    - name: ProxyHandler
+      description: Handler object with trap methods
+      traps:
+        # Fundamental traps
+        - name: get
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+            - name: receiver
+              type: object
+          returns: any
+          description: Intercept property read
+          invariants:
+            - "Non-configurable, non-writable property must return same value"
+            - "Non-configurable accessor with undefined get must return undefined"
+
+        - name: set
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+            - name: value
+              type: any
+            - name: receiver
+              type: object
+          returns: boolean
+          description: Intercept property write
+          invariants:
+            - "Cannot set non-configurable, non-writable property"
+            - "Cannot set non-configurable accessor with undefined set"
+
+        - name: has
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+          returns: boolean
+          description: Intercept 'in' operator
+          invariants:
+            - "Non-configurable property cannot be reported as non-existent"
+            - "Property of non-extensible target cannot be reported as non-existent"
+
+        - name: deleteProperty
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+          returns: boolean
+          description: Intercept delete operator
+          invariants:
+            - "Non-configurable property cannot be deleted"
+
+        # Property descriptor traps
+        - name: getOwnPropertyDescriptor
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+          returns: PropertyDescriptor | undefined
+          description: Intercept Object.getOwnPropertyDescriptor
+          invariants:
+            - "Must return object or undefined"
+            - "Non-configurable property must be reported"
+            - "Property of non-extensible target must be reported as configurable:false"
+
+        - name: defineProperty
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+            - name: descriptor
+              type: PropertyDescriptor
+          returns: boolean
+          description: Intercept Object.defineProperty
+          invariants:
+            - "Cannot add property to non-extensible target"
+            - "Cannot make non-configurable property configurable"
+
+        - name: ownKeys
+          parameters:
+            - name: target
+              type: object
+          returns: Array<string | symbol>
+          description: Intercept Object.keys, for-in, etc.
+          invariants:
+            - "Must return array"
+            - "All elements must be string or symbol"
+            - "Must include all non-configurable properties"
+            - "If target non-extensible, must include exactly target's keys"
+
+        # Prototype traps
+        - name: getPrototypeOf
+          parameters:
+            - name: target
+              type: object
+          returns: object | null
+          description: Intercept Object.getPrototypeOf
+          invariants:
+            - "If target non-extensible, must return target's prototype"
+
+        - name: setPrototypeOf
+          parameters:
+            - name: target
+              type: object
+            - name: prototype
+              type: object | null
+          returns: boolean
+          description: Intercept Object.setPrototypeOf
+          invariants:
+            - "If target non-extensible, cannot change prototype"
+
+        # Extensibility traps
+        - name: isExtensible
+          parameters:
+            - name: target
+              type: object
+          returns: boolean
+          description: Intercept Object.isExtensible
+          invariants:
+            - "Must return same as target's extensibility"
+
+        - name: preventExtensions
+          parameters:
+            - name: target
+              type: object
+          returns: boolean
+          description: Intercept Object.preventExtensions
+          invariants:
+            - "Can only return true if target is now non-extensible"
+
+        # Function traps
+        - name: apply
+          parameters:
+            - name: target
+              type: function
+            - name: thisArg
+              type: any
+            - name: args
+              type: Array
+          returns: any
+          description: Intercept function call
+          applies_to: Callable proxies only
+
+        - name: construct
+          parameters:
+            - name: target
+              type: function
+            - name: args
+              type: Array
+            - name: newTarget
+              type: function
+          returns: object
+          description: Intercept new operator
+          invariants:
+            - "Must return object"
+          applies_to: Constructor proxies only
+
+    - name: Reflect
+      description: Built-in object with reflection methods (mirror of proxy traps)
+      static_methods:
+        - name: Reflect.get
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+            - name: receiver
+              type: object
+              optional: true
+          returns: any
+          throws: TypeError if target not object
+
+        - name: Reflect.set
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+            - name: value
+              type: any
+            - name: receiver
+              type: object
+              optional: true
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.has
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.deleteProperty
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.getOwnPropertyDescriptor
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+          returns: PropertyDescriptor | undefined
+          throws: TypeError if target not object
+
+        - name: Reflect.defineProperty
+          parameters:
+            - name: target
+              type: object
+            - name: property
+              type: string | symbol
+            - name: descriptor
+              type: PropertyDescriptor
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.ownKeys
+          parameters:
+            - name: target
+              type: object
+          returns: Array<string | symbol>
+          throws: TypeError if target not object
+
+        - name: Reflect.getPrototypeOf
+          parameters:
+            - name: target
+              type: object
+          returns: object | null
+          throws: TypeError if target not object
+
+        - name: Reflect.setPrototypeOf
+          parameters:
+            - name: target
+              type: object
+            - name: prototype
+              type: object | null
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.isExtensible
+          parameters:
+            - name: target
+              type: object
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.preventExtensions
+          parameters:
+            - name: target
+              type: object
+          returns: boolean
+          throws: TypeError if target not object
+
+        - name: Reflect.apply
+          parameters:
+            - name: target
+              type: function
+            - name: thisArg
+              type: any
+            - name: args
+              type: Array
+          returns: any
+          throws: TypeError if target not callable
+
+        - name: Reflect.construct
+          parameters:
+            - name: target
+              type: function
+            - name: args
+              type: Array
+            - name: newTarget
+              type: function
+              optional: true
+          returns: object
+          throws: TypeError if target not constructor
+
+use_cases:
+  - Property access logging
+  - Validation and type checking
+  - Object access control
+  - Negative array indices (arr[-1] = arr[arr.length - 1])
+  - Lazy initialization
+  - Default values
+  - API forwarding
+
+invariant_enforcement:
+  description: Proxy invariants must be enforced to maintain JS semantics
+  examples:
+    - "Cannot report non-configurable property as non-existent"
+    - "Cannot delete non-configurable property"
+    - "Cannot change prototype of non-extensible object"
+  consequence: "Invariant violation throws TypeError"
+
+integration_points:
+  - component: object_runtime
+    interface: Make all object operations proxy-aware
+
+  - component: interpreter
+    interface: Check for proxies in property access opcodes
+
+  - component: bytecode
+    interface: Proxy-aware LOAD_PROPERTY, STORE_PROPERTY opcodes
+
+revocable_proxies:
+  creation: Proxy.revocable(target, handler)
+  returns: "{ proxy, revoke }"
+  revoke_effect: All trap operations throw TypeError after revocation
+  revoke_idempotent: Calling revoke() multiple times is safe (no-op after first)
+
+errors:
+  - TypeError: Target or handler not object in Proxy constructor
+  - TypeError: Invariant violation in trap
+  - TypeError: Trap returns invalid value type
+  - TypeError: Using revoked proxy
+
+performance_notes:
+  - Proxies prevent many optimizations (inline caching, hidden classes)
+  - Check for proxy at every property access (hot path cost)
+  - Consider proxy detection caching for performance
+
+test_requirements:
+  unit_tests: ≥120
+  integration_tests: ≥20
+  coverage: ≥85%
+
+success_criteria:
+  - All 13 traps work correctly
+  - Invariants enforced for all traps
+  - Reflect API mirrors Proxy traps
+  - Revocable proxies work
+  - Nested proxies work (proxy of proxy)
+  - Proxy-aware property access in all operations

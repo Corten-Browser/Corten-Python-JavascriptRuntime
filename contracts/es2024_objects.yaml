@@ -1,0 +1,12 @@
+contract:
+  name: es2024_object_methods
+  version: 0.3.5
+
+methods:
+  - Object.groupBy(items, callback): Group array into object
+  - Object.hasOwn(obj, prop): Reliable hasOwnProperty
+  - Map.groupBy(items, callback): Group array into Map
+
+test_requirements:
+  unit_tests: ≥20
+  coverage: ≥95%

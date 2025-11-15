@@ -1,0 +1,282 @@
+contract:
+  name: collections
+  version: 0.3.0
+  description: Map, Set, WeakMap, WeakSet collections
+
+api:
+  classes:
+    - name: Map
+      description: Key-value collection with any type keys
+      constructor:
+        parameters:
+          - name: iterable
+            type: Iterable<[key, value]>
+            optional: true
+        description: Create Map from iterable of [key, value] pairs
+
+      methods:
+        - name: set
+          parameters:
+            - name: key
+              type: any
+            - name: value
+              type: any
+          returns: Map
+          description: Add or update key-value pair
+
+        - name: get
+          parameters:
+            - name: key
+              type: any
+          returns: any | undefined
+          description: Retrieve value for key
+
+        - name: has
+          parameters:
+            - name: key
+              type: any
+          returns: boolean
+          description: Check if key exists
+
+        - name: delete
+          parameters:
+            - name: key
+              type: any
+          returns: boolean
+          description: Remove key-value pair, return true if existed
+
+        - name: clear
+          parameters: []
+          returns: undefined
+          description: Remove all entries
+
+        - name: keys
+          parameters: []
+          returns: Iterator<key>
+          description: Iterator over keys in insertion order
+
+        - name: values
+          parameters: []
+          returns: Iterator<value>
+          description: Iterator over values in insertion order
+
+        - name: entries
+          parameters: []
+          returns: Iterator<[key, value]>
+          description: Iterator over [key, value] pairs in insertion order
+
+        - name: forEach
+          parameters:
+            - name: callback
+              type: "(value, key, map) => void"
+            - name: thisArg
+              type: any
+              optional: true
+          returns: undefined
+          description: Execute callback for each entry
+
+        - name: "[Symbol.iterator]"
+          parameters: []
+          returns: Iterator<[key, value]>
+          description: Default iterator (same as entries())
+
+      properties:
+        - name: size
+          type: number
+          readonly: true
+          description: Number of entries in map
+
+    - name: Set
+      description: Collection of unique values
+      constructor:
+        parameters:
+          - name: iterable
+            type: Iterable<value>
+            optional: true
+        description: Create Set from iterable of values
+
+      methods:
+        - name: add
+          parameters:
+            - name: value
+              type: any
+          returns: Set
+          description: Add value to set
+
+        - name: has
+          parameters:
+            - name: value
+              type: any
+          returns: boolean
+          description: Check if value exists
+
+        - name: delete
+          parameters:
+            - name: value
+              type: any
+          returns: boolean
+          description: Remove value, return true if existed
+
+        - name: clear
+          parameters: []
+          returns: undefined
+          description: Remove all values
+
+        - name: keys
+          parameters: []
+          returns: Iterator<value>
+          description: Iterator over values (same as values())
+
+        - name: values
+          parameters: []
+          returns: Iterator<value>
+          description: Iterator over values in insertion order
+
+        - name: entries
+          parameters: []
+          returns: Iterator<[value, value]>
+          description: Iterator over [value, value] pairs
+
+        - name: forEach
+          parameters:
+            - name: callback
+              type: "(value, value, set) => void"
+            - name: thisArg
+              type: any
+              optional: true
+          returns: undefined
+          description: Execute callback for each value
+
+        - name: "[Symbol.iterator]"
+          parameters: []
+          returns: Iterator<value>
+          description: Default iterator (same as values())
+
+      properties:
+        - name: size
+          type: number
+          readonly: true
+          description: Number of values in set
+
+    - name: WeakMap
+      description: Key-value collection with object keys (weak references)
+      constructor:
+        parameters:
+          - name: iterable
+            type: Iterable<[object, value]>
+            optional: true
+        description: Create WeakMap from iterable
+
+      methods:
+        - name: set
+          parameters:
+            - name: key
+              type: object
+            - name: value
+              type: any
+          returns: WeakMap
+          throws: TypeError if key is not object
+          description: Add or update key-value pair
+
+        - name: get
+          parameters:
+            - name: key
+              type: object
+          returns: any | undefined
+          description: Retrieve value for key
+
+        - name: has
+          parameters:
+            - name: key
+              type: object
+          returns: boolean
+          description: Check if key exists
+
+        - name: delete
+          parameters:
+            - name: key
+              type: object
+          returns: boolean
+          description: Remove key-value pair
+
+      properties: []
+      restrictions:
+        - Keys must be objects (primitives throw TypeError)
+        - Not enumerable (no size, no iteration)
+        - Weak references (entries GC'd when key unreachable)
+
+    - name: WeakSet
+      description: Collection of objects (weak references)
+      constructor:
+        parameters:
+          - name: iterable
+            type: Iterable<object>
+            optional: true
+        description: Create WeakSet from iterable
+
+      methods:
+        - name: add
+          parameters:
+            - name: value
+              type: object
+          returns: WeakSet
+          throws: TypeError if value is not object
+          description: Add object to set
+
+        - name: has
+          parameters:
+            - name: value
+              type: object
+          returns: boolean
+          description: Check if object exists
+
+        - name: delete
+          parameters:
+            - name: value
+              type: object
+          returns: boolean
+          description: Remove object from set
+
+      properties: []
+      restrictions:
+        - Values must be objects (primitives throw TypeError)
+        - Not enumerable (no size, no iteration)
+        - Weak references (values GC'd when unreachable)
+
+equality:
+  SameValueZero:
+    description: Equality algorithm for Map/Set
+    rules:
+      - "+0 === -0: true"
+      - "NaN === NaN: true"
+      - "Object keys compared by reference"
+
+integration_points:
+  - component: symbols
+    interface: Map/Set implement Symbol.iterator
+
+  - component: memory_gc
+    interface: WeakMap/WeakSet use weak references (ephemeron tables)
+
+  - component: generators_iterators
+    interface: Map/Set iterators work with for-of
+
+implementation_notes:
+  - Hash table with separate chaining for Map/Set
+  - Insertion order preservation (linked list or index tracking)
+  - WeakMap/WeakSet use ephemeron tables for GC integration
+  - SameValueZero equality: treat +0/-0 as equal, NaN as equal to itself
+
+test_requirements:
+  unit_tests: ≥80
+  integration_tests: ≥15
+  coverage: ≥90%
+
+success_criteria:
+  - Map stores any type as keys
+  - Set stores unique values
+  - Insertion order preserved
+  - SameValueZero equality works correctly
+  - WeakMap/WeakSet only accept objects as keys/values
+  - Weak references work with GC
+  - All iterators work

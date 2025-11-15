@@ -1,0 +1,19 @@
+contract:
+  name: async_generators_iterators
+  version: 0.3.5
+  description: Async generators and async iterators
+
+syntax:
+  - "async function* name() { yield await promise; }"
+  - "for await (const item of asyncIterable) { ... }"
+
+symbols:
+  - Symbol.asyncIterator
+
+objects:
+  - AsyncGenerator (next, return, throw - all async)
+  - AsyncIterator protocol
+
+test_requirements:
+  unit_tests: ≥50
+  coverage: ≥90%

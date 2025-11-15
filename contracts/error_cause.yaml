@@ -1,0 +1,19 @@
+contract:
+  name: error_cause
+  version: 0.3.5
+  description: Error chaining with cause property
+
+api:
+  constructor:
+    signature: new Error(message, {cause})
+    cause_parameter: Any value (typically another Error)
+    
+  property:
+    name: Error.prototype.cause
+    type: any
+    present_if: Provided in constructor
+
+test_requirements:
+  unit_tests: ≥11
+  integration_tests: ≥3
+  coverage: ≥95%

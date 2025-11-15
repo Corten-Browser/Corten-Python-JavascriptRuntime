@@ -1,0 +1,167 @@
+contract:
+  name: symbols
+  version: 0.3.0
+  description: Symbol primitive type and well-known symbols API
+
+api:
+  classes:
+    - name: Symbol
+      description: Symbol primitive type (not a constructor - use Symbol())
+      methods:
+        - name: Symbol
+          type: function
+          parameters:
+            - name: description
+              type: string | undefined
+              optional: true
+          returns: symbol
+          description: Create a new unique symbol
+
+        - name: Symbol.for
+          type: static
+          parameters:
+            - name: key
+              type: string
+          returns: symbol
+          description: Retrieve or create a symbol from global registry
+
+        - name: Symbol.keyFor
+          type: static
+          parameters:
+            - name: sym
+              type: symbol
+          returns: string | undefined
+          description: Retrieve key for symbol in global registry
+
+      properties:
+        - name: Symbol.iterator
+          type: symbol
+          readonly: true
+          description: Well-known symbol for default iterator method
+
+        - name: Symbol.toStringTag
+          type: symbol
+          readonly: true
+          description: Well-known symbol for Object.prototype.toString customization
+
+        - name: Symbol.hasInstance
+          type: symbol
+          readonly: true
+          description: Well-known symbol for instanceof behavior
+
+        - name: Symbol.toPrimitive
+          type: symbol
+          readonly: true
+          description: Well-known symbol for type conversion
+
+        - name: Symbol.species
+          type: symbol
+          readonly: true
+          description: Well-known symbol for constructor of derived objects
+
+        - name: Symbol.isConcatSpreadable
+          type: symbol
+          readonly: true
+          description: Well-known symbol for Array.prototype.concat behavior
+
+        - name: Symbol.unscopables
+          type: symbol
+          readonly: true
+          description: Well-known symbol for with statement exclusions
+
+        - name: Symbol.match
+          type: symbol
+          readonly: true
+          description: Well-known symbol for String.prototype.match
+
+        - name: Symbol.replace
+          type: symbol
+          readonly: true
+          description: Well-known symbol for String.prototype.replace
+
+        - name: Symbol.search
+          type: symbol
+          readonly: true
+          description: Well-known symbol for String.prototype.search
+
+        - name: Symbol.split
+          type: symbol
+          readonly: true
+          description: Well-known symbol for String.prototype.split
+
+    - name: SymbolPrototype
+      description: Symbol.prototype methods
+      methods:
+        - name: toString
+          parameters: []
+          returns: string
+          description: Returns "Symbol(description)"
+
+        - name: valueOf
+          parameters: []
+          returns: symbol
+          description: Returns the symbol value
+
+      properties:
+        - name: description
+          type: string | undefined
+          readonly: true
+          description: Symbol description property
+
+type_system:
+  symbol:
+    typeof: "symbol"
+    equality: reference_equality
+    coercion_to_number: TypeError
+    coercion_to_string: explicit_only
+    coercion_to_boolean: true
+
+operations:
+  - name: typeof_symbol
+    signature: typeof symbol
+    returns: "symbol"
+
+  - name: symbol_equality
+    signature: symbol1 === symbol2
+    returns: boolean
+    description: True only if same symbol reference
+
+  - name: symbol_to_string
+    signature: String(symbol)
+    returns: string
+    description: Returns "Symbol(description)"
+
+  - name: symbol_as_property_key
+    signature: obj[symbol]
+    returns: any
+    description: Symbol can be used as property key
+
+errors:
+  - TypeError: When attempting new Symbol() (Symbol is not a constructor)
+  - TypeError: When coercing symbol to number
+  - TypeError: When using + operator with symbol (except string concatenation with explicit conversion)
+
+integration_points:
+  - component: value_system
+    interface: Add symbol type to tagged pointer scheme
+
+  - component: object_runtime
+    interface: Support symbol property keys (separate from string keys)
+
+  - component: parser
+    interface: Recognize Symbol.* well-known symbol references
+
+  - component: bytecode
+    interface: LOAD_SYMBOL opcode for well-known symbols
+
+test_requirements:
+  unit_tests: ≥50
+  integration_tests: ≥10
+  coverage: ≥90%
+
+success_criteria:
+  - Symbol() creates unique symbols
+  - Symbol.for/keyFor works with global registry
+  - All well-known symbols accessible
+  - Symbols work as property keys
+  - Type coercion follows spec
