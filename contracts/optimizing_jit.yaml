@@ -1,0 +1,385 @@
+name: optimizing_jit
+version: 0.1.0
+type: feature
+description: Advanced JIT compiler with aggressive optimizations using high-level IR
+
+api:
+  classes:
+    - name: OptimizingJITCompiler
+      description: Main optimizing JIT compiler with IR-based optimizations
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize optimizing JIT compiler
+
+        - name: compile_function
+          params:
+            - name: bytecode
+              type: BytecodeArray
+              description: Bytecode to compile
+            - name: profiling_data
+              type: ProfilingData
+              description: Type feedback and profiling
+          returns:
+            type: OptimizedCode
+            description: Optimized machine code
+          description: Compile bytecode with aggressive optimizations
+
+        - name: should_optimize
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+            - name: call_count
+              type: int
+              description: Call count
+            - name: baseline_time
+              type: float
+              description: Time spent in baseline JIT
+          returns:
+            type: bool
+            description: True if should tier-up to optimizing JIT
+          description: Determine if function should be optimized
+
+    - name: IRBuilder
+      description: Build high-level IR from bytecode
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize IR builder
+
+        - name: build_ir
+          params:
+            - name: bytecode
+              type: BytecodeArray
+              description: Bytecode to analyze
+            - name: profiling_data
+              type: ProfilingData
+              description: Type feedback
+          returns:
+            type: IRGraph
+            description: IR graph (sea of nodes)
+          description: Build IR graph from bytecode
+
+    - name: SSABuilder
+      description: Convert IR to Static Single Assignment form
+      methods:
+        - name: build_ssa
+          params:
+            - name: ir_graph
+              type: IRGraph
+              description: IR graph
+          returns:
+            type: SSAGraph
+            description: SSA form IR
+          description: Convert IR to SSA form with phi nodes
+
+    - name: TypeSpecializer
+      description: Specialize operations based on type feedback
+      methods:
+        - name: specialize
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+            - name: profiling_data
+              type: ProfilingData
+              description: Type feedback
+          returns:
+            type: SSAGraph
+            description: Specialized IR
+          description: Specialize operations to Smi, Float64, or Object
+
+    - name: Inliner
+      description: Inline function calls
+      methods:
+        - name: inline_calls
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+            - name: inline_budget
+              type: int
+              default: 5000
+              description: Max IR nodes budget
+          returns:
+            type: SSAGraph
+            description: IR with inlined calls
+          description: Inline hot function calls
+
+    - name: LoopOptimizer
+      description: Loop-specific optimizations
+      methods:
+        - name: optimize_loops
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+          returns:
+            type: SSAGraph
+            description: Optimized IR
+          description: Apply loop optimizations (LICM, unrolling)
+
+        - name: loop_invariant_code_motion
+          params:
+            - name: loop
+              type: LoopInfo
+              description: Loop to optimize
+          returns:
+            type: None
+          description: Move loop-invariant code outside loop
+
+        - name: loop_unrolling
+          params:
+            - name: loop
+              type: LoopInfo
+              description: Loop to unroll
+            - name: factor
+              type: int
+              default: 4
+              description: Unroll factor
+          returns:
+            type: None
+          description: Unroll loop by factor
+
+    - name: DeadCodeEliminator
+      description: Remove dead code
+      methods:
+        - name: eliminate
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+          returns:
+            type: SSAGraph
+            description: IR with dead code removed
+          description: Eliminate dead code
+
+    - name: ConstantFolder
+      description: Fold constant expressions
+      methods:
+        - name: fold
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+          returns:
+            type: SSAGraph
+            description: IR with constants folded
+          description: Fold constant expressions at compile time
+
+    - name: EscapeAnalyzer
+      description: Analyze object escaping
+      methods:
+        - name: analyze
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+          returns:
+            type: EscapeInfo
+            description: Escape analysis results
+          description: Determine which objects escape function
+
+        - name: scalar_replacement
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+            - name: escape_info
+              type: EscapeInfo
+              description: Escape analysis results
+          returns:
+            type: SSAGraph
+            description: IR with scalar replacement
+          description: Replace non-escaping objects with scalars
+
+    - name: BoundsCheckEliminator
+      description: Eliminate redundant array bounds checks
+      methods:
+        - name: eliminate_checks
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+          returns:
+            type: SSAGraph
+            description: IR with eliminated bounds checks
+          description: Remove provably redundant bounds checks
+
+    - name: SpeculationManager
+      description: Manage speculative optimizations and guards
+      methods:
+        - name: insert_guards
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+            - name: profiling_data
+              type: ProfilingData
+              description: Type feedback
+          returns:
+            type: SSAGraph
+            description: IR with guard instructions
+          description: Insert guard instructions for speculative opts
+
+        - name: create_deopt_trigger
+          params:
+            - name: guard
+              type: GuardNode
+              description: Guard instruction
+            - name: reason
+              type: str
+              description: Deoptimization reason
+          returns:
+            type: DeoptTrigger
+            description: Deopt trigger metadata
+          description: Create deoptimization trigger for guard failure
+
+    - name: GraphColoringAllocator
+      description: Advanced register allocator using graph coloring
+      methods:
+        - name: allocate
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: SSA IR graph
+          returns:
+            type: RegisterAllocation
+            description: Register assignments
+          description: Allocate registers using graph coloring
+
+    - name: OptimizingCodeGen
+      description: Generate optimized machine code from IR
+      methods:
+        - name: generate
+          params:
+            - name: ir_graph
+              type: SSAGraph
+              description: Optimized SSA IR
+            - name: register_allocation
+              type: RegisterAllocation
+              description: Register assignments
+          returns:
+            type: OptimizedCode
+            description: Optimized machine code
+          description: Generate machine code from IR
+
+  structs:
+    - name: IRGraph
+      fields:
+        - name: nodes
+          type: List[IRNode]
+          description: IR nodes
+        - name: edges
+          type: List[IREdge]
+          description: Data flow edges
+        - name: entry
+          type: IRNode
+          description: Entry node
+        - name: exit
+          type: IRNode
+          description: Exit node
+
+    - name: SSAGraph
+      fields:
+        - name: nodes
+          type: List[SSANode]
+          description: SSA nodes
+        - name: phi_nodes
+          type: List[PhiNode]
+          description: Phi nodes for merge points
+        - name: dominator_tree
+          type: DominatorTree
+          description: Dominator tree
+
+    - name: OptimizedCode
+      fields:
+        - name: code
+          type: bytes
+          description: Machine code
+        - name: entry_point
+          type: int
+          description: Entry point address
+        - name: deopt_info
+          type: List[DeoptInfo]
+          description: Deoptimization metadata
+        - name: guards
+          type: List[GuardInfo]
+          description: Guard instructions
+
+    - name: ProfilingData
+      fields:
+        - name: type_feedback
+          type: Dict[int, TypeInfo]
+          description: Type feedback per bytecode offset
+        - name: call_targets
+          type: Dict[int, List[int]]
+          description: Call target distribution
+        - name: branch_frequencies
+          type: Dict[int, float]
+          description: Branch taken frequencies
+
+dependencies:
+  - name: baseline_jit
+    version: "^0.1.0"
+    imports:
+      - CodeGenerator
+      - RegisterAllocator
+      - CompiledCode
+  - name: hidden_classes
+    version: "^0.1.0"
+    imports:
+      - Shape
+  - name: inline_caching
+    version: "^0.1.0"
+    imports:
+      - InlineCache
+  - name: bytecode
+    version: "^0.2.0"
+    imports:
+      - BytecodeArray
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - InterpreterState
+
+requirements:
+  functional:
+    - FR-P4-038: High-level IR (Intermediate Representation)
+    - FR-P4-039: SSA (Static Single Assignment) form
+    - FR-P4-040: Type inference and specialization
+    - FR-P4-041: Inlining (function call elimination)
+    - FR-P4-042: Loop optimization (LICM, loop unrolling)
+    - FR-P4-043: Dead code elimination
+    - FR-P4-044: Constant folding and propagation
+    - FR-P4-045: Escape analysis
+    - FR-P4-046: Scalar replacement of aggregates
+    - FR-P4-047: Strength reduction
+    - FR-P4-048: Range analysis
+    - FR-P4-049: Bounds check elimination
+    - FR-P4-050: Speculation and guards
+    - FR-P4-051: Polymorphic inline cache handling
+    - FR-P4-052: Deoptimization triggers
+    - FR-P4-053: Code motion and scheduling
+    - FR-P4-054: Register allocation (graph coloring)
+    - FR-P4-055: Tier-up from baseline JIT
+
+  non_functional:
+    - 20-50x speedup over interpreter
+    - <500ms compilation latency
+    - Aggressive optimization
+
+  testing:
+    - Minimum 90 unit tests
+    - Test coverage ≥80%
+    - Integration tests with baseline JIT
+    - Performance benchmarks
+
+performance:
+  speedup: "20-50x"
+  compilation_latency: "<500ms"

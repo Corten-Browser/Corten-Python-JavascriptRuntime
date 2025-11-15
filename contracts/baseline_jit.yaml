@@ -1,0 +1,331 @@
+name: baseline_jit
+version: 0.1.0
+type: feature
+description: Fast JIT compiler with simple optimizations for bytecode → machine code translation
+
+api:
+  classes:
+    - name: BaselineJITCompiler
+      description: Main baseline JIT compiler
+      methods:
+        - name: __init__
+          params:
+            - name: backend
+              type: str
+              default: "x64"
+              description: Platform backend (x64, arm64)
+          returns:
+            type: None
+          description: Initialize baseline JIT compiler
+
+        - name: compile_function
+          params:
+            - name: bytecode
+              type: BytecodeArray
+              description: Bytecode to compile
+            - name: profiling_data
+              type: Optional[ProfilingData]
+              description: Profiling feedback
+          returns:
+            type: CompiledCode
+            description: Compiled machine code
+          description: Compile bytecode to machine code
+
+        - name: should_compile
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+            - name: call_count
+              type: int
+              description: Number of calls
+          returns:
+            type: bool
+            description: True if should tier-up to baseline JIT
+          description: Determine if function should be JIT compiled
+
+    - name: CodeGenerator
+      description: Machine code generation for bytecode operations
+      methods:
+        - name: __init__
+          params:
+            - name: backend
+              type: CodeBackend
+              description: Platform-specific backend
+          returns:
+            type: None
+          description: Initialize code generator
+
+        - name: generate
+          params:
+            - name: bytecode
+              type: BytecodeArray
+              description: Bytecode to compile
+            - name: register_allocation
+              type: RegisterAllocation
+              description: Register assignments
+          returns:
+            type: MachineCode
+            description: Generated machine code
+          description: Generate machine code from bytecode
+
+        - name: emit_prologue
+          params:
+            - name: frame_size
+              type: int
+              description: Stack frame size
+          returns:
+            type: None
+          description: Emit function prologue
+
+        - name: emit_epilogue
+          params: []
+          returns:
+            type: None
+          description: Emit function epilogue
+
+    - name: RegisterAllocator
+      description: Simple linear scan register allocator
+      methods:
+        - name: allocate
+          params:
+            - name: bytecode
+              type: BytecodeArray
+              description: Bytecode for analysis
+          returns:
+            type: RegisterAllocation
+            description: Register assignments
+          description: Allocate registers for bytecode values
+
+    - name: OSRManager
+      description: On-Stack Replacement for tier-up during execution
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize OSR manager
+
+        - name: create_osr_entry
+          params:
+            - name: bytecode_offset
+              type: int
+              description: Bytecode offset for OSR
+            - name: interpreter_state
+              type: InterpreterState
+              description: Interpreter state
+          returns:
+            type: OSREntry
+            description: OSR entry point
+          description: Create OSR entry for hot loop
+
+        - name: perform_osr
+          params:
+            - name: entry
+              type: OSREntry
+              description: OSR entry point
+          returns:
+            type: None
+          description: Perform on-stack replacement
+
+    - name: CodeCache
+      description: Cache of compiled machine code
+      methods:
+        - name: __init__
+          params:
+            - name: max_size
+              type: int
+              default: 10485760
+              description: Max cache size in bytes (default 10MB)
+          returns:
+            type: None
+          description: Initialize code cache
+
+        - name: insert
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+            - name: code
+              type: CompiledCode
+              description: Compiled code
+          returns:
+            type: None
+          description: Insert compiled code into cache
+
+        - name: lookup
+          params:
+            - name: function_id
+              type: int
+              description: Function ID
+          returns:
+            type: Optional[CompiledCode]
+            description: Compiled code or None
+          description: Look up compiled code
+
+        - name: evict
+          params: []
+          returns:
+            type: int
+            description: Bytes freed
+          description: Evict old code to make space
+
+    - name: x64Backend
+      description: x64 machine code generation backend
+      methods:
+        - name: emit_mov
+          params:
+            - name: dest
+              type: Register
+              description: Destination register
+            - name: src
+              type: Union[Register, int]
+              description: Source register or immediate
+          returns:
+            type: bytes
+            description: Machine code bytes
+          description: Emit MOV instruction
+
+        - name: emit_add
+          params:
+            - name: dest
+              type: Register
+              description: Destination register
+            - name: src
+              type: Union[Register, int]
+              description: Source operand
+          returns:
+            type: bytes
+            description: Machine code bytes
+          description: Emit ADD instruction
+
+        - name: emit_call
+          params:
+            - name: target
+              type: int
+              description: Call target address
+          returns:
+            type: bytes
+            description: Machine code bytes
+          description: Emit CALL instruction
+
+        - name: emit_ret
+          params: []
+          returns:
+            type: bytes
+            description: Machine code bytes
+          description: Emit RET instruction
+
+  structs:
+    - name: CompiledCode
+      fields:
+        - name: code
+          type: bytes
+          description: Machine code bytes
+        - name: entry_point
+          type: int
+          description: Entry point address
+        - name: size
+          type: int
+          description: Code size in bytes
+        - name: deopt_info
+          type: DeoptInfo
+          description: Deoptimization metadata
+        - name: ic_sites
+          type: List[ICSite]
+          description: IC sites in code
+
+    - name: RegisterAllocation
+      fields:
+        - name: assignments
+          type: Dict[int, Register]
+          description: Bytecode value → register mapping
+        - name: spills
+          type: List[int]
+          description: Values spilled to stack
+
+    - name: OSREntry
+      fields:
+        - name: bytecode_offset
+          type: int
+          description: Bytecode offset
+        - name: compiled_offset
+          type: int
+          description: Compiled code offset
+        - name: state_map
+          type: Dict[str, Any]
+          description: Interpreter state mapping
+
+  enums:
+    - name: Register
+      values:
+        - RAX
+        - RBX
+        - RCX
+        - RDX
+        - RSI
+        - RDI
+        - R8
+        - R9
+        - R10
+        - R11
+        - R12
+        - R13
+        - R14
+        - R15
+      description: x64 registers
+
+dependencies:
+  - name: bytecode
+    version: "^0.2.0"
+    imports:
+      - BytecodeArray
+      - Opcode
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - InterpreterState
+      - ExecutionContext
+  - name: inline_caching
+    version: "^0.1.0"
+    imports:
+      - InlineCache
+      - ICState
+  - name: hidden_classes
+    version: "^0.1.0"
+    imports:
+      - Shape
+
+requirements:
+  functional:
+    - FR-P4-023: Bytecode → machine code compiler
+    - FR-P4-024: Register allocation (simple linear scan)
+    - FR-P4-025: Code generation for all opcodes
+    - FR-P4-026: Call convention implementation
+    - FR-P4-027: Stack frame management
+    - FR-P4-028: IC integration in JIT code
+    - FR-P4-029: Profiling counters in JIT code
+    - FR-P4-030: OSR (On-Stack Replacement) entry
+    - FR-P4-031: Exception handling in JIT code
+    - FR-P4-032: Deoptimization metadata generation
+    - FR-P4-033: Code cache management
+    - FR-P4-034: Tier-up triggers (interpreter → baseline)
+    - FR-P4-035: Platform-specific backends (x64, ARM64)
+    - FR-P4-036: JIT code execution
+    - FR-P4-037: Baseline JIT testing infrastructure
+
+  non_functional:
+    - 5-10x speedup over interpreter
+    - <100ms compilation latency
+    - <10MB code cache size
+
+  testing:
+    - Minimum 75 unit tests
+    - Test coverage ≥80%
+    - Integration tests with interpreter
+    - Performance benchmarks
+
+performance:
+  speedup: "5-10x"
+  compilation_latency: "<100ms"
+  code_cache_size: "<10MB"

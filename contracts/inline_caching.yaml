@@ -1,0 +1,186 @@
+name: inline_caching
+version: 0.1.0
+type: core
+description: Inline caching infrastructure for fast property and call site optimization
+
+api:
+  classes:
+    - name: InlineCache
+      description: Base class for all inline cache types
+      methods:
+        - name: __init__
+          params:
+            - name: cache_type
+              type: str
+              description: Type of cache (property_load, property_store, call)
+          returns:
+            type: None
+          description: Initialize inline cache
+
+        - name: check
+          params:
+            - name: shape
+              type: Shape
+              description: Object shape to check against
+          returns:
+            type: bool
+            description: True if cache hit, False if miss
+          description: Check if cache is valid for given shape
+
+        - name: update
+          params:
+            - name: shape
+              type: Shape
+              description: New shape to cache
+            - name: offset
+              type: int
+              description: Property offset
+          returns:
+            type: None
+          description: Update cache with new shape/offset
+
+        - name: invalidate
+          params: []
+          returns:
+            type: None
+          description: Invalidate cache (transition to next state)
+
+        - name: get_state
+          params: []
+          returns:
+            type: str
+            description: Current cache state (uninitialized, monomorphic, polymorphic, megamorphic)
+          description: Get current cache state
+
+    - name: PropertyLoadIC
+      description: Inline cache for property loads (obj.prop)
+      inherits: InlineCache
+      methods:
+        - name: load
+          params:
+            - name: obj
+              type: JSObject
+              description: Object to load property from
+            - name: prop_name
+              type: str
+              description: Property name
+          returns:
+            type: JSValue
+            description: Property value
+          description: Load property with IC optimization
+
+    - name: PropertyStoreIC
+      description: Inline cache for property stores (obj.prop = value)
+      inherits: InlineCache
+      methods:
+        - name: store
+          params:
+            - name: obj
+              type: JSObject
+              description: Object to store property to
+            - name: prop_name
+              type: str
+              description: Property name
+            - name: value
+              type: JSValue
+              description: Value to store
+          returns:
+            type: None
+          description: Store property with IC optimization
+
+    - name: CallIC
+      description: Inline cache for function calls
+      inherits: InlineCache
+      methods:
+        - name: call
+          params:
+            - name: callee
+              type: JSFunction
+              description: Function to call
+            - name: args
+              type: List[JSValue]
+              description: Arguments
+          returns:
+            type: JSValue
+            description: Return value
+          description: Call function with IC optimization
+
+    - name: GlobalIC
+      description: Inline cache for global variable access
+      inherits: InlineCache
+      methods:
+        - name: load_global
+          params:
+            - name: name
+              type: str
+              description: Global variable name
+          returns:
+            type: JSValue
+            description: Global value
+          description: Load global variable with IC
+
+        - name: store_global
+          params:
+            - name: name
+              type: str
+              description: Global variable name
+            - name: value
+              type: JSValue
+              description: Value to store
+          returns:
+            type: None
+          description: Store global variable with IC
+
+  enums:
+    - name: ICState
+      values:
+        - UNINITIALIZED
+        - MONOMORPHIC
+        - POLYMORPHIC
+        - MEGAMORPHIC
+      description: Inline cache state machine states
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSObject
+      - JSValue
+      - JSFunction
+  - name: hidden_classes
+    version: "^0.1.0"
+    imports:
+      - Shape
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - TaggedValue
+
+requirements:
+  functional:
+    - FR-P4-001: Monomorphic inline cache (single shape)
+    - FR-P4-002: Polymorphic inline cache (2-4 shapes)
+    - FR-P4-003: Megamorphic cache (>4 shapes, fallback to dict)
+    - FR-P4-004: Property load IC (LOAD_PROPERTY_IC)
+    - FR-P4-005: Property store IC (STORE_PROPERTY_IC)
+    - FR-P4-006: IC invalidation on shape change
+    - FR-P4-007: IC statistics and profiling
+    - FR-P4-008: Global variable IC
+    - FR-P4-009: Function call IC (CallIC)
+    - FR-P4-010: IC integration with interpreter
+
+  non_functional:
+    - Cache hit rate >90% for monomorphic access
+    - <10ns overhead for cache check
+    - Minimal memory overhead (<100 bytes per IC)
+
+  testing:
+    - Minimum 50 unit tests
+    - Test coverage ≥85%
+    - Integration tests with interpreter
+    - Performance benchmarks
+
+performance:
+  cache_check_latency: "<10ns"
+  cache_hit_rate: ">90%"
+  memory_overhead: "<100 bytes per IC"
