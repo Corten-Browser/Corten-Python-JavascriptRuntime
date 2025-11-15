@@ -1,0 +1,92 @@
+name: class_static_blocks
+version: 0.1.0
+type: feature
+description: ES2022 static initialization blocks for classes
+level: 2
+
+dependencies:
+  imports:
+    - name: parser
+      version: "^0.2.0"
+      import_from: "components.parser.src"
+      uses:
+        - ClassDeclaration
+        - Statement
+        - SourceLocation
+        - Token
+
+    - name: private_class_features
+      version: "^0.1.0"
+      import_from: "components.private_class_features.src"
+      uses:
+        - PrivateFieldManager
+        - StaticInitializationManager
+
+    - name: interpreter
+      version: "^0.2.0"
+      import_from: "components.interpreter.src"
+      uses:
+        - ExecutionContext
+        - evaluate_statement
+
+    - name: object_runtime
+      version: "^0.3.0"
+      import_from: "components.object_runtime.src"
+      uses:
+        - JSValue
+        - JSObject
+
+api:
+  exports:
+    - StaticBlock
+    - ClassDeclarationExtension
+    - parse_class_static_block
+    - is_static_block
+    - StaticBlockParser
+    - StaticBlockExecutor
+    - StaticBlockScope
+    - StaticBlockDescriptor
+
+requirements:
+  functional:
+    - id: FR-ES24-B-011
+      description: "Static initialization blocks `static { ... }` syntax"
+      status: implemented
+
+    - id: FR-ES24-B-012
+      description: "Static block execution order - runs after static fields"
+      status: implemented
+
+    - id: FR-ES24-B-013
+      description: "Static block this binding - `this` refers to class constructor"
+      status: implemented
+
+    - id: FR-ES24-B-014
+      description: "Static block private access - can access private static fields"
+      status: implemented
+
+testing:
+  minimum_tests: 50
+  coverage_target: 85%
+  test_categories:
+    - Syntax parsing (valid and invalid)
+    - Execution order verification
+    - This binding correctness
+    - Private field access
+    - Scope isolation
+    - Error conditions
+    - Integration with static fields
+    - Multiple static blocks
+    - Edge cases (empty blocks, nested classes)
+
+performance:
+  static_block_parse: "<100us per block"
+  static_block_execute: "<200ns overhead per block"
+  private_field_access: "<100ns overhead in static blocks"
+  memory_overhead: "<64 bytes per static block"
+
+integration:
+  with_parser: "Extends ClassDeclaration parsing"
+  with_private_class_features: "Uses PrivateFieldManager for private access"
+  with_interpreter: "Executes during class definition evaluation"
+  with_object_runtime: "Binds 'this' to JSObject (class constructor)"
