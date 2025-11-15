@@ -1,0 +1,573 @@
+contract:
+  name: typed_arrays
+  version: 0.3.0
+  description: TypedArrays, ArrayBuffer, DataView for binary data
+
+api:
+  classes:
+    - name: ArrayBuffer
+      description: Fixed-length raw binary data buffer
+      constructor:
+        parameters:
+          - name: byteLength
+            type: number
+          - name: options
+            type: "{ maxByteLength?: number }"
+            optional: true
+        description: Allocate byte buffer
+
+      methods:
+        - name: slice
+          parameters:
+            - name: begin
+              type: number
+            - name: end
+              type: number
+              optional: true
+          returns: ArrayBuffer
+          description: Copy region to new ArrayBuffer
+
+        - name: transfer
+          parameters:
+            - name: newByteLength
+              type: number
+              optional: true
+          returns: ArrayBuffer
+          description: Transfer ArrayBuffer, detaching original (ES2024)
+
+        - name: ArrayBuffer.isView
+          type: static
+          parameters:
+            - name: value
+              type: any
+          returns: boolean
+          description: Check if value is TypedArray or DataView
+
+      properties:
+        - name: byteLength
+          type: number
+          readonly: true
+          description: Length in bytes
+
+        - name: detached
+          type: boolean
+          readonly: true
+          description: Whether buffer has been detached (ES2024)
+
+        - name: resizable
+          type: boolean
+          readonly: true
+          description: Whether buffer is resizable (ES2024)
+
+        - name: maxByteLength
+          type: number
+          readonly: true
+          description: Maximum byte length for resizable buffers
+
+    - name: TypedArray
+      description: Base class for all typed array views
+      note: Not directly constructible, use specific types
+      variants:
+        - Int8Array: 8-bit signed integers (-128 to 127)
+        - Uint8Array: 8-bit unsigned integers (0 to 255)
+        - Uint8ClampedArray: 8-bit unsigned integers, clamped (0 to 255)
+        - Int16Array: 16-bit signed integers
+        - Uint16Array: 16-bit unsigned integers
+        - Int32Array: 32-bit signed integers
+        - Uint32Array: 32-bit unsigned integers
+        - Float32Array: 32-bit floating point
+        - Float64Array: 64-bit floating point
+        - BigInt64Array: 64-bit signed BigInt
+        - BigUint64Array: 64-bit unsigned BigInt
+
+      constructors:
+        - signature: new TypedArray(length)
+          description: Create typed array of given length
+
+        - signature: new TypedArray(typedArray)
+          description: Copy from another typed array
+
+        - signature: new TypedArray(arrayLike)
+          description: Create from array-like object
+
+        - signature: new TypedArray(buffer, byteOffset?, length?)
+          description: View of ArrayBuffer
+
+      static_methods:
+        - name: from
+          parameters:
+            - name: source
+              type: ArrayLike | Iterable
+            - name: mapFn
+              type: function
+              optional: true
+            - name: thisArg
+              type: any
+              optional: true
+          returns: TypedArray
+          description: Create from array-like or iterable
+
+        - name: of
+          parameters:
+            - name: ...values
+              type: number[]
+          returns: TypedArray
+          description: Create from argument list
+
+      properties:
+        - name: buffer
+          type: ArrayBuffer
+          readonly: true
+          description: Underlying ArrayBuffer
+
+        - name: byteLength
+          type: number
+          readonly: true
+          description: Length in bytes
+
+        - name: byteOffset
+          type: number
+          readonly: true
+          description: Offset in buffer (bytes)
+
+        - name: length
+          type: number
+          readonly: true
+          description: Number of elements
+
+        - name: BYTES_PER_ELEMENT
+          type: number
+          readonly: true
+          static: true
+          description: Bytes per element (1, 2, 4, or 8)
+
+      methods:
+        # Array-like methods
+        - name: at
+          parameters:
+            - name: index
+              type: number
+          returns: number | undefined
+
+        - name: copyWithin
+          parameters:
+            - name: target
+              type: number
+            - name: start
+              type: number
+            - name: end
+              type: number
+              optional: true
+          returns: TypedArray
+
+        - name: entries
+          returns: Iterator<[number, number]>
+
+        - name: every
+          parameters:
+            - name: callback
+              type: function
+          returns: boolean
+
+        - name: fill
+          parameters:
+            - name: value
+              type: number
+            - name: start
+              type: number
+              optional: true
+            - name: end
+              type: number
+              optional: true
+          returns: TypedArray
+
+        - name: filter
+          parameters:
+            - name: callback
+              type: function
+          returns: TypedArray
+
+        - name: find
+          parameters:
+            - name: callback
+              type: function
+          returns: number | undefined
+
+        - name: findIndex
+          parameters:
+            - name: callback
+              type: function
+          returns: number
+
+        - name: forEach
+          parameters:
+            - name: callback
+              type: function
+          returns: undefined
+
+        - name: includes
+          parameters:
+            - name: value
+              type: number
+          returns: boolean
+
+        - name: indexOf
+          parameters:
+            - name: value
+              type: number
+          returns: number
+
+        - name: join
+          parameters:
+            - name: separator
+              type: string
+              optional: true
+          returns: string
+
+        - name: keys
+          returns: Iterator<number>
+
+        - name: lastIndexOf
+          parameters:
+            - name: value
+              type: number
+          returns: number
+
+        - name: map
+          parameters:
+            - name: callback
+              type: function
+          returns: TypedArray
+
+        - name: reduce
+          parameters:
+            - name: callback
+              type: function
+            - name: initialValue
+              type: any
+              optional: true
+          returns: any
+
+        - name: reduceRight
+          parameters:
+            - name: callback
+              type: function
+            - name: initialValue
+              type: any
+              optional: true
+          returns: any
+
+        - name: reverse
+          returns: TypedArray
+
+        - name: set
+          parameters:
+            - name: source
+              type: ArrayLike
+            - name: offset
+              type: number
+              optional: true
+          returns: undefined
+          description: Copy values from source into typed array
+
+        - name: slice
+          parameters:
+            - name: start
+              type: number
+              optional: true
+            - name: end
+              type: number
+              optional: true
+          returns: TypedArray
+
+        - name: some
+          parameters:
+            - name: callback
+              type: function
+          returns: boolean
+
+        - name: sort
+          parameters:
+            - name: compareFn
+              type: function
+              optional: true
+          returns: TypedArray
+
+        - name: subarray
+          parameters:
+            - name: begin
+              type: number
+              optional: true
+            - name: end
+              type: number
+              optional: true
+          returns: TypedArray
+          description: New view of same buffer (unlike slice)
+
+        - name: toLocaleString
+          returns: string
+
+        - name: toString
+          returns: string
+
+        - name: values
+          returns: Iterator<number>
+
+        - name: "[Symbol.iterator]"
+          returns: Iterator<number>
+
+    - name: DataView
+      description: Low-level interface for reading/writing binary data
+      constructor:
+        parameters:
+          - name: buffer
+            type: ArrayBuffer
+          - name: byteOffset
+            type: number
+            optional: true
+          - name: byteLength
+            type: number
+            optional: true
+
+      properties:
+        - name: buffer
+          type: ArrayBuffer
+          readonly: true
+
+        - name: byteLength
+          type: number
+          readonly: true
+
+        - name: byteOffset
+          type: number
+          readonly: true
+
+      methods:
+        # Getters
+        - name: getInt8
+          parameters:
+            - name: byteOffset
+              type: number
+          returns: number
+
+        - name: getUint8
+          parameters:
+            - name: byteOffset
+              type: number
+          returns: number
+
+        - name: getInt16
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: number
+
+        - name: getUint16
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: number
+
+        - name: getInt32
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: number
+
+        - name: getUint32
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: number
+
+        - name: getFloat32
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: number
+
+        - name: getFloat64
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: number
+
+        - name: getBigInt64
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: bigint
+
+        - name: getBigUint64
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: bigint
+
+        # Setters
+        - name: setInt8
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+          returns: undefined
+
+        - name: setUint8
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+          returns: undefined
+
+        - name: setInt16
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setUint16
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setInt32
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setUint32
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setFloat32
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setFloat64
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: number
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setBigInt64
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: bigint
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+        - name: setBigUint64
+          parameters:
+            - name: byteOffset
+              type: number
+            - name: value
+              type: bigint
+            - name: littleEndian
+              type: boolean
+              optional: true
+          returns: undefined
+
+type_conversions:
+  Int8: "Wrap to -128..127"
+  Uint8: "Wrap to 0..255"
+  Uint8Clamped: "Clamp to 0..255"
+  Int16: "Wrap to -32768..32767"
+  Uint16: "Wrap to 0..65535"
+  Int32: "Wrap to -2^31..2^31-1"
+  Uint32: "Wrap to 0..2^32-1"
+  Float32: "Round to single precision"
+  Float64: "IEEE-754 double precision"
+
+errors:
+  - RangeError: Out of bounds access (detached buffer or invalid offset)
+  - TypeError: Non-object passed to WeakMap/WeakSet
+  - TypeError: Detached ArrayBuffer accessed
+
+integration_points:
+  - component: memory_gc
+    interface: Allocate contiguous byte buffers
+
+  - component: bigint
+    interface: BigInt64Array, BigUint64Array
+
+  - component: symbols
+    interface: TypedArray implements Symbol.iterator
+
+test_requirements:
+  unit_tests: ≥150
+  integration_tests: ≥20
+  coverage: ≥85%
+
+success_criteria:
+  - All 11 TypedArray types work correctly
+  - ArrayBuffer allocation and slicing work
+  - DataView read/write with correct endianness
+  - Detached buffers throw on access
+  - Type conversions follow spec
+  - Resizable ArrayBuffers work (ES2024)

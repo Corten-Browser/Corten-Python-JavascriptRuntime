@@ -1,0 +1,161 @@
+contract:
+  name: generators_iterators
+  version: 0.3.0
+  description: Generator functions and iterator protocol
+
+api:
+  syntax:
+    - pattern: "function* name(params) { yield value; }"
+      description: Generator function declaration
+
+    - pattern: "function*(params) { yield value; }"
+      description: Generator function expression
+
+    - pattern: "yield value"
+      description: Yield expression (only in generator context)
+
+    - pattern: "yield* iterable"
+      description: Yield delegation to another generator/iterable
+
+  classes:
+    - name: Generator
+      description: Generator object (returned by generator function)
+      extends: Iterator
+      methods:
+        - name: next
+          parameters:
+            - name: value
+              type: any
+              optional: true
+          returns:
+            type: IteratorResult
+            shape: "{ value: any, done: boolean }"
+          description: Resume generator, optionally sending value
+
+        - name: return
+          parameters:
+            - name: value
+              type: any
+              optional: true
+          returns:
+            type: IteratorResult
+            shape: "{ value: any, done: true }"
+          description: Complete generator early with return value
+
+        - name: throw
+          parameters:
+            - name: exception
+              type: any
+          returns: IteratorResult
+          throws: true
+          description: Throw exception into generator
+
+      properties:
+        - name: "[Symbol.iterator]"
+          type: function
+          returns: Generator
+          description: Returns this (generators are iterables)
+
+    - name: Iterator
+      description: Iterator protocol interface
+      methods:
+        - name: next
+          parameters: []
+          returns:
+            type: IteratorResult
+            shape: "{ value: any, done: boolean }"
+          description: Get next value from iterator
+
+      properties:
+        - name: "[Symbol.iterator]"
+          type: function
+          returns: Iterator
+          description: Return iterator (usually this)
+
+  protocols:
+    - name: Iterable
+      description: Object with Symbol.iterator method
+      requirement: "[Symbol.iterator]() returns Iterator"
+
+    - name: Iterator
+      description: Object with next() method
+      requirement: "next() returns { value, done }"
+
+    - name: IteratorResult
+      description: Result from iterator.next()
+      shape:
+        value: any
+        done: boolean
+
+builtin_iterables:
+  - Array
+  - String
+  - Map
+  - Set
+  - TypedArray
+  - arguments (in functions)
+  - NodeList (browser only)
+
+operations:
+  - name: for_of_loop
+    signature: "for (const item of iterable) { ... }"
+    description: Iterate over iterable using Symbol.iterator
+
+  - name: spread_operator
+    signature: "[...iterable]"
+    description: Spread iterable into array
+
+  - name: destructuring
+    signature: "const [a, b] = iterable"
+    description: Destructure iterable
+
+generator_states:
+  - suspended_start: "Generator created but not started"
+  - suspended_yield: "Generator suspended at yield"
+  - executing: "Generator currently running"
+  - completed: "Generator finished (done: true)"
+
+bytecode:
+  - opcode: GENERATOR_CREATE
+    description: Create generator object from function
+
+  - opcode: YIELD
+    operands: [register]
+    description: Yield value, suspend generator
+
+  - opcode: YIELD_STAR
+    operands: [register]
+    description: Delegate to another iterable
+
+  - opcode: GENERATOR_RESUME
+    operands: [generator, value]
+    description: Resume suspended generator
+
+integration_points:
+  - component: symbols
+    interface: Use Symbol.iterator for iterator protocol
+
+  - component: parser
+    interface: Parse function*, yield, yield* syntax
+
+  - component: bytecode
+    interface: Generate YIELD, GENERATOR_CREATE opcodes
+
+  - component: interpreter
+    interface: Execute generator bytecode, manage state
+
+  - component: object_runtime
+    interface: Array, String, Map, Set implement Symbol.iterator
+
+test_requirements:
+  unit_tests: ≥40
+  integration_tests: ≥15
+  coverage: ≥90%
+
+success_criteria:
+  - function* creates generator functions
+  - yield suspends and resumes execution
+  - Generator implements next/return/throw
+  - for-of works with iterables
+  - Built-in types are iterable
+  - yield* delegation works
