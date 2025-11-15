@@ -1,0 +1,114 @@
+name: atomics_extensions
+version: 0.1.0
+type: feature
+description: ES2024 Atomics.waitAsync and SharedArrayBuffer integration
+
+api:
+  classes:
+    - name: AtomicsExtensions
+      description: ES2024 Atomics API extensions
+      methods:
+        - name: wait_async
+          params:
+            - name: typed_array
+              type: Int32Array
+              description: Shared integer array
+            - name: index
+              type: int
+              description: Index to wait on
+            - name: value
+              type: int
+              description: Expected value
+            - name: timeout
+              type: float
+              description: Optional timeout in milliseconds
+          returns:
+            type: AtomicsWaitAsyncResult
+            description: Promise or immediate result
+          description: Asynchronous wait on shared memory location
+
+        - name: notify
+          params:
+            - name: typed_array
+              type: Int32Array
+              description: Shared integer array
+            - name: index
+              type: int
+              description: Index to notify
+            - name: count
+              type: int
+              description: Number of waiters to wake
+          returns:
+            type: int
+            description: Number of waiters notified
+          description: Notify waiters on shared memory location
+
+    - name: SharedArrayBufferIntegration
+      description: SharedArrayBuffer integration with Atomics
+      methods:
+        - name: create_shared_buffer
+          params:
+            - name: byte_length
+              type: int
+              description: Buffer size in bytes
+          returns:
+            type: SharedArrayBuffer
+            description: New shared buffer
+          description: Create SharedArrayBuffer for concurrent access
+
+        - name: is_shared_array_buffer
+          params:
+            - name: buffer
+              type: Any
+              description: Buffer to check
+          returns:
+            type: bool
+            description: True if SharedArrayBuffer
+          description: Check if buffer is SharedArrayBuffer
+
+  structs:
+    - name: AtomicsWaitAsyncResult
+      fields:
+        - name: async_status
+          type: bool
+          description: True if async, false if immediate
+        - name: value
+          type: str
+          description: "ok", "not-equal", or "timed-out"
+        - name: promise
+          type: Promise
+          description: Promise that resolves when notified (if async)
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+  - name: async_runtime
+    version: "^0.2.0"
+    imports:
+      - Promise
+  - name: arraybuffer_extensions
+    version: "^0.1.0"
+    imports:
+      - GrowableSharedArrayBuffer
+
+requirements:
+  functional:
+    - FR-ES24-009: Atomics.waitAsync() implementation
+    - FR-ES24-010: SharedArrayBuffer integration
+
+  non_functional:
+    - Wait notification latency <10ms
+    - Support thousands of concurrent waiters
+
+  testing:
+    - Minimum 20 unit tests
+    - Test coverage ≥80%
+    - Test262 compliance (~50 tests)
+    - Stress test with 1000+ concurrent waiters
+
+performance:
+  notification_latency: "<10ms"
+  concurrent_waiters: ">1000"

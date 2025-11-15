@@ -1,0 +1,179 @@
+name: arraybuffer_extensions
+version: 0.1.0
+type: feature
+description: ES2024 ArrayBuffer and TypedArray extensions (transfer, resizable, etc.)
+
+api:
+  classes:
+    - name: ArrayBufferExtensions
+      description: Manages ArrayBuffer ES2024 extensions
+      methods:
+        - name: transfer
+          params:
+            - name: buffer
+              type: ArrayBuffer
+              description: Source buffer
+            - name: new_byte_length
+              type: int
+              description: Optional new length
+          returns:
+            type: ArrayBuffer
+            description: Transferred buffer
+          description: Transfer ArrayBuffer to new instance
+
+        - name: transfer_to_fixed_length
+          params:
+            - name: buffer
+              type: ArrayBuffer
+              description: Source buffer
+            - name: new_byte_length
+              type: int
+              description: New fixed length
+          returns:
+            type: ArrayBuffer
+            description: Transferred fixed-length buffer
+          description: Transfer to fixed-length ArrayBuffer
+
+        - name: is_detached
+          params:
+            - name: buffer
+              type: ArrayBuffer
+              description: Buffer to check
+          returns:
+            type: bool
+            description: True if detached
+          description: Check if buffer is detached
+
+        - name: get_max_byte_length
+          params:
+            - name: buffer
+              type: ArrayBuffer
+              description: Buffer to query
+          returns:
+            type: int
+            description: Maximum byte length
+          description: Get maximum byte length for resizable buffer
+
+    - name: ResizableArrayBuffer
+      description: Resizable ArrayBuffer implementation
+      methods:
+        - name: __init__
+          params:
+            - name: byte_length
+              type: int
+              description: Initial length
+            - name: max_byte_length
+              type: int
+              description: Maximum length
+          returns:
+            type: None
+          description: Create resizable ArrayBuffer
+
+        - name: resize
+          params:
+            - name: new_byte_length
+              type: int
+              description: New length
+          returns:
+            type: None
+          description: Resize buffer
+
+        - name: resizable
+          params: []
+          returns:
+            type: bool
+            description: Always true for resizable buffers
+          description: Check if buffer is resizable
+
+    - name: GrowableSharedArrayBuffer
+      description: Growable SharedArrayBuffer for concurrent access
+      methods:
+        - name: __init__
+          params:
+            - name: byte_length
+              type: int
+              description: Initial length
+            - name: max_byte_length
+              type: int
+              description: Maximum length
+          returns:
+            type: None
+          description: Create growable SharedArrayBuffer
+
+        - name: grow
+          params:
+            - name: new_byte_length
+              type: int
+              description: New length (must be >= current)
+          returns:
+            type: None
+          description: Grow buffer
+
+        - name: growable
+          params: []
+          returns:
+            type: bool
+            description: Always true for growable buffers
+          description: Check if buffer is growable
+
+    - name: TypedArrayExtensions
+      description: TypedArray ES2024 method extensions
+      methods:
+        - name: to_reversed
+          params:
+            - name: typed_array
+              type: TypedArray
+              description: Source array
+          returns:
+            type: TypedArray
+            description: New reversed array
+          description: Return reversed copy (non-mutating)
+
+        - name: to_sorted
+          params:
+            - name: typed_array
+              type: TypedArray
+              description: Source array
+            - name: compare_fn
+              type: Function
+              description: Optional comparison function
+          returns:
+            type: TypedArray
+            description: New sorted array
+          description: Return sorted copy (non-mutating)
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+  - name: memory_management
+    version: "^0.2.0"
+    imports:
+      - MemoryManager
+
+requirements:
+  functional:
+    - FR-ES24-001: ArrayBuffer.prototype.transfer()
+    - FR-ES24-002: ArrayBuffer.prototype.transferToFixedLength()
+    - FR-ES24-003: ArrayBuffer.prototype.detached getter
+    - FR-ES24-004: ArrayBuffer.prototype.maxByteLength getter
+    - FR-ES24-005: Resizable ArrayBuffer support
+    - FR-ES24-006: GrowableSharedArrayBuffer
+    - FR-ES24-007: TypedArray.prototype.toReversed()
+    - FR-ES24-008: TypedArray.prototype.toSorted()
+
+  non_functional:
+    - Transfer operations <1ms for buffers <1MB
+    - Resize operations <0.5ms
+    - Zero-copy transfer where possible
+
+  testing:
+    - Minimum 40 unit tests
+    - Test coverage ≥80%
+    - Test262 compliance (~200 tests)
+
+performance:
+  transfer_time: "<1ms for <1MB buffers"
+  resize_time: "<0.5ms"

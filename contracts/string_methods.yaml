@@ -1,0 +1,218 @@
+name: string_methods
+version: 0.1.0
+type: feature
+description: ES2024 String.prototype method gaps (at, replaceAll, matchAll, trim*, pad*, Unicode)
+
+api:
+  classes:
+    - name: StringMethods
+      description: String.prototype ES2024 method implementations
+      methods:
+        - name: at
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: index
+              type: int
+              description: Index (negative from end)
+          returns:
+            type: str
+            description: Character at index or undefined
+          description: Get character at index (supports negative indices)
+
+        - name: replace_all
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: search
+              type: str
+              description: String or RegExp to search
+            - name: replace
+              type: str
+              description: Replacement string or function
+          returns:
+            type: str
+            description: String with all occurrences replaced
+          description: Replace all occurrences (not just first)
+
+        - name: match_all
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: regexp
+              type: RegExp
+              description: Regular expression with /g flag
+          returns:
+            type: Iterator
+            description: Iterator of match objects
+          description: Return iterator of all matches
+
+        - name: trim_start
+          params:
+            - name: string
+              type: str
+              description: Source string
+          returns:
+            type: str
+            description: String with leading whitespace removed
+          description: Remove leading whitespace
+
+        - name: trim_end
+          params:
+            - name: string
+              type: str
+              description: Source string
+          returns:
+            type: str
+            description: String with trailing whitespace removed
+          description: Remove trailing whitespace
+
+        - name: pad_start
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: target_length
+              type: int
+              description: Target length
+            - name: pad_string
+              type: str
+              description: Padding string (default: space)
+          returns:
+            type: str
+            description: Padded string
+          description: Pad string from start to target length
+
+        - name: pad_end
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: target_length
+              type: int
+              description: Target length
+            - name: pad_string
+              type: str
+              description: Padding string (default: space)
+          returns:
+            type: str
+            description: Padded string
+          description: Pad string from end to target length
+
+        - name: code_point_at
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: index
+              type: int
+              description: Index
+          returns:
+            type: int
+            description: Unicode code point
+          description: Get Unicode code point at index
+
+        - name: from_code_point
+          params:
+            - name: code_points
+              type: List[int]
+              description: Unicode code points
+          returns:
+            type: str
+            description: String from code points
+          description: Create string from Unicode code points
+
+        - name: raw
+          params:
+            - name: template
+              type: TemplateStringsArray
+              description: Template literal strings
+            - name: substitutions
+              type: List[Any]
+              description: Substitution values
+          returns:
+            type: str
+            description: Raw string
+          description: Get raw string (no escape processing)
+
+    - name: UnicodeSupport
+      description: Full Unicode support for strings
+      methods:
+        - name: normalize
+          params:
+            - name: string
+              type: str
+              description: Source string
+            - name: form
+              type: str
+              description: NFC, NFD, NFKC, or NFKD
+          returns:
+            type: str
+            description: Normalized string
+          description: Unicode normalization
+
+        - name: get_unicode_length
+          params:
+            - name: string
+              type: str
+              description: Source string
+          returns:
+            type: int
+            description: Number of Unicode code points
+          description: Get Unicode-aware length (not UTF-16 units)
+
+        - name: handle_surrogate_pairs
+          params:
+            - name: string
+              type: str
+              description: Source string
+          returns:
+            type: List[str]
+            description: List of Unicode characters
+          description: Properly handle surrogate pairs
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSString
+  - name: regex_engine
+    version: "^0.2.0"
+    imports:
+      - RegExp
+
+requirements:
+  functional:
+    - FR-ES24-011: String.prototype.at()
+    - FR-ES24-012: String.prototype.replaceAll()
+    - FR-ES24-013: String.prototype.matchAll()
+    - FR-ES24-014: String.prototype.trimStart()
+    - FR-ES24-015: String.prototype.trimEnd()
+    - FR-ES24-016: String.prototype.padStart()
+    - FR-ES24-017: String.prototype.padEnd()
+    - FR-ES24-018: String.prototype.codePointAt()
+    - FR-ES24-019: String.fromCodePoint()
+    - FR-ES24-020: String.raw()
+    - FR-ES24-021: Unicode normalization (normalize())
+    - FR-ES24-022: Unicode escape sequences
+    - FR-ES24-023: Surrogate pair handling
+    - FR-ES24-024: Unicode-aware length/indexing
+    - FR-ES24-025: Full Unicode regex support
+
+  non_functional:
+    - String operations <1ms for strings <1MB
+    - Unicode normalization <5ms for typical strings
+
+  testing:
+    - Minimum 60 unit tests
+    - Test coverage ≥85%
+    - Test262 compliance (~500 tests)
+    - Unicode edge case tests
+
+performance:
+  string_ops: "<1ms for <1MB"
+  normalization: "<5ms typical"

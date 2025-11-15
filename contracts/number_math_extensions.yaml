@@ -1,0 +1,312 @@
+name: number_math_extensions
+version: 0.1.0
+type: feature
+description: ES2024 Number and Math method gaps (isFinite, isInteger, sign, trunc, hyperbolic functions)
+
+api:
+  classes:
+    - name: NumberMethods
+      description: Number static method implementations
+      methods:
+        - name: is_finite
+          params:
+            - name: value
+              type: Any
+              description: Value to check
+          returns:
+            type: bool
+            description: True if finite number
+          description: Check if finite number (not Infinity/NaN)
+
+        - name: is_integer
+          params:
+            - name: value
+              type: Any
+              description: Value to check
+          returns:
+            type: bool
+            description: True if integer
+          description: Check if integer
+
+        - name: is_nan
+          params:
+            - name: value
+              type: Any
+              description: Value to check
+          returns:
+            type: bool
+            description: True if NaN
+          description: Check if NaN (more reliable than global isNaN)
+
+        - name: is_safe_integer
+          params:
+            - name: value
+              type: Any
+              description: Value to check
+          returns:
+            type: bool
+            description: True if safe integer
+          description: Check if safe integer (-(2^53-1) to 2^53-1)
+
+        - name: parse_float
+          params:
+            - name: string
+              type: str
+              description: String to parse
+          returns:
+            type: float
+            description: Parsed float
+          description: Parse float from string
+
+        - name: parse_int
+          params:
+            - name: string
+              type: str
+              description: String to parse
+            - name: radix
+              type: int
+              description: Number base (2-36)
+          returns:
+            type: int
+            description: Parsed integer
+          description: Parse integer from string with radix
+
+    - name: NumberConstants
+      description: Number constant properties
+      constants:
+        - name: EPSILON
+          type: float
+          value: 2.220446049250313e-16
+          description: Smallest representable difference
+
+        - name: MAX_SAFE_INTEGER
+          type: int
+          value: 9007199254740991
+          description: Maximum safe integer (2^53 - 1)
+
+        - name: MIN_SAFE_INTEGER
+          type: int
+          value: -9007199254740991
+          description: Minimum safe integer (-(2^53 - 1))
+
+    - name: MathMethods
+      description: Math object method extensions
+      methods:
+        - name: sign
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: int
+            description: -1, 0, or 1
+          description: Sign of number
+
+        - name: trunc
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: int
+            description: Integer part
+          description: Truncate to integer
+
+        - name: cbrt
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Cube root
+          description: Cube root
+
+        - name: expm1
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: e^x - 1
+          description: e^x - 1 (more accurate for small x)
+
+        - name: log1p
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: ln(1 + x)
+          description: ln(1 + x) (more accurate for small x)
+
+        - name: log10
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Base-10 logarithm
+          description: Base-10 logarithm
+
+        - name: log2
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Base-2 logarithm
+          description: Base-2 logarithm
+
+        - name: hypot
+          params:
+            - name: values
+              type: List[float]
+              description: Numbers
+          returns:
+            type: float
+            description: Square root of sum of squares
+          description: √(x1² + x2² + ...)
+
+        - name: clz32
+          params:
+            - name: x
+              type: int
+              description: 32-bit integer
+          returns:
+            type: int
+            description: Leading zero bits
+          description: Count leading zero bits in 32-bit integer
+
+        - name: imul
+          params:
+            - name: a
+              type: int
+              description: First operand
+            - name: b
+              type: int
+              description: Second operand
+          returns:
+            type: int
+            description: 32-bit multiplication result
+          description: 32-bit integer multiplication
+
+        - name: fround
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Nearest 32-bit float
+          description: Round to nearest 32-bit float
+
+        - name: sinh
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Hyperbolic sine
+          description: Hyperbolic sine
+
+        - name: cosh
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Hyperbolic cosine
+          description: Hyperbolic cosine
+
+        - name: tanh
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Hyperbolic tangent
+          description: Hyperbolic tangent
+
+        - name: asinh
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Inverse hyperbolic sine
+          description: Inverse hyperbolic sine
+
+        - name: acosh
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Inverse hyperbolic cosine
+          description: Inverse hyperbolic cosine
+
+        - name: atanh
+          params:
+            - name: x
+              type: float
+              description: Number
+          returns:
+            type: float
+            description: Inverse hyperbolic tangent
+          description: Inverse hyperbolic tangent
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSNumber
+
+requirements:
+  functional:
+    - FR-ES24-044: Number.isFinite()
+    - FR-ES24-045: Number.isInteger()
+    - FR-ES24-046: Number.isNaN()
+    - FR-ES24-047: Number.isSafeInteger()
+    - FR-ES24-048: Number.EPSILON
+    - FR-ES24-049: Number.MAX_SAFE_INTEGER
+    - FR-ES24-050: Number.MIN_SAFE_INTEGER
+    - FR-ES24-051: Number.parseFloat()
+    - FR-ES24-052: Number.parseInt()
+    - FR-ES24-053: Math.sign()
+    - FR-ES24-054: Math.trunc()
+    - FR-ES24-055: Math.cbrt()
+    - FR-ES24-056: Math.expm1()
+    - FR-ES24-057: Math.log1p()
+    - FR-ES24-058: Math.log10()
+    - FR-ES24-059: Math.log2()
+    - FR-ES24-060: Math.hypot()
+    - FR-ES24-061: Math.clz32()
+    - FR-ES24-062: Math.imul()
+    - FR-ES24-063: Math.fround()
+    - FR-ES24-064: Math.sinh(), cosh(), tanh()
+    - FR-ES24-065: Math.asinh(), acosh(), atanh()
+
+  non_functional:
+    - Math operations <1µs
+    - Numerical accuracy within IEEE 754 precision
+
+  testing:
+    - Minimum 50 unit tests
+    - Test coverage ≥85%
+    - Test262 compliance (~150 tests)
+    - Numerical accuracy tests
+
+performance:
+  operation_time: "<1µs"
+  accuracy: "IEEE 754 precision"

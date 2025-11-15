@@ -1,0 +1,272 @@
+name: private_class_features
+version: 0.1.0
+type: feature
+description: ES2024 private class fields, methods, static blocks, and brand checks
+
+api:
+  classes:
+    - name: PrivateFieldManager
+      description: Manages private class fields
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize private field manager
+
+        - name: define_private_field
+          params:
+            - name: class_id
+              type: int
+              description: Class identifier
+            - name: field_name
+              type: str
+              description: Private field name (with #)
+            - name: initializer
+              type: Function
+              description: Optional initializer function
+          returns:
+            type: PrivateField
+            description: Private field descriptor
+          description: Define private field for class
+
+        - name: get_private_field
+          params:
+            - name: instance
+              type: Object
+              description: Class instance
+            - name: field_name
+              type: str
+              description: Private field name
+          returns:
+            type: Any
+            description: Field value
+          description: Get private field value (throws if not accessible)
+
+        - name: set_private_field
+          params:
+            - name: instance
+              type: Object
+              description: Class instance
+            - name: field_name
+              type: str
+              description: Private field name
+            - name: value
+              type: Any
+              description: New value
+          returns:
+            type: None
+          description: Set private field value (throws if not accessible)
+
+    - name: PrivateMethodManager
+      description: Manages private class methods
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize private method manager
+
+        - name: define_private_method
+          params:
+            - name: class_id
+              type: int
+              description: Class identifier
+            - name: method_name
+              type: str
+              description: Private method name (with #)
+            - name: method_fn
+              type: Function
+              description: Method function
+          returns:
+            type: PrivateMethod
+            description: Private method descriptor
+          description: Define private method for class
+
+        - name: define_private_accessor
+          params:
+            - name: class_id
+              type: int
+              description: Class identifier
+            - name: accessor_name
+              type: str
+              description: Private accessor name (with #)
+            - name: getter
+              type: Function
+              description: Getter function
+            - name: setter
+              type: Function
+              description: Setter function
+          returns:
+            type: PrivateAccessor
+            description: Private accessor descriptor
+          description: Define private getter/setter
+
+        - name: call_private_method
+          params:
+            - name: instance
+              type: Object
+              description: Class instance
+            - name: method_name
+              type: str
+              description: Private method name
+            - name: args
+              type: List[Any]
+              description: Method arguments
+          returns:
+            type: Any
+            description: Method result
+          description: Call private method (throws if not accessible)
+
+    - name: StaticInitializationManager
+      description: Manages static initialization blocks
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize static initialization manager
+
+        - name: add_static_block
+          params:
+            - name: class_id
+              type: int
+              description: Class identifier
+            - name: block_fn
+              type: Function
+              description: Static block function
+          returns:
+            type: None
+          description: Add static initialization block to class
+
+        - name: execute_static_blocks
+          params:
+            - name: class_id
+              type: int
+              description: Class identifier
+          returns:
+            type: None
+          description: Execute all static blocks for class (in order)
+
+    - name: PrivateBrandChecker
+      description: Ergonomic brand checks for private fields
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize brand checker
+
+        - name: has_private_field
+          params:
+            - name: instance
+              type: Object
+              description: Object to check
+            - name: field_name
+              type: str
+              description: Private field name
+          returns:
+            type: bool
+            description: True if instance has private field
+          description: Check if object has private field (#field in obj)
+
+        - name: check_brand
+          params:
+            - name: instance
+              type: Object
+              description: Object to check
+            - name: class_id
+              type: int
+              description: Class identifier
+          returns:
+            type: bool
+            description: True if instance is of class
+          description: Check if object is instance of class with private fields
+
+  structs:
+    - name: PrivateField
+      fields:
+        - name: field_name
+          type: str
+          description: Private field name (with #)
+        - name: class_id
+          type: int
+          description: Owning class ID
+        - name: initializer
+          type: Function
+          description: Initializer function
+        - name: is_static
+          type: bool
+          description: True if static field
+
+    - name: PrivateMethod
+      fields:
+        - name: method_name
+          type: str
+          description: Private method name (with #)
+        - name: class_id
+          type: int
+          description: Owning class ID
+        - name: method_fn
+          type: Function
+          description: Method function
+        - name: is_static
+          type: bool
+          description: True if static method
+
+    - name: PrivateAccessor
+      fields:
+        - name: accessor_name
+          type: str
+          description: Private accessor name (with #)
+        - name: class_id
+          type: int
+          description: Owning class ID
+        - name: getter
+          type: Function
+          description: Getter function
+        - name: setter
+          type: Function
+          description: Setter function
+        - name: is_static
+          type: bool
+          description: True if static accessor
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+  - name: parser
+    version: "^0.2.0"
+    imports:
+      - ClassDeclaration
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - ExecutionContext
+
+requirements:
+  functional:
+    - FR-ES24-069: Private fields (#field)
+    - FR-ES24-070: Private methods (#method())
+    - FR-ES24-071: Private getters/setters (#get, #set)
+    - FR-ES24-072: Static initialization blocks
+    - FR-ES24-073: Private static fields
+    - FR-ES24-074: Ergonomic brand checks (#field in obj)
+
+  non_functional:
+    - Private field access <100ns overhead vs public
+    - Brand check <50ns
+    - Static block execution at class definition time
+
+  testing:
+    - Minimum 60 unit tests
+    - Test coverage ≥85%
+    - Test262 compliance (~500 tests)
+    - Encapsulation verification tests
+
+performance:
+  private_field_access: "<100ns overhead"
+  brand_check: "<50ns"

@@ -1,0 +1,187 @@
+name: top_level_await
+version: 0.1.0
+type: feature
+description: ES2024 top-level await in modules
+
+api:
+  classes:
+    - name: TopLevelAwaitManager
+      description: Manages top-level await in module execution
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize top-level await manager
+
+        - name: enable_top_level_await
+          params:
+            - name: module
+              type: Module
+              description: ES module
+          returns:
+            type: None
+          description: Enable top-level await for module
+
+        - name: execute_module_async
+          params:
+            - name: module
+              type: Module
+              description: ES module with top-level await
+          returns:
+            type: Promise
+            description: Promise that resolves when module completes
+          description: Execute module with top-level await support
+
+        - name: get_module_state
+          params:
+            - name: module_id
+              type: str
+              description: Module identifier
+          returns:
+            type: ModuleState
+            description: Current module state
+          description: Get module execution state
+
+    - name: AsyncModuleEvaluator
+      description: Evaluates modules with async dependencies
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize async module evaluator
+
+        - name: evaluate
+          params:
+            - name: module
+              type: Module
+              description: Module to evaluate
+          returns:
+            type: Promise
+            description: Promise that resolves when evaluation complete
+          description: Evaluate module with async dependency resolution
+
+        - name: resolve_dependency_graph
+          params:
+            - name: module
+              type: Module
+              description: Root module
+          returns:
+            type: DependencyGraph
+            description: Module dependency graph
+          description: Build dependency graph for async evaluation order
+
+    - name: ModuleDependencyManager
+      description: Manages module dependencies with top-level await
+      methods:
+        - name: __init__
+          params: []
+          returns:
+            type: None
+          description: Initialize dependency manager
+
+        - name: add_dependency
+          params:
+            - name: importer
+              type: str
+              description: Importing module ID
+            - name: importee
+              type: str
+              description: Imported module ID
+          returns:
+            type: None
+          description: Add module dependency
+
+        - name: get_evaluation_order
+          params:
+            - name: root_module
+              type: str
+              description: Root module ID
+          returns:
+            type: List[str]
+            description: Module IDs in evaluation order
+          description: Get topologically sorted evaluation order
+
+        - name: detect_cycles
+          params: []
+          returns:
+            type: List[List[str]]
+            description: Cyclic dependencies
+          description: Detect cyclic dependencies
+
+  structs:
+    - name: ModuleState
+      fields:
+        - name: module_id
+          type: str
+          description: Module identifier
+        - name: status
+          type: ModuleStatus
+          description: Execution status
+        - name: promise
+          type: Promise
+          description: Evaluation promise (if async)
+        - name: error
+          type: Exception
+          description: Evaluation error (if failed)
+
+    - name: DependencyGraph
+      fields:
+        - name: nodes
+          type: Dict[str, Module]
+          description: Module nodes
+        - name: edges
+          type: Dict[str, List[str]]
+          description: Dependency edges
+        - name: evaluation_order
+          type: List[str]
+          description: Topologically sorted order
+
+  enums:
+    - name: ModuleStatus
+      values:
+        - UNINSTANTIATED
+        - INSTANTIATING
+        - INSTANTIATED
+        - EVALUATING
+        - EVALUATING_ASYNC
+        - EVALUATED
+        - ERRORED
+      description: Module execution status
+
+dependencies:
+  - name: es_modules
+    version: "^0.2.0"
+    imports:
+      - Module
+      - ModuleNamespace
+  - name: async_runtime
+    version: "^0.2.0"
+    imports:
+      - Promise
+  - name: interpreter
+    version: "^0.2.0"
+    imports:
+      - Interpreter
+
+requirements:
+  functional:
+    - FR-ES24-066: Top-level await in modules
+    - FR-ES24-067: Async module evaluation order
+    - FR-ES24-068: Proper module dependency handling with TLA
+
+  non_functional:
+    - Module evaluation latency <10ms overhead
+    - Support complex dependency graphs (100+ modules)
+    - Detect cyclic dependencies
+
+  testing:
+    - Minimum 30 unit tests
+    - Test coverage ≥80%
+    - Test262 compliance (~100 tests)
+    - Complex dependency graph tests
+
+performance:
+  evaluation_overhead: "<10ms"
+  dependency_graph_size: ">100 modules"
