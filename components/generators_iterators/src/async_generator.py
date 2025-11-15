@@ -172,6 +172,7 @@ class AsyncGenerator:
         Handle async generator next() call.
 
         This schedules the async operation and resolves/rejects appropriately.
+        Coordinates between asyncio event loop and JSPromise EventLoop.
         """
         async def execute_next():
             try:
@@ -195,13 +196,36 @@ class AsyncGenerator:
                 self.state = AsyncGeneratorState.COMPLETED
                 reject(e)
 
-        # Create new event loop for this async operation
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        # Get or create event loop (reuse existing if available)
         try:
-            loop.run_until_complete(execute_next())
-        finally:
-            loop.close()
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        # Wrap execute_next to pump EventLoop while waiting
+        async def execute_with_pump():
+            # Create the execution task
+            task = asyncio.create_task(execute_next())
+
+            # Pump both loops until task completes
+            while not task.done():
+                # Let asyncio process one iteration
+                await asyncio.sleep(0)
+                # Pump JSPromise EventLoop
+                self.event_loop.run()
+
+            # Final pump after task completes
+            self.event_loop.run()
+
+            # Return task result or raise exception
+            return await task
+
+        # Run the pumping wrapper
+        loop.run_until_complete(execute_with_pump())
 
     def return_value(self, value: Any = None) -> JSPromise:
         """
@@ -239,12 +263,26 @@ class AsyncGenerator:
                                 self.state = AsyncGeneratorState.COMPLETED
                                 resolve(AsyncIteratorResult(value=value, done=True))
 
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
+                        # Get or create event loop (reuse existing if available)
                         try:
-                            loop.run_until_complete(execute_return())
-                        finally:
-                            loop.close()
+                            loop = asyncio.get_event_loop()
+                            if loop.is_closed():
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                        except RuntimeError:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+
+                        # Wrap execute_return to pump EventLoop while waiting
+                        async def execute_return_with_pump():
+                            task = asyncio.create_task(execute_return())
+                            while not task.done():
+                                await asyncio.sleep(0)
+                                self.event_loop.run()
+                            self.event_loop.run()
+                            return await task
+
+                        loop.run_until_complete(execute_return_with_pump())
                     else:
                         # Regular generator
                         if hasattr(self._iterator, 'close'):
@@ -310,12 +348,26 @@ class AsyncGenerator:
                                 self.state = AsyncGeneratorState.COMPLETED
                                 reject(e)
 
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
+                        # Get or create event loop (reuse existing if available)
                         try:
-                            loop.run_until_complete(execute_throw())
-                        finally:
-                            loop.close()
+                            loop = asyncio.get_event_loop()
+                            if loop.is_closed():
+                                loop = asyncio.new_event_loop()
+                                asyncio.set_event_loop(loop)
+                        except RuntimeError:
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+
+                        # Wrap execute_throw to pump EventLoop while waiting
+                        async def execute_throw_with_pump():
+                            task = asyncio.create_task(execute_throw())
+                            while not task.done():
+                                await asyncio.sleep(0)
+                                self.event_loop.run()
+                            self.event_loop.run()
+                            return await task
+
+                        loop.run_until_complete(execute_throw_with_pump())
 
                     elif hasattr(self._iterator, 'throw'):
                         # Regular generator
