@@ -16,6 +16,7 @@ Features:
 - Efficient O(1) average-case operations
 """
 
+from typing import Any, Callable, List
 from .hash_table import HashTable
 
 
@@ -178,3 +179,77 @@ class Map:
         """String representation for debugging."""
         entries = list(self.entries())
         return f"Map({entries})"
+
+    @staticmethod
+    def groupBy(items: List[Any], callback: Callable[[Any, int], Any]) -> 'Map':
+        """
+        Group array elements into a Map by callback return value.
+
+        Groups elements of an iterable according to the values returned
+        by a provided callback function. Returns a Map with keys from
+        callback results, mapping to arrays of elements in each group.
+
+        Unlike Object.groupBy(), Map.groupBy() allows non-string keys
+        (objects, numbers, booleans, etc.).
+
+        ES2024 Specification: Map.groupBy(items, callbackFn)
+
+        Args:
+            items: Array-like iterable to group
+            callback: Function called for each element with (element, index)
+                     Returns the key to group element under (any type)
+
+        Returns:
+            Map with keys mapping to arrays of grouped elements
+
+        Raises:
+            TypeError: If items is not iterable
+            TypeError: If callback is not callable
+
+        Example:
+            >>> items = [
+            ...     {'id': 1, 'category': 'A'},
+            ...     {'id': 2, 'category': 'B'},
+            ...     {'id': 3, 'category': 'A'}
+            ... ]
+            >>> result = Map.groupBy(items, lambda x, i: x['category'])
+            >>> list(result.get('A'))
+            [{'id': 1, 'category': 'A'}, {'id': 3, 'category': 'A'}]
+
+        Example with boolean keys:
+            >>> numbers = [1, 2, 3, 4, 5, 6]
+            >>> result = Map.groupBy(numbers, lambda x, i: x % 2 == 0)
+            >>> result.get(True)
+            [2, 4, 6]
+            >>> result.get(False)
+            [1, 3, 5]
+
+        Example with object keys:
+            >>> key_obj = {'name': 'group1'}
+            >>> items = [1, 2, 3]
+            >>> result = Map.groupBy(items, lambda x, i: key_obj if x < 3 else {'name': 'group2'})
+            >>> result.get(key_obj)
+            [1, 2]
+        """
+        if not hasattr(items, '__iter__'):
+            raise TypeError("items must be iterable")
+
+        if not callable(callback):
+            raise TypeError("callback must be callable")
+
+        result = Map()
+
+        for index, item in enumerate(items):
+            # Call callback with element and index
+            key = callback(item, index)
+
+            # Get existing group or create new list
+            group = result.get(key)
+            if group is None:
+                group = []
+                result.set(key, group)
+
+            # Add item to group
+            group.append(item)
+
+        return result
