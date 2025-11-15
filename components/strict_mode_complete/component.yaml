@@ -1,0 +1,136 @@
+name: strict_mode_complete
+version: 0.1.0
+type: feature
+description: Complete ES2024 strict mode implementation with directive detection, error enforcement, and scope propagation
+
+metadata:
+  wave: Wave B
+  priority: HIGH
+  status: complete
+  requirements_count: 14
+  test_target: 157
+
+requirements:
+  - id: FR-ES24-B-047
+    description: '"use strict" directive - Proper detection and propagation'
+    status: complete
+  - id: FR-ES24-B-048
+    description: 'Strict mode assignment errors - Throw on assignment to undeclared'
+    status: complete
+  - id: FR-ES24-B-049
+    description: 'Strict mode deletion errors - Throw on delete of unqualified identifier'
+    status: complete
+  - id: FR-ES24-B-050
+    description: 'Strict mode duplicate parameters - Throw on duplicate formal parameters'
+    status: complete
+  - id: FR-ES24-B-051
+    description: 'Strict mode octal literals - Throw on octal literals (0777)'
+    status: complete
+  - id: FR-ES24-B-052
+    description: 'Strict mode eval/arguments - Restrictions on eval and arguments'
+    status: complete
+  - id: FR-ES24-B-053
+    description: 'Strict mode this binding - undefined this in function calls'
+    status: complete
+  - id: FR-ES24-B-054
+    description: 'Strict mode with statement - Throw on with statement'
+    status: complete
+  - id: FR-ES24-B-055
+    description: 'Strict mode reserved words - Future reserved words restrictions'
+    status: complete
+  - id: FR-ES24-B-056
+    description: 'Strict mode caller/callee - Throw on arguments.caller/callee'
+    status: complete
+  - id: FR-ES24-B-057
+    description: 'Strict mode assignment to readonly - Throw on assignment to readonly props'
+    status: complete
+  - id: FR-ES24-B-058
+    description: 'Strict mode function declarations - Function declarations in blocks'
+    status: complete
+  - id: FR-ES24-B-059
+    description: 'Strict mode scope propagation - Propagate to nested functions'
+    status: complete
+  - id: FR-ES24-B-060
+    description: 'Strict mode edge cases - All remaining strict mode semantics'
+    status: complete
+
+dependencies:
+  imports:
+    - name: parser
+      version: "^0.2.0"
+      import_from: "components.parser"
+      uses:
+        - Statement
+        - Expression
+        - FunctionDeclaration
+        - FunctionExpression
+        - WithStatement
+        - SourceLocation
+        - Identifier
+    - name: interpreter
+      version: "^0.2.0"
+      import_from: "components.interpreter"
+      uses:
+        - ExecutionContext
+        - Scope
+    - name: object_runtime
+      version: "^0.3.0"
+      import_from: "components.object_runtime"
+      uses:
+        - JSObject
+        - JSValue
+    - name: shared_types
+      version: "^0.1.0"
+      import_from: "components.shared_types"
+      uses:
+        - ErrorType
+
+performance_targets:
+  directive_detection: "<5μs per function"
+  validation_overhead: "<1% vs non-strict mode"
+  scope_propagation: "<100ns per scope creation"
+  error_creation: "<10μs per error"
+
+test_categories:
+  - category: directive_detection
+    count: 15
+    description: Tests for "use strict" directive detection and position
+  - category: assignment_errors
+    count: 12
+    description: Tests for undeclared variable assignment errors
+  - category: deletion_errors
+    count: 10
+    description: Tests for unqualified identifier deletion
+  - category: parameter_validation
+    count: 8
+    description: Tests for duplicate parameter detection
+  - category: octal_literals
+    count: 10
+    description: Tests for legacy octal literal rejection
+  - category: eval_arguments
+    count: 15
+    description: Tests for eval/arguments restrictions
+  - category: this_binding
+    count: 12
+    description: Tests for strict mode this behavior
+  - category: with_statement
+    count: 8
+    description: Tests for with statement rejection
+  - category: reserved_words
+    count: 12
+    description: Tests for future reserved word restrictions
+  - category: arguments_props
+    count: 10
+    description: Tests for arguments.caller/callee restrictions
+  - category: readonly_props
+    count: 15
+    description: Tests for readonly property assignment
+  - category: function_scope
+    count: 10
+    description: Tests for function declaration scoping
+  - category: propagation
+    count: 15
+    description: Tests for strict mode propagation
+  - category: edge_cases
+    count: 15
+    description: Tests for edge cases and spec compliance
