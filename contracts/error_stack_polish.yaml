@@ -1,0 +1,682 @@
+openapi: 3.0.0
+info:
+  title: Error Stack Polish Component API
+  description: |
+    Complete Error.prototype.stack and error formatting implementation.
+    Provides comprehensive stack trace formatting, error cause chain handling,
+    and source map support preparation for ES2024 Wave D error handling.
+  version: 0.1.0
+  contact:
+    name: Corten JavaScript Runtime
+  license:
+    name: Project License
+
+tags:
+  - name: Stack Formatting
+    description: Stack trace formatting operations
+  - name: Cause Chain
+    description: Error cause chain formatting
+  - name: Source Maps
+    description: Source map support preparation
+
+paths:
+  /format_stack:
+    post:
+      tags:
+        - Stack Formatting
+      summary: Format error stack trace
+      description: |
+        Formats an error's stack trace according to ES2024 specifications.
+        Returns a formatted multi-line string representation of the stack trace.
+
+        **Performance Target:** <100µs per stack trace
+
+        **Requirements Satisfied:**
+        - FR-ES24-D-015: Error.prototype.stack formatting
+      operationId: formatStack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - error
+              properties:
+                error:
+                  $ref: '#/components/schemas/ErrorObject'
+            examples:
+              basic_error:
+                summary: Basic error with stack
+                value:
+                  error:
+                    name: "TypeError"
+                    message: "Cannot read property 'foo' of undefined"
+                    stack_frames:
+                      - function: "processData"
+                        filename: "app.js"
+                        line: 42
+                        column: 15
+                      - function: "main"
+                        filename: "app.js"
+                        line: 100
+                        column: 5
+              nested_error:
+                summary: Error with nested frames
+                value:
+                  error:
+                    name: "ReferenceError"
+                    message: "x is not defined"
+                    stack_frames:
+                      - function: "calculate"
+                        filename: "math.js"
+                        line: 25
+                        column: 10
+                      - function: "compute"
+                        filename: "math.js"
+                        line: 50
+                        column: 3
+                      - function: "main"
+                        filename: "index.js"
+                        line: 10
+                        column: 1
+      responses:
+        '200':
+          description: Successfully formatted stack trace
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - formatted_stack
+                  - frame_count
+                  - performance_ms
+                properties:
+                  formatted_stack:
+                    type: string
+                    description: Multi-line formatted stack trace string
+                    example: |
+                      TypeError: Cannot read property 'foo' of undefined
+                          at processData (app.js:42:15)
+                          at main (app.js:100:5)
+                  frame_count:
+                    type: integer
+                    description: Number of stack frames formatted
+                    minimum: 0
+                    example: 2
+                  performance_ms:
+                    type: number
+                    format: double
+                    description: Time taken to format stack (should be <0.1ms)
+                    maximum: 0.1
+                    example: 0.045
+              examples:
+                formatted_stack:
+                  summary: Formatted stack output
+                  value:
+                    formatted_stack: |
+                      TypeError: Cannot read property 'foo' of undefined
+                          at processData (app.js:42:15)
+                          at main (app.js:100:5)
+                    frame_count: 2
+                    performance_ms: 0.045
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /format_cause_chain:
+    post:
+      tags:
+        - Cause Chain
+      summary: Format error cause chain
+      description: |
+        Formats the complete error cause chain, showing the causal relationship
+        between errors. Supports nested error causes as per ES2024 error cause specification.
+
+        **Requirements Satisfied:**
+        - FR-ES24-D-016: Error cause chain formatting
+      operationId: formatCauseChain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - error
+              properties:
+                error:
+                  $ref: '#/components/schemas/ErrorWithCause'
+                include_stack:
+                  type: boolean
+                  description: Include stack traces for each error in the chain
+                  default: false
+                max_depth:
+                  type: integer
+                  description: Maximum depth of cause chain to format (prevents infinite loops)
+                  default: 10
+                  minimum: 1
+                  maximum: 100
+            examples:
+              simple_cause:
+                summary: Error with single cause
+                value:
+                  error:
+                    name: "ValidationError"
+                    message: "Invalid user data"
+                    cause:
+                      name: "TypeError"
+                      message: "Expected string, got number"
+                  include_stack: false
+                  max_depth: 10
+              deep_cause_chain:
+                summary: Error with multiple causes
+                value:
+                  error:
+                    name: "ApplicationError"
+                    message: "Failed to process request"
+                    cause:
+                      name: "DatabaseError"
+                      message: "Connection failed"
+                      cause:
+                        name: "NetworkError"
+                        message: "Timeout after 5000ms"
+                  include_stack: true
+                  max_depth: 10
+      responses:
+        '200':
+          description: Successfully formatted cause chain
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - formatted_chain
+                  - depth
+                  - total_errors
+                properties:
+                  formatted_chain:
+                    type: string
+                    description: Multi-line formatted cause chain string
+                    example: |
+                      ValidationError: Invalid user data
+                      Caused by: TypeError: Expected string, got number
+                  depth:
+                    type: integer
+                    description: Depth of cause chain
+                    minimum: 1
+                    example: 2
+                  total_errors:
+                    type: integer
+                    description: Total number of errors in the chain
+                    minimum: 1
+                    example: 2
+                  truncated:
+                    type: boolean
+                    description: Whether chain was truncated due to max_depth limit
+                    default: false
+              examples:
+                simple_chain:
+                  summary: Simple cause chain
+                  value:
+                    formatted_chain: |
+                      ValidationError: Invalid user data
+                      Caused by: TypeError: Expected string, got number
+                    depth: 2
+                    total_errors: 2
+                    truncated: false
+                deep_chain:
+                  summary: Deep cause chain with stacks
+                  value:
+                    formatted_chain: |
+                      ApplicationError: Failed to process request
+                          at handleRequest (server.js:50:10)
+                      Caused by: DatabaseError: Connection failed
+                          at connect (db.js:120:15)
+                      Caused by: NetworkError: Timeout after 5000ms
+                          at Socket.timeout (net.js:200:20)
+                    depth: 3
+                    total_errors: 3
+                    truncated: false
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /prepare_source_map:
+    post:
+      tags:
+        - Source Maps
+      summary: Prepare source map lookup
+      description: |
+        Prepares source map information for a given location in compiled/transpiled code.
+        Returns structured data ready for source map resolution.
+
+        **Note:** This prepares the data structure. Actual source map resolution
+        is handled by a separate source map processor.
+
+        **Requirements Satisfied:**
+        - FR-ES24-D-017: Source map support preparation
+      operationId: prepareSourceMap
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - filename
+                - line
+                - column
+              properties:
+                filename:
+                  type: string
+                  description: Filename or URL of the source file
+                  minLength: 1
+                  maxLength: 4096
+                  example: "dist/bundle.js"
+                line:
+                  type: integer
+                  description: Line number (1-indexed)
+                  minimum: 1
+                  example: 42
+                column:
+                  type: integer
+                  description: Column number (0-indexed)
+                  minimum: 0
+                  example: 15
+                source_root:
+                  type: string
+                  description: Optional source root directory
+                  example: "/app/src"
+            examples:
+              basic_location:
+                summary: Basic source location
+                value:
+                  filename: "dist/bundle.js"
+                  line: 42
+                  column: 15
+              with_source_root:
+                summary: Location with source root
+                value:
+                  filename: "dist/bundle.js"
+                  line: 100
+                  column: 5
+                  source_root: "/app/src"
+      responses:
+        '200':
+          description: Successfully prepared source map data
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - generated_location
+                  - source_map_url
+                  - ready_for_resolution
+                properties:
+                  generated_location:
+                    $ref: '#/components/schemas/SourceLocation'
+                  source_map_url:
+                    type: string
+                    description: Expected source map URL (filename + .map)
+                    example: "dist/bundle.js.map"
+                    nullable: true
+                  ready_for_resolution:
+                    type: boolean
+                    description: Whether data is ready for source map processor
+                    example: true
+                  metadata:
+                    type: object
+                    description: Additional metadata for source map resolution
+                    properties:
+                      source_root:
+                        type: string
+                        description: Source root directory
+                        nullable: true
+                      original_filename:
+                        type: string
+                        description: Original filename before transformation
+              examples:
+                prepared_data:
+                  summary: Prepared source map data
+                  value:
+                    generated_location:
+                      filename: "dist/bundle.js"
+                      line: 42
+                      column: 15
+                    source_map_url: "dist/bundle.js.map"
+                    ready_for_resolution: true
+                    metadata:
+                      source_root: null
+                      original_filename: "dist/bundle.js"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    ErrorObject:
+      type: object
+      description: Structured error object with stack frames
+      required:
+        - name
+        - message
+        - stack_frames
+      properties:
+        name:
+          type: string
+          description: Error type name
+          example: "TypeError"
+          minLength: 1
+          maxLength: 256
+        message:
+          type: string
+          description: Error message
+          example: "Cannot read property 'foo' of undefined"
+          maxLength: 4096
+        stack_frames:
+          type: array
+          description: Array of stack frames
+          items:
+            $ref: '#/components/schemas/StackFrame'
+          minItems: 0
+          maxItems: 1000
+
+    StackFrame:
+      type: object
+      description: Single stack frame information
+      required:
+        - filename
+        - line
+        - column
+      properties:
+        function:
+          type: string
+          description: Function name (or anonymous/module code)
+          example: "processData"
+          nullable: true
+          maxLength: 256
+        filename:
+          type: string
+          description: Source filename or URL
+          example: "app.js"
+          minLength: 1
+          maxLength: 4096
+        line:
+          type: integer
+          description: Line number (1-indexed)
+          minimum: 1
+          example: 42
+        column:
+          type: integer
+          description: Column number (0-indexed)
+          minimum: 0
+          example: 15
+        is_constructor:
+          type: boolean
+          description: Whether this is a constructor call
+          default: false
+        is_native:
+          type: boolean
+          description: Whether this is native code
+          default: false
+        is_eval:
+          type: boolean
+          description: Whether this is eval'd code
+          default: false
+
+    ErrorWithCause:
+      type: object
+      description: Error object with optional cause chain
+      required:
+        - name
+        - message
+      properties:
+        name:
+          type: string
+          description: Error type name
+          example: "ValidationError"
+          minLength: 1
+          maxLength: 256
+        message:
+          type: string
+          description: Error message
+          example: "Invalid user data"
+          maxLength: 4096
+        cause:
+          $ref: '#/components/schemas/ErrorWithCause'
+          description: The error that caused this error
+          nullable: true
+        stack_frames:
+          type: array
+          description: Stack frames for this error (if include_stack is true)
+          items:
+            $ref: '#/components/schemas/StackFrame'
+          nullable: true
+
+    SourceLocation:
+      type: object
+      description: Source code location information
+      required:
+        - filename
+        - line
+        - column
+      properties:
+        filename:
+          type: string
+          description: Filename or URL
+          example: "dist/bundle.js"
+          minLength: 1
+          maxLength: 4096
+        line:
+          type: integer
+          description: Line number (1-indexed)
+          minimum: 1
+          example: 42
+        column:
+          type: integer
+          description: Column number (0-indexed)
+          minimum: 0
+          example: 15
+
+    Error:
+      type: object
+      description: Standard error response
+      required:
+        - error
+        - message
+        - code
+      properties:
+        error:
+          type: string
+          description: Error type
+          example: "ValidationError"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid input parameters"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "INVALID_INPUT"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: Error timestamp
+          example: "2025-11-15T10:30:00Z"
+
+  responses:
+    BadRequest:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "BadRequest"
+            message: "Missing required field: error"
+            code: "MISSING_FIELD"
+            details:
+              field: "error"
+              location: "request_body"
+            timestamp: "2025-11-15T10:30:00Z"
+
+    ValidationError:
+      description: Validation error - input failed validation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "ValidationError"
+            message: "Line number must be >= 1"
+            code: "INVALID_VALUE"
+            details:
+              field: "line"
+              value: 0
+              constraint: "minimum: 1"
+            timestamp: "2025-11-15T10:30:00Z"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "InternalError"
+            message: "An unexpected error occurred"
+            code: "INTERNAL_ERROR"
+            timestamp: "2025-11-15T10:30:00Z"
+
+  examples:
+    TypeErrorStack:
+      summary: TypeError with stack
+      value:
+        error:
+          name: "TypeError"
+          message: "Cannot read property 'foo' of undefined"
+          stack_frames:
+            - function: "processData"
+              filename: "app.js"
+              line: 42
+              column: 15
+              is_constructor: false
+              is_native: false
+              is_eval: false
+            - function: "main"
+              filename: "app.js"
+              line: 100
+              column: 5
+              is_constructor: false
+              is_native: false
+              is_eval: false
+
+    ErrorCauseChain:
+      summary: Error with multiple causes
+      value:
+        error:
+          name: "ApplicationError"
+          message: "Failed to process request"
+          cause:
+            name: "DatabaseError"
+            message: "Connection failed"
+            cause:
+              name: "NetworkError"
+              message: "Timeout after 5000ms"
+
+# Performance Requirements
+x-performance:
+  format_stack:
+    target: "<100µs per stack trace"
+    measured_metric: "performance_ms"
+    threshold: 0.1
+  format_cause_chain:
+    target: "<200µs for typical chains (depth ≤5)"
+    measured_metric: "execution_time_ms"
+    threshold: 0.2
+  prepare_source_map:
+    target: "<50µs per location"
+    measured_metric: "preparation_time_ms"
+    threshold: 0.05
+
+# Test Requirements
+x-test-requirements:
+  minimum_tests: 30
+  coverage_target: 80
+  test_categories:
+    - name: "Stack Formatting"
+      minimum_tests: 12
+      scenarios:
+        - "Empty stack"
+        - "Single frame stack"
+        - "Multiple frames stack"
+        - "Stack with constructor calls"
+        - "Stack with native code"
+        - "Stack with eval'd code"
+        - "Stack with anonymous functions"
+        - "Stack with very long filenames"
+        - "Stack with special characters in function names"
+        - "Performance benchmarks (<100µs)"
+    - name: "Cause Chain Formatting"
+      minimum_tests: 10
+      scenarios:
+        - "Error without cause"
+        - "Error with single cause"
+        - "Error with deep cause chain (depth 5)"
+        - "Error with maximum depth chain"
+        - "Circular cause detection"
+        - "Cause chain with stacks included"
+        - "Cause chain without stacks"
+        - "Truncated cause chain (max_depth limit)"
+    - name: "Source Map Preparation"
+      minimum_tests: 8
+      scenarios:
+        - "Basic source location"
+        - "Location with source root"
+        - "Minimum line/column values"
+        - "Large line/column values"
+        - "Very long filename"
+        - "Filename with special characters"
+        - "Source map URL generation"
+        - "Metadata preparation"
+
+# Requirements Traceability
+x-requirements:
+  FR-ES24-D-015:
+    title: "Error.prototype.stack formatting"
+    satisfied_by:
+      - "/format_stack"
+    test_coverage: "Stack Formatting category (12 tests)"
+  FR-ES24-D-016:
+    title: "Error cause chain formatting"
+    satisfied_by:
+      - "/format_cause_chain"
+    test_coverage: "Cause Chain Formatting category (10 tests)"
+  FR-ES24-D-017:
+    title: "Source map support preparation"
+    satisfied_by:
+      - "/prepare_source_map"
+    test_coverage: "Source Map Preparation category (8 tests)"
+
+# API Stability
+x-api-stability:
+  status: "pre-release"
+  version: "0.1.0"
+  breaking_changes_policy: "encouraged"
+  notes: |
+    This API is in pre-release (0.1.0). Breaking changes may occur without
+    deprecation warnings. API will stabilize at version 1.0.0.

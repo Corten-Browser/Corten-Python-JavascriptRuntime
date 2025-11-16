@@ -1,0 +1,745 @@
+openapi: 3.0.0
+info:
+  title: String Edge Cases Component
+  version: 0.1.0
+  description: |
+    Complete String.prototype edge case handling for ES2024 Wave D.
+    Handles surrogate pairs, Unicode code points, string iteration, and Unicode property escapes.
+
+  contact:
+    name: Corten JavaScript Runtime
+    url: https://github.com/corten/javascript-runtime
+
+  x-component-metadata:
+    component_name: string_edge_cases
+    component_type: core
+    lifecycle_state: pre-release
+    breaking_changes_policy: encouraged
+
+  x-requirements:
+    - id: FR-ES24-D-006
+      description: String.prototype methods with surrogate pairs
+      category: functional
+    - id: FR-ES24-D-007
+      description: String.prototype.at() edge cases
+      category: functional
+    - id: FR-ES24-D-008
+      description: String iterator edge cases
+      category: functional
+    - id: FR-ES24-D-009
+      description: Unicode property escapes in RegExp
+      category: functional
+
+  x-performance-requirements:
+    - operation: at
+      target: <500µs
+      description: String.at() operation must complete within 500 microseconds
+    - operation: code_point_at
+      target: <500µs
+      description: Code point retrieval must complete within 500 microseconds
+    - operation: iterate_code_points
+      target: <500µs per iteration
+      description: Each iterator step must complete within 500 microseconds
+    - operation: match_unicode_property
+      target: <500µs
+      description: Unicode property matching must complete within 500 microseconds
+
+  x-test-requirements:
+    minimum_tests: 40
+    minimum_coverage: 85
+    test_categories:
+      - unit_tests
+      - edge_case_tests
+      - unicode_tests
+      - performance_tests
+
+paths:
+  /at:
+    post:
+      operationId: stringAt
+      summary: Get character at index (supports negative indices)
+      description: |
+        Implements String.prototype.at() with full edge case handling:
+        - Negative indices (count from end)
+        - Out-of-bounds indices (return None)
+        - Surrogate pair handling (returns full code point)
+        - Empty string handling
+
+        Satisfies: FR-ES24-D-007
+
+      x-python-signature: "at(string: str, index: int) -> Optional[str]"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AtRequest'
+            examples:
+              positive_index:
+                summary: Positive index
+                value:
+                  string: "hello"
+                  index: 1
+              negative_index:
+                summary: Negative index (from end)
+                value:
+                  string: "hello"
+                  index: -1
+              surrogate_pair:
+                summary: Surrogate pair handling
+                value:
+                  string: "hello 😀 world"
+                  index: 6
+              out_of_bounds:
+                summary: Out of bounds index
+                value:
+                  string: "hello"
+                  index: 100
+
+      responses:
+        '200':
+          description: Successfully retrieved character
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AtResponse'
+              examples:
+                success:
+                  summary: Character found
+                  value:
+                    result: "e"
+                    code_point: 101
+                emoji:
+                  summary: Emoji (surrogate pair)
+                  value:
+                    result: "😀"
+                    code_point: 128512
+                not_found:
+                  summary: Index out of bounds
+                  value:
+                    result: null
+                    code_point: null
+
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_type:
+                  summary: Non-string input
+                  value:
+                    error: "TypeError"
+                    message: "First argument must be a string"
+                    code: "INVALID_STRING_TYPE"
+
+  /code_point_at:
+    post:
+      operationId: codePointAt
+      summary: Get Unicode code point at index
+      description: |
+        Returns the Unicode code point value at the given index.
+        Handles surrogate pairs correctly by returning the full code point.
+
+        Satisfies: FR-ES24-D-006
+
+      x-python-signature: "code_point_at(string: str, index: int) -> Optional[int]"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodePointAtRequest'
+            examples:
+              ascii:
+                summary: ASCII character
+                value:
+                  string: "hello"
+                  index: 0
+              surrogate_pair:
+                summary: Emoji (surrogate pair)
+                value:
+                  string: "😀"
+                  index: 0
+              high_surrogate_only:
+                summary: Unpaired high surrogate
+                value:
+                  string: "\uD800"
+                  index: 0
+
+      responses:
+        '200':
+          description: Code point retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodePointAtResponse'
+              examples:
+                ascii:
+                  summary: ASCII code point
+                  value:
+                    code_point: 104
+                    is_surrogate_pair: false
+                emoji:
+                  summary: Emoji code point (surrogate pair)
+                  value:
+                    code_point: 128512
+                    is_surrogate_pair: true
+                out_of_bounds:
+                  summary: Index out of bounds
+                  value:
+                    code_point: null
+                    is_surrogate_pair: false
+
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /iterate_code_points:
+    post:
+      operationId: iterateCodePoints
+      summary: Iterate over string as Unicode code points
+      description: |
+        Returns an iterator that yields Unicode code points (characters).
+        Correctly handles surrogate pairs, yielding complete emoji/symbols.
+
+        Satisfies: FR-ES24-D-008
+
+      x-python-signature: "iterate_code_points(string: str) -> Iterator[str]"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IterateRequest'
+            examples:
+              ascii:
+                summary: ASCII string
+                value:
+                  string: "hello"
+              mixed:
+                summary: Mixed ASCII and emoji
+                value:
+                  string: "hello 😀 world 🌍"
+              empty:
+                summary: Empty string
+                value:
+                  string: ""
+              surrogate_pairs_only:
+                summary: Only surrogate pairs
+                value:
+                  string: "😀😁😂"
+
+      responses:
+        '200':
+          description: Code points iterated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IterateResponse'
+              examples:
+                ascii:
+                  summary: ASCII iteration result
+                  value:
+                    code_points: ["h", "e", "l", "l", "o"]
+                    count: 5
+                    has_surrogate_pairs: false
+                mixed:
+                  summary: Mixed content iteration
+                  value:
+                    code_points: ["h", "e", "l", "l", "o", " ", "😀", " ", "w", "o", "r", "l", "d", " ", "🌍"]
+                    count: 15
+                    has_surrogate_pairs: true
+
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /match_unicode_property:
+    post:
+      operationId: matchUnicodeProperty
+      summary: Match text against Unicode property escape
+      description: |
+        Matches text using Unicode property escapes in RegExp patterns.
+        Supports properties like \p{Emoji}, \p{Letter}, \p{Script=Greek}, etc.
+
+        Satisfies: FR-ES24-D-009
+
+      x-python-signature: "match_unicode_property(text: str, property: str) -> List[str]"
+
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnicodePropertyRequest'
+            examples:
+              emoji:
+                summary: Match emoji
+                value:
+                  text: "Hello 😀 World 🌍"
+                  property: "Emoji"
+              letters:
+                summary: Match letters only
+                value:
+                  text: "Hello123World"
+                  property: "Letter"
+              greek_script:
+                summary: Match Greek script
+                value:
+                  text: "Αλφα Beta Γάμμα"
+                  property: "Script=Greek"
+              numbers:
+                summary: Match numbers
+                value:
+                  text: "abc123def456"
+                  property: "Number"
+
+      responses:
+        '200':
+          description: Matches found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnicodePropertyResponse'
+              examples:
+                emoji_matches:
+                  summary: Emoji matches
+                  value:
+                    matches: ["😀", "🌍"]
+                    count: 2
+                    property: "Emoji"
+                letter_matches:
+                  summary: Letter matches
+                  value:
+                    matches: ["H", "e", "l", "l", "o", "W", "o", "r", "l", "d"]
+                    count: 10
+                    property: "Letter"
+                no_matches:
+                  summary: No matches found
+                  value:
+                    matches: []
+                    count: 0
+                    property: "Emoji"
+
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalid_property:
+                  summary: Invalid Unicode property
+                  value:
+                    error: "ValueError"
+                    message: "Invalid Unicode property: InvalidProperty"
+                    code: "INVALID_UNICODE_PROPERTY"
+
+components:
+  schemas:
+    AtRequest:
+      type: object
+      required:
+        - string
+        - index
+      properties:
+        string:
+          type: string
+          description: Input string
+          example: "hello"
+        index:
+          type: integer
+          description: Character index (negative indices count from end)
+          example: 1
+          minimum: -2147483648
+          maximum: 2147483647
+
+    AtResponse:
+      type: object
+      required:
+        - result
+        - code_point
+      properties:
+        result:
+          type: string
+          nullable: true
+          description: Character at index, or null if out of bounds
+          example: "e"
+        code_point:
+          type: integer
+          nullable: true
+          description: Unicode code point of the character
+          example: 101
+          minimum: 0
+          maximum: 1114111
+
+    CodePointAtRequest:
+      type: object
+      required:
+        - string
+        - index
+      properties:
+        string:
+          type: string
+          description: Input string
+          example: "😀"
+        index:
+          type: integer
+          description: Character index
+          example: 0
+          minimum: 0
+
+    CodePointAtResponse:
+      type: object
+      required:
+        - code_point
+        - is_surrogate_pair
+      properties:
+        code_point:
+          type: integer
+          nullable: true
+          description: Unicode code point value
+          example: 128512
+          minimum: 0
+          maximum: 1114111
+        is_surrogate_pair:
+          type: boolean
+          description: Whether the code point is part of a surrogate pair
+          example: true
+
+    IterateRequest:
+      type: object
+      required:
+        - string
+      properties:
+        string:
+          type: string
+          description: String to iterate over
+          example: "hello 😀"
+
+    IterateResponse:
+      type: object
+      required:
+        - code_points
+        - count
+        - has_surrogate_pairs
+      properties:
+        code_points:
+          type: array
+          items:
+            type: string
+          description: Array of Unicode code points (characters)
+          example: ["h", "e", "l", "l", "o", " ", "😀"]
+        count:
+          type: integer
+          description: Number of code points
+          example: 7
+          minimum: 0
+        has_surrogate_pairs:
+          type: boolean
+          description: Whether the string contains surrogate pairs
+          example: true
+
+    UnicodePropertyRequest:
+      type: object
+      required:
+        - text
+        - property
+      properties:
+        text:
+          type: string
+          description: Text to search
+          example: "Hello 😀 World"
+        property:
+          type: string
+          description: Unicode property name (e.g., "Emoji", "Letter", "Script=Greek")
+          example: "Emoji"
+          pattern: '^[A-Za-z_]+(?:=[A-Za-z_]+)?$'
+
+    UnicodePropertyResponse:
+      type: object
+      required:
+        - matches
+        - count
+        - property
+      properties:
+        matches:
+          type: array
+          items:
+            type: string
+          description: Array of matched characters/code points
+          example: ["😀"]
+        count:
+          type: integer
+          description: Number of matches
+          example: 1
+          minimum: 0
+        property:
+          type: string
+          description: Unicode property used for matching
+          example: "Emoji"
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+        - code
+      properties:
+        error:
+          type: string
+          description: Error type
+          enum:
+            - TypeError
+            - ValueError
+            - IndexError
+            - UnicodeError
+          example: "TypeError"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "First argument must be a string"
+        code:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - INVALID_STRING_TYPE
+            - INVALID_INDEX_TYPE
+            - INVALID_UNICODE_PROPERTY
+            - UNICODE_DECODE_ERROR
+          example: "INVALID_STRING_TYPE"
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+  x-edge-cases:
+    surrogate_pairs:
+      description: |
+        Surrogate pairs are two 16-bit code units that together represent
+        a single Unicode code point in the range U+10000 to U+10FFFF.
+      examples:
+        - input: "😀"
+          utf16_length: 2
+          code_point: 128512
+          code_point_length: 1
+        - input: "🌍"
+          utf16_length: 2
+          code_point: 127757
+          code_point_length: 1
+      handling: |
+        All methods must correctly handle surrogate pairs:
+        - at() returns the full emoji/symbol, not half a pair
+        - code_point_at() returns the complete code point value
+        - iterate_code_points() yields complete code points
+        - match_unicode_property() matches complete characters
+
+    negative_indices:
+      description: |
+        String.at() supports negative indices that count from the end.
+      examples:
+        - input: "hello"
+          index: -1
+          result: "o"
+        - input: "hello"
+          index: -5
+          result: "h"
+        - input: "hello"
+          index: -6
+          result: null
+
+    empty_strings:
+      description: Empty string edge cases
+      examples:
+        - operation: at
+          input: ""
+          index: 0
+          result: null
+        - operation: iterate_code_points
+          input: ""
+          result: []
+        - operation: match_unicode_property
+          input: ""
+          result: []
+
+    unpaired_surrogates:
+      description: |
+        Handling of unpaired surrogate code units (malformed strings)
+      examples:
+        - input: "\uD800"
+          description: High surrogate without low surrogate
+          expected_behavior: Return the surrogate as-is
+        - input: "\uDC00"
+          description: Low surrogate without high surrogate
+          expected_behavior: Return the surrogate as-is
+
+    unicode_properties:
+      supported:
+        - Emoji
+        - Emoji_Presentation
+        - Letter
+        - Lowercase_Letter
+        - Uppercase_Letter
+        - Number
+        - Decimal_Number
+        - Punctuation
+        - Symbol
+        - Script=Latin
+        - Script=Greek
+        - Script=Cyrillic
+        - Script=Arabic
+        - Script=Hebrew
+        - Script=Han
+        - Script=Hiragana
+        - Script=Katakana
+      unsupported_behavior: Raise ValueError with descriptive message
+
+  x-performance-constraints:
+    time_complexity:
+      at: O(1)
+      code_point_at: O(1)
+      iterate_code_points: O(n) where n is number of code points
+      match_unicode_property: O(n) where n is string length
+
+    space_complexity:
+      at: O(1)
+      code_point_at: O(1)
+      iterate_code_points: O(1) per iteration (iterator pattern)
+      match_unicode_property: O(m) where m is number of matches
+
+    benchmarks:
+      - operation: at with ASCII
+        input_size: 1000 characters
+        target: <100µs
+      - operation: at with emoji
+        input_size: 1000 code points
+        target: <200µs
+      - operation: iterate_code_points
+        input_size: 1000 code points
+        target: <50µs per iteration
+      - operation: match_unicode_property
+        input_size: 1000 characters
+        target: <500µs total
+
+  x-test-coverage:
+    required_test_cases:
+      at:
+        - positive_index_ascii
+        - negative_index_ascii
+        - positive_index_emoji
+        - negative_index_emoji
+        - out_of_bounds_positive
+        - out_of_bounds_negative
+        - empty_string
+        - single_character
+        - surrogate_pair_boundary
+
+      code_point_at:
+        - ascii_character
+        - emoji_full
+        - high_surrogate_only
+        - low_surrogate_only
+        - paired_surrogates
+        - out_of_bounds
+        - empty_string
+        - multi_byte_unicode
+
+      iterate_code_points:
+        - empty_string
+        - ascii_only
+        - emoji_only
+        - mixed_ascii_emoji
+        - unpaired_surrogates
+        - multiple_surrogate_pairs
+        - long_string_1000_chars
+
+      match_unicode_property:
+        - emoji_property
+        - letter_property
+        - number_property
+        - script_latin
+        - script_greek
+        - script_han
+        - invalid_property
+        - empty_string
+        - no_matches
+        - all_matches
+
+    boundary_conditions:
+      - Empty strings
+      - Single character strings
+      - Maximum Unicode code point (U+10FFFF)
+      - Unpaired surrogates
+      - String length at memory boundaries (1, 16, 256, 65536 characters)
+      - Negative index at string length boundary
+      - Index at exact string length
+
+    error_conditions:
+      - Non-string input to at()
+      - Non-integer index to at()
+      - Non-string input to code_point_at()
+      - Negative index to code_point_at()
+      - Non-string input to iterate_code_points()
+      - Invalid Unicode property name
+      - Malformed Unicode property syntax
+
+  x-implementation-notes:
+    python:
+      version: ">=3.8"
+      dependencies:
+        - regex: ">=2023.0.0"  # For Unicode property support
+
+      encoding: |
+        Python 3 strings are Unicode by default. Use:
+        - ord() for getting code point values
+        - chr() for creating characters from code points
+        - regex module for Unicode property escapes
+
+      surrogate_handling: |
+        Python's string indexing is code-point based, not code-unit based.
+        This simplifies surrogate pair handling compared to JavaScript.
+        However, when mimicking JavaScript behavior, we need to handle:
+        - Length calculation (UTF-16 vs code points)
+        - Indexing semantics
+
+      performance_tips:
+        - Use string slicing instead of loops where possible
+        - Cache regex patterns for Unicode properties
+        - Use iterators for large strings to minimize memory
+        - Avoid repeated string concatenation (use list + join)
+
+    testing:
+      frameworks:
+        - pytest: Unit and integration tests
+        - hypothesis: Property-based testing for edge cases
+        - pytest-benchmark: Performance testing
+
+      test_data:
+        - Use Unicode test data from unicode.org
+        - Include emoji from multiple Unicode versions
+        - Test with various scripts (Latin, Greek, CJK, Arabic, etc.)
+
+      coverage_tools:
+        - pytest-cov: Line and branch coverage
+        - Target: ≥85% line coverage, ≥80% branch coverage
+
+x-version-history:
+  - version: 0.1.0
+    date: 2025-11-15
+    changes:
+      - Initial contract definition
+      - Complete API specification for ES2024 Wave D
+      - Four core operations defined
+      - Performance targets established
+      - Comprehensive edge case documentation

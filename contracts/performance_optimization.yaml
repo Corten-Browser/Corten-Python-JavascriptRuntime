@@ -1,0 +1,1715 @@
+openapi: 3.0.0
+info:
+  title: Performance Optimization Component API
+  description: |
+    Contract for the performance_optimization component in Corten JavaScript Runtime.
+
+    This component optimizes critical performance paths including:
+    - Iteration hot paths (FR-ES24-D-018)
+    - String operations (FR-ES24-D-019)
+    - Array operations (FR-ES24-D-020)
+    - Memory allocation (FR-ES24-D-021)
+
+    Provides benchmarking, profiling, and optimization verification interfaces.
+  version: 0.1.0
+  contact:
+    name: Corten JavaScript Runtime Team
+
+servers:
+  - url: /api/v1/performance
+    description: Performance optimization API
+
+paths:
+  /benchmarks:
+    get:
+      summary: List all available benchmarks
+      operationId: listBenchmarks
+      tags:
+        - Benchmarks
+      responses:
+        '200':
+          description: List of available benchmarks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  benchmarks:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BenchmarkInfo'
+                  total:
+                    type: integer
+                    description: Total number of benchmarks
+                    minimum: 40
+                required:
+                  - benchmarks
+                  - total
+
+  /benchmarks/{category}/run:
+    post:
+      summary: Run benchmarks for a specific category
+      operationId: runBenchmark
+      tags:
+        - Benchmarks
+      parameters:
+        - name: category
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - iteration
+              - string
+              - array
+              - memory
+          description: Performance category to benchmark
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchmarkRequest'
+      responses:
+        '200':
+          description: Benchmark results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkResult'
+        '400':
+          description: Invalid benchmark configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Benchmark execution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /benchmarks/suite/run:
+    post:
+      summary: Run complete benchmark suite
+      operationId: runBenchmarkSuite
+      tags:
+        - Benchmarks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchmarkSuiteRequest'
+      responses:
+        '200':
+          description: Complete benchmark suite results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkSuiteResult'
+        '400':
+          description: Invalid suite configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /optimization/iteration:
+    get:
+      summary: Get iteration optimization status
+      operationId: getIterationOptimization
+      tags:
+        - Optimization
+      responses:
+        '200':
+          description: Iteration optimization details (FR-ES24-D-018)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IterationOptimization'
+
+    post:
+      summary: Apply iteration optimizations
+      operationId: applyIterationOptimization
+      tags:
+        - Optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+      responses:
+        '200':
+          description: Optimization applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '400':
+          description: Invalid optimization request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /optimization/string:
+    get:
+      summary: Get string operation optimization status
+      operationId: getStringOptimization
+      tags:
+        - Optimization
+      responses:
+        '200':
+          description: String optimization details (FR-ES24-D-019)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StringOptimization'
+
+    post:
+      summary: Apply string operation optimizations
+      operationId: applyStringOptimization
+      tags:
+        - Optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+      responses:
+        '200':
+          description: Optimization applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '400':
+          description: Invalid optimization request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /optimization/array:
+    get:
+      summary: Get array operation optimization status
+      operationId: getArrayOptimization
+      tags:
+        - Optimization
+      responses:
+        '200':
+          description: Array optimization details (FR-ES24-D-020)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArrayOptimization'
+
+    post:
+      summary: Apply array operation optimizations
+      operationId: applyArrayOptimization
+      tags:
+        - Optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+      responses:
+        '200':
+          description: Optimization applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '400':
+          description: Invalid optimization request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /optimization/memory:
+    get:
+      summary: Get memory allocation optimization status
+      operationId: getMemoryOptimization
+      tags:
+        - Optimization
+      responses:
+        '200':
+          description: Memory optimization details (FR-ES24-D-021)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryOptimization'
+
+    post:
+      summary: Apply memory allocation optimizations
+      operationId: applyMemoryOptimization
+      tags:
+        - Optimization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizationRequest'
+      responses:
+        '200':
+          description: Optimization applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationResult'
+        '400':
+          description: Invalid optimization request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /comparison/before-after:
+    post:
+      summary: Generate before/after performance comparison
+      operationId: comparePerformance
+      tags:
+        - Comparison
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComparisonRequest'
+      responses:
+        '200':
+          description: Performance comparison results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonResult'
+        '400':
+          description: Invalid comparison request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profiling/start:
+    post:
+      summary: Start profiling session
+      operationId: startProfiling
+      tags:
+        - Profiling
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfilingRequest'
+      responses:
+        '200':
+          description: Profiling session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilingSession'
+        '400':
+          description: Invalid profiling configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profiling/{sessionId}/stop:
+    post:
+      summary: Stop profiling session and get results
+      operationId: stopProfiling
+      tags:
+        - Profiling
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Profiling session ID
+      responses:
+        '200':
+          description: Profiling results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilingResult'
+        '404':
+          description: Profiling session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profiling/{sessionId}/data:
+    get:
+      summary: Get profiling data for session
+      operationId: getProfilingData
+      tags:
+        - Profiling
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Profiling session ID
+      responses:
+        '200':
+          description: Detailed profiling data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilingData'
+        '404':
+          description: Profiling session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /regression/run:
+    post:
+      summary: Run regression tests
+      operationId: runRegressionTests
+      tags:
+        - Regression
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegressionTestRequest'
+      responses:
+        '200':
+          description: Regression test results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegressionTestResult'
+        '400':
+          description: Invalid regression test configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /report/generate:
+    post:
+      summary: Generate optimization report
+      operationId: generateOptimizationReport
+      tags:
+        - Reporting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '200':
+          description: Optimization report generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizationReport'
+        '400':
+          description: Invalid report request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /targets/verify:
+    get:
+      summary: Verify all performance targets are met
+      operationId: verifyPerformanceTargets
+      tags:
+        - Verification
+      responses:
+        '200':
+          description: Performance target verification results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TargetVerification'
+
+components:
+  schemas:
+    BenchmarkInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique benchmark identifier
+        name:
+          type: string
+          description: Human-readable benchmark name
+        category:
+          type: string
+          enum:
+            - iteration
+            - string
+            - array
+            - memory
+          description: Performance category
+        description:
+          type: string
+          description: Benchmark description
+        requirementId:
+          type: string
+          pattern: '^FR-ES24-D-\d{3}$'
+          description: Associated functional requirement
+        enabled:
+          type: boolean
+          description: Whether benchmark is enabled
+          default: true
+      required:
+        - id
+        - name
+        - category
+        - description
+        - requirementId
+        - enabled
+
+    BenchmarkRequest:
+      type: object
+      properties:
+        iterations:
+          type: integer
+          description: Number of iterations to run
+          minimum: 100
+          default: 1000
+        warmupIterations:
+          type: integer
+          description: Number of warmup iterations
+          minimum: 10
+          default: 100
+        collectGCStats:
+          type: boolean
+          description: Collect garbage collection statistics
+          default: true
+        collectMemoryStats:
+          type: boolean
+          description: Collect memory allocation statistics
+          default: true
+        benchmarkIds:
+          type: array
+          items:
+            type: string
+          description: Specific benchmark IDs to run (empty = all in category)
+      required:
+        - iterations
+
+    BenchmarkResult:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+            - iteration
+            - string
+            - array
+            - memory
+        benchmarks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchmarkMetrics'
+        summary:
+          $ref: '#/components/schemas/BenchmarkSummary'
+        timestamp:
+          type: string
+          format: date-time
+        durationMs:
+          type: number
+          description: Total benchmark duration in milliseconds
+      required:
+        - category
+        - benchmarks
+        - summary
+        - timestamp
+        - durationMs
+
+    BenchmarkMetrics:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        operationsPerSecond:
+          type: number
+          description: Operations per second
+          minimum: 0
+        meanTimeMs:
+          type: number
+          description: Mean execution time in milliseconds
+          minimum: 0
+        medianTimeMs:
+          type: number
+          description: Median execution time in milliseconds
+          minimum: 0
+        minTimeMs:
+          type: number
+          description: Minimum execution time in milliseconds
+          minimum: 0
+        maxTimeMs:
+          type: number
+          description: Maximum execution time in milliseconds
+          minimum: 0
+        standardDeviation:
+          type: number
+          description: Standard deviation of execution times
+          minimum: 0
+        iterations:
+          type: integer
+          description: Number of iterations completed
+          minimum: 1
+        gcStats:
+          $ref: '#/components/schemas/GCStats'
+        memoryStats:
+          $ref: '#/components/schemas/MemoryStats'
+      required:
+        - id
+        - name
+        - operationsPerSecond
+        - meanTimeMs
+        - medianTimeMs
+        - minTimeMs
+        - maxTimeMs
+        - standardDeviation
+        - iterations
+
+    BenchmarkSummary:
+      type: object
+      properties:
+        totalBenchmarks:
+          type: integer
+          minimum: 1
+        passedBenchmarks:
+          type: integer
+          minimum: 0
+        failedBenchmarks:
+          type: integer
+          minimum: 0
+        averageOpsPerSecond:
+          type: number
+          minimum: 0
+        totalDurationMs:
+          type: number
+          minimum: 0
+      required:
+        - totalBenchmarks
+        - passedBenchmarks
+        - failedBenchmarks
+        - averageOpsPerSecond
+        - totalDurationMs
+
+    BenchmarkSuiteRequest:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            type: string
+            enum:
+              - iteration
+              - string
+              - array
+              - memory
+          description: Categories to benchmark (empty = all)
+        iterations:
+          type: integer
+          minimum: 100
+          default: 1000
+        warmupIterations:
+          type: integer
+          minimum: 10
+          default: 100
+        parallel:
+          type: boolean
+          description: Run benchmarks in parallel
+          default: false
+      required:
+        - iterations
+
+    BenchmarkSuiteResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchmarkResult'
+        overallSummary:
+          $ref: '#/components/schemas/BenchmarkSummary'
+        targetVerification:
+          $ref: '#/components/schemas/TargetVerification'
+        timestamp:
+          type: string
+          format: date-time
+        totalDurationMs:
+          type: number
+          minimum: 0
+      required:
+        - results
+        - overallSummary
+        - targetVerification
+        - timestamp
+        - totalDurationMs
+
+    IterationOptimization:
+      type: object
+      description: Iteration hot path optimization status (FR-ES24-D-018)
+      properties:
+        requirementId:
+          type: string
+          enum:
+            - FR-ES24-D-018
+        status:
+          type: string
+          enum:
+            - not_optimized
+            - partially_optimized
+            - fully_optimized
+        currentPerformance:
+          type: number
+          description: Current operations per second
+        baselinePerformance:
+          type: number
+          description: Baseline (pre-optimization) operations per second
+        improvementPercentage:
+          type: number
+          description: Performance improvement percentage
+        targetImprovement:
+          type: number
+          description: Target improvement percentage
+          minimum: 20.0
+        targetMet:
+          type: boolean
+          description: Whether 20% improvement target is met
+        optimizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptimizationTechnique'
+      required:
+        - requirementId
+        - status
+        - currentPerformance
+        - baselinePerformance
+        - improvementPercentage
+        - targetImprovement
+        - targetMet
+        - optimizations
+
+    StringOptimization:
+      type: object
+      description: String operation optimization status (FR-ES24-D-019)
+      properties:
+        requirementId:
+          type: string
+          enum:
+            - FR-ES24-D-019
+        status:
+          type: string
+          enum:
+            - not_optimized
+            - partially_optimized
+            - fully_optimized
+        currentPerformance:
+          type: number
+        baselinePerformance:
+          type: number
+        improvementPercentage:
+          type: number
+        targetImprovement:
+          type: number
+          minimum: 30.0
+        targetMet:
+          type: boolean
+          description: Whether 30% improvement target is met
+        optimizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptimizationTechnique'
+      required:
+        - requirementId
+        - status
+        - currentPerformance
+        - baselinePerformance
+        - improvementPercentage
+        - targetImprovement
+        - targetMet
+        - optimizations
+
+    ArrayOptimization:
+      type: object
+      description: Array operation optimization status (FR-ES24-D-020)
+      properties:
+        requirementId:
+          type: string
+          enum:
+            - FR-ES24-D-020
+        status:
+          type: string
+          enum:
+            - not_optimized
+            - partially_optimized
+            - fully_optimized
+        currentPerformance:
+          type: number
+        baselinePerformance:
+          type: number
+        improvementPercentage:
+          type: number
+        targetImprovement:
+          type: number
+          minimum: 25.0
+        targetMet:
+          type: boolean
+          description: Whether 25% improvement target is met
+        optimizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptimizationTechnique'
+      required:
+        - requirementId
+        - status
+        - currentPerformance
+        - baselinePerformance
+        - improvementPercentage
+        - targetImprovement
+        - targetMet
+        - optimizations
+
+    MemoryOptimization:
+      type: object
+      description: Memory allocation optimization status (FR-ES24-D-021)
+      properties:
+        requirementId:
+          type: string
+          enum:
+            - FR-ES24-D-021
+        status:
+          type: string
+          enum:
+            - not_optimized
+            - partially_optimized
+            - fully_optimized
+        currentAllocations:
+          type: integer
+          description: Current allocation count
+          minimum: 0
+        baselineAllocations:
+          type: integer
+          description: Baseline allocation count
+          minimum: 0
+        reductionPercentage:
+          type: number
+          description: Allocation reduction percentage
+        targetReduction:
+          type: number
+          minimum: 15.0
+        targetMet:
+          type: boolean
+          description: Whether 15% reduction target is met
+        optimizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OptimizationTechnique'
+      required:
+        - requirementId
+        - status
+        - currentAllocations
+        - baselineAllocations
+        - reductionPercentage
+        - targetReduction
+        - targetMet
+        - optimizations
+
+    OptimizationTechnique:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Optimization technique name
+        description:
+          type: string
+          description: Detailed description
+        applied:
+          type: boolean
+          description: Whether technique is currently applied
+        impact:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          description: Expected performance impact
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+          description: Technique-specific metrics
+      required:
+        - name
+        - description
+        - applied
+        - impact
+
+    OptimizationRequest:
+      type: object
+      properties:
+        techniques:
+          type: array
+          items:
+            type: string
+          description: Specific optimization techniques to apply
+        validateOnly:
+          type: boolean
+          description: Only validate optimizations without applying
+          default: false
+        collectMetrics:
+          type: boolean
+          description: Collect detailed metrics during optimization
+          default: true
+
+    OptimizationResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        appliedTechniques:
+          type: array
+          items:
+            type: string
+        beforeMetrics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+        afterMetrics:
+          $ref: '#/components/schemas/PerformanceMetrics'
+        improvement:
+          type: number
+          description: Percentage improvement
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+        - success
+        - appliedTechniques
+        - improvement
+
+    PerformanceMetrics:
+      type: object
+      properties:
+        operationsPerSecond:
+          type: number
+          minimum: 0
+        meanTimeMs:
+          type: number
+          minimum: 0
+        throughput:
+          type: number
+          minimum: 0
+        memoryUsageMB:
+          type: number
+          minimum: 0
+        allocations:
+          type: integer
+          minimum: 0
+        gcPauses:
+          type: integer
+          minimum: 0
+      required:
+        - operationsPerSecond
+        - meanTimeMs
+
+    ComparisonRequest:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+            - iteration
+            - string
+            - array
+            - memory
+            - all
+        beforeData:
+          oneOf:
+            - $ref: '#/components/schemas/BenchmarkResult'
+            - type: string
+              description: Path to before benchmark results
+        afterData:
+          oneOf:
+            - $ref: '#/components/schemas/BenchmarkResult'
+            - type: string
+              description: Path to after benchmark results
+        includeCharts:
+          type: boolean
+          description: Include visualization data
+          default: true
+      required:
+        - category
+
+    ComparisonResult:
+      type: object
+      properties:
+        category:
+          type: string
+        comparisons:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchmarkComparison'
+        summary:
+          $ref: '#/components/schemas/ComparisonSummary'
+        charts:
+          type: object
+          description: Visualization data
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - category
+        - comparisons
+        - summary
+        - timestamp
+
+    BenchmarkComparison:
+      type: object
+      properties:
+        benchmarkId:
+          type: string
+        benchmarkName:
+          type: string
+        beforeOpsPerSec:
+          type: number
+        afterOpsPerSec:
+          type: number
+        improvementPercentage:
+          type: number
+          description: Positive = improvement, negative = regression
+        beforeMeanTimeMs:
+          type: number
+        afterMeanTimeMs:
+          type: number
+        significant:
+          type: boolean
+          description: Whether difference is statistically significant
+        regressionDetected:
+          type: boolean
+          description: Whether performance regression detected
+      required:
+        - benchmarkId
+        - benchmarkName
+        - beforeOpsPerSec
+        - afterOpsPerSec
+        - improvementPercentage
+        - significant
+        - regressionDetected
+
+    ComparisonSummary:
+      type: object
+      properties:
+        totalComparisons:
+          type: integer
+          minimum: 0
+        improvements:
+          type: integer
+          minimum: 0
+        regressions:
+          type: integer
+          minimum: 0
+        noChange:
+          type: integer
+          minimum: 0
+        averageImprovement:
+          type: number
+          description: Average improvement percentage across all benchmarks
+        targetsMet:
+          type: object
+          properties:
+            iteration:
+              type: boolean
+            string:
+              type: boolean
+            array:
+              type: boolean
+            memory:
+              type: boolean
+      required:
+        - totalComparisons
+        - improvements
+        - regressions
+        - noChange
+        - averageImprovement
+
+    ProfilingRequest:
+      type: object
+      properties:
+        category:
+          type: string
+          enum:
+            - iteration
+            - string
+            - array
+            - memory
+            - all
+        duration:
+          type: integer
+          description: Profiling duration in seconds
+          minimum: 1
+          maximum: 300
+        samplingInterval:
+          type: integer
+          description: Sampling interval in microseconds
+          minimum: 100
+          default: 1000
+        collectCallStacks:
+          type: boolean
+          description: Collect call stack information
+          default: true
+        collectMemoryProfile:
+          type: boolean
+          description: Collect memory allocation profile
+          default: true
+      required:
+        - category
+
+    ProfilingSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - completed
+            - failed
+        startTime:
+          type: string
+          format: date-time
+        estimatedEndTime:
+          type: string
+          format: date-time
+      required:
+        - sessionId
+        - category
+        - status
+        - startTime
+
+    ProfilingResult:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        category:
+          type: string
+        hotspots:
+          type: array
+          items:
+            $ref: '#/components/schemas/Hotspot'
+        callGraph:
+          $ref: '#/components/schemas/CallGraph'
+        memoryProfile:
+          $ref: '#/components/schemas/MemoryProfile'
+        summary:
+          $ref: '#/components/schemas/ProfilingSummary'
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        durationMs:
+          type: number
+      required:
+        - sessionId
+        - category
+        - hotspots
+        - summary
+        - startTime
+        - endTime
+        - durationMs
+
+    ProfilingData:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        samples:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfileSample'
+        aggregated:
+          type: object
+          description: Aggregated profiling data
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - sessionId
+        - samples
+
+    Hotspot:
+      type: object
+      properties:
+        functionName:
+          type: string
+        fileName:
+          type: string
+        lineNumber:
+          type: integer
+        selfTimeMs:
+          type: number
+          description: Time spent in function itself
+        totalTimeMs:
+          type: number
+          description: Time spent including callees
+        percentage:
+          type: number
+          description: Percentage of total execution time
+        hitCount:
+          type: integer
+          description: Number of times sampled
+      required:
+        - functionName
+        - selfTimeMs
+        - totalTimeMs
+        - percentage
+        - hitCount
+
+    CallGraph:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallGraphNode'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/CallGraphEdge'
+      required:
+        - nodes
+        - edges
+
+    CallGraphNode:
+      type: object
+      properties:
+        id:
+          type: string
+        functionName:
+          type: string
+        selfTimeMs:
+          type: number
+        totalTimeMs:
+          type: number
+      required:
+        - id
+        - functionName
+        - selfTimeMs
+        - totalTimeMs
+
+    CallGraphEdge:
+      type: object
+      properties:
+        from:
+          type: string
+          description: Caller node ID
+        to:
+          type: string
+          description: Callee node ID
+        callCount:
+          type: integer
+        timeMs:
+          type: number
+      required:
+        - from
+        - to
+        - callCount
+        - timeMs
+
+    MemoryProfile:
+      type: object
+      properties:
+        allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/AllocationSite'
+        totalAllocatedMB:
+          type: number
+        totalFreedMB:
+          type: number
+        peakUsageMB:
+          type: number
+        gcEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/GCEvent'
+      required:
+        - allocations
+        - totalAllocatedMB
+        - peakUsageMB
+
+    AllocationSite:
+      type: object
+      properties:
+        location:
+          type: string
+        allocationType:
+          type: string
+        count:
+          type: integer
+        totalBytesMB:
+          type: number
+        averageSizeBytes:
+          type: number
+      required:
+        - location
+        - allocationType
+        - count
+        - totalBytesMB
+
+    GCEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        type:
+          type: string
+          enum:
+            - minor
+            - major
+            - full
+        durationMs:
+          type: number
+        beforeMB:
+          type: number
+        afterMB:
+          type: number
+        freedMB:
+          type: number
+      required:
+        - timestamp
+        - type
+        - durationMs
+        - beforeMB
+        - afterMB
+        - freedMB
+
+    ProfilingSummary:
+      type: object
+      properties:
+        totalSamples:
+          type: integer
+        topHotspots:
+          type: integer
+          description: Number of hotspots identified
+        criticalPathTimeMs:
+          type: number
+        optimizationOpportunities:
+          type: array
+          items:
+            type: string
+      required:
+        - totalSamples
+        - topHotspots
+        - criticalPathTimeMs
+
+    ProfileSample:
+      type: object
+      properties:
+        timestamp:
+          type: number
+          description: Sample timestamp in microseconds
+        stackTrace:
+          type: array
+          items:
+            type: string
+        cpuTimeMs:
+          type: number
+        memoryUsageMB:
+          type: number
+      required:
+        - timestamp
+        - stackTrace
+
+    GCStats:
+      type: object
+      properties:
+        collections:
+          type: integer
+          description: Number of GC collections
+          minimum: 0
+        totalPauseMs:
+          type: number
+          description: Total GC pause time in milliseconds
+          minimum: 0
+        averagePauseMs:
+          type: number
+          description: Average GC pause time
+          minimum: 0
+        maxPauseMs:
+          type: number
+          description: Maximum GC pause time
+          minimum: 0
+      required:
+        - collections
+        - totalPauseMs
+
+    MemoryStats:
+      type: object
+      properties:
+        allocations:
+          type: integer
+          description: Number of allocations
+          minimum: 0
+        deallocations:
+          type: integer
+          description: Number of deallocations
+          minimum: 0
+        peakUsageMB:
+          type: number
+          description: Peak memory usage in megabytes
+          minimum: 0
+        averageUsageMB:
+          type: number
+          description: Average memory usage
+          minimum: 0
+        totalAllocatedMB:
+          type: number
+          description: Total memory allocated
+          minimum: 0
+      required:
+        - allocations
+        - deallocations
+        - peakUsageMB
+
+    RegressionTestRequest:
+      type: object
+      properties:
+        baselinePath:
+          type: string
+          description: Path to baseline performance data
+        currentPath:
+          type: string
+          description: Path to current performance data
+        thresholdPercentage:
+          type: number
+          description: Acceptable performance degradation threshold
+          minimum: 0
+          maximum: 100
+          default: 5.0
+        categories:
+          type: array
+          items:
+            type: string
+            enum:
+              - iteration
+              - string
+              - array
+              - memory
+      required:
+        - baselinePath
+
+    RegressionTestResult:
+      type: object
+      properties:
+        passed:
+          type: boolean
+          description: Whether all regression tests passed
+        regressions:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegressionDetection'
+        summary:
+          $ref: '#/components/schemas/RegressionSummary'
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - passed
+        - regressions
+        - summary
+        - timestamp
+
+    RegressionDetection:
+      type: object
+      properties:
+        benchmarkId:
+          type: string
+        benchmarkName:
+          type: string
+        category:
+          type: string
+        baselineOpsPerSec:
+          type: number
+        currentOpsPerSec:
+          type: number
+        degradationPercentage:
+          type: number
+          description: Percentage of performance degradation
+        threshold:
+          type: number
+        severity:
+          type: string
+          enum:
+            - minor
+            - moderate
+            - severe
+            - critical
+      required:
+        - benchmarkId
+        - benchmarkName
+        - category
+        - baselineOpsPerSec
+        - currentOpsPerSec
+        - degradationPercentage
+        - threshold
+        - severity
+
+    RegressionSummary:
+      type: object
+      properties:
+        totalTests:
+          type: integer
+        regressionsDetected:
+          type: integer
+        criticalRegressions:
+          type: integer
+        averageDegradation:
+          type: number
+        worstRegression:
+          type: string
+          description: Benchmark with worst regression
+      required:
+        - totalTests
+        - regressionsDetected
+        - criticalRegressions
+
+    ReportRequest:
+      type: object
+      properties:
+        format:
+          type: string
+          enum:
+            - json
+            - html
+            - markdown
+            - pdf
+          default: json
+        includeBenchmarks:
+          type: boolean
+          default: true
+        includeProfileData:
+          type: boolean
+          default: true
+        includeComparisons:
+          type: boolean
+          default: true
+        includeCharts:
+          type: boolean
+          default: true
+        categories:
+          type: array
+          items:
+            type: string
+            enum:
+              - iteration
+              - string
+              - array
+              - memory
+
+    OptimizationReport:
+      type: object
+      properties:
+        summary:
+          $ref: '#/components/schemas/ReportSummary'
+        benchmarkResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/BenchmarkResult'
+        optimizations:
+          type: object
+          properties:
+            iteration:
+              $ref: '#/components/schemas/IterationOptimization'
+            string:
+              $ref: '#/components/schemas/StringOptimization'
+            array:
+              $ref: '#/components/schemas/ArrayOptimization'
+            memory:
+              $ref: '#/components/schemas/MemoryOptimization'
+        comparisons:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComparisonResult'
+        profilingResults:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProfilingResult'
+        targetVerification:
+          $ref: '#/components/schemas/TargetVerification'
+        recommendations:
+          type: array
+          items:
+            type: string
+        generatedAt:
+          type: string
+          format: date-time
+        format:
+          type: string
+      required:
+        - summary
+        - targetVerification
+        - generatedAt
+        - format
+
+    ReportSummary:
+      type: object
+      properties:
+        totalBenchmarks:
+          type: integer
+          minimum: 40
+        totalOptimizations:
+          type: integer
+        overallImprovement:
+          type: number
+          description: Overall performance improvement percentage
+        targetsAchieved:
+          type: integer
+          description: Number of performance targets achieved
+          minimum: 0
+          maximum: 4
+        regressions:
+          type: integer
+        executionTimeMs:
+          type: number
+      required:
+        - totalBenchmarks
+        - totalOptimizations
+        - overallImprovement
+        - targetsAchieved
+        - regressions
+
+    TargetVerification:
+      type: object
+      properties:
+        allTargetsMet:
+          type: boolean
+          description: Whether all performance targets are met
+        targets:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceTarget'
+        overallScore:
+          type: number
+          description: Overall performance score (0-100)
+          minimum: 0
+          maximum: 100
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - allTargetsMet
+        - targets
+        - overallScore
+        - timestamp
+
+    PerformanceTarget:
+      type: object
+      properties:
+        requirementId:
+          type: string
+          pattern: '^FR-ES24-D-\d{3}$'
+        category:
+          type: string
+          enum:
+            - iteration
+            - string
+            - array
+            - memory
+        description:
+          type: string
+        targetValue:
+          type: number
+          description: Target improvement/reduction percentage
+        actualValue:
+          type: number
+          description: Actual improvement/reduction achieved
+        met:
+          type: boolean
+          description: Whether target is met
+        baseline:
+          type: number
+          description: Baseline performance metric
+        current:
+          type: number
+          description: Current performance metric
+      required:
+        - requirementId
+        - category
+        - description
+        - targetValue
+        - actualValue
+        - met
+        - baseline
+        - current
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - code
+        - message
+        - timestamp
+
+tags:
+  - name: Benchmarks
+    description: Performance benchmark operations
+  - name: Optimization
+    description: Performance optimization operations
+  - name: Comparison
+    description: Before/after performance comparison
+  - name: Profiling
+    description: Performance profiling operations
+  - name: Regression
+    description: Performance regression testing
+  - name: Reporting
+    description: Optimization report generation
+  - name: Verification
+    description: Performance target verification
