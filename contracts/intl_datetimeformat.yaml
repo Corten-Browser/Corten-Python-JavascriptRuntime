@@ -1,0 +1,674 @@
+name: intl_datetimeformat
+version: 0.1.0
+type: feature
+description: ES2024 Intl.DateTimeFormat implementation with full locale/timezone support, formatting options, and date range formatting
+
+api:
+  classes:
+    - name: IntlDateTimeFormat
+      description: Main DateTimeFormat class implementing Intl.DateTimeFormat API
+      methods:
+        - name: constructor
+          params:
+            - name: locales
+              type: String|Array[String]|None
+              description: BCP 47 language tag(s) or locale identifier(s)
+            - name: options
+              type: DateTimeFormatOptions|None
+              description: Formatting options object
+          returns:
+            type: IntlDateTimeFormat
+            description: DateTimeFormat instance
+          description: Create DateTimeFormat instance with locale and options (FR-ES24-C-009)
+
+        - name: format
+          params:
+            - name: date
+              type: Date|Number|None
+              description: Date object, timestamp, or undefined (current time)
+          returns:
+            type: String
+            description: Formatted date/time string
+          description: Format date to string according to locale and options (FR-ES24-C-010)
+
+        - name: formatToParts
+          params:
+            - name: date
+              type: Date|Number|None
+              description: Date object, timestamp, or undefined (current time)
+          returns:
+            type: Array[DateTimeFormatPart]
+            description: Array of formatted parts with type and value
+          description: Format date to array of parts (day, month, year, etc.) (FR-ES24-C-011)
+
+        - name: formatRange
+          params:
+            - name: startDate
+              type: Date|Number
+              description: Start date of range
+            - name: endDate
+              type: Date|Number
+              description: End date of range
+          returns:
+            type: String
+            description: Formatted date range string
+          description: Format date range to localized string (FR-ES24-C-012)
+
+        - name: formatRangeToParts
+          params:
+            - name: startDate
+              type: Date|Number
+              description: Start date of range
+            - name: endDate
+              type: Date|Number
+              description: End date of range
+          returns:
+            type: Array[DateTimeFormatPart]
+            description: Array of parts with source ("startRange", "endRange", "shared")
+          description: Format date range to array of parts with source indicators (FR-ES24-C-013)
+
+        - name: resolvedOptions
+          params: []
+          returns:
+            type: Object
+            description: Object with resolved locale, calendar, timeZone, and formatting options
+          description: Return resolved options after locale negotiation (FR-ES24-C-020)
+
+        - name: supportedLocalesOf
+          params:
+            - name: locales
+              type: String|Array[String]
+              description: Locale identifier(s) to check
+            - name: options
+              type: Object|None
+              description: Optional localeMatcher option
+          returns:
+            type: Array[String]
+            description: Subset of locales supported
+          description: Return array of supported locales from input list
+
+    - name: DateTimeFormatOptions
+      description: Options object for DateTimeFormat configuration
+      methods:
+        - name: validate_style_options
+          params:
+            - name: dateStyle
+              type: String|None
+              description: "Date style: full, long, medium, short"
+            - name: timeStyle
+              type: String|None
+              description: "Time style: full, long, medium, short"
+          returns:
+            type: bool
+            description: True if valid style combination
+          description: Validate dateStyle/timeStyle options (FR-ES24-C-014)
+
+        - name: validate_component_options
+          params:
+            - name: options
+              type: Object
+              description: Component options (year, month, day, weekday, era, hour, minute, second, fractionalSecondDigits)
+          returns:
+            type: bool
+            description: True if valid component options
+          description: Validate component-specific formatting options (FR-ES24-C-015)
+
+        - name: set_time_zone
+          params:
+            - name: timeZone
+              type: String
+              description: IANA time zone identifier (e.g., "America/New_York", "UTC", "Europe/London")
+          returns:
+            type: String
+            description: Validated time zone identifier
+          description: Set and validate IANA time zone (FR-ES24-C-016)
+
+        - name: set_calendar
+          params:
+            - name: calendar
+              type: String
+              description: Calendar type (gregory, buddhist, chinese, coptic, dangi, ethioaa, ethiopic, hebrew, indian, islamic, islamic-umalqura, islamic-tbla, islamic-civil, islamic-rgsa, iso8601, japanese, persian, roc, islamicc)
+          returns:
+            type: String
+            description: Validated calendar identifier
+          description: Set and validate calendar system (FR-ES24-C-017)
+
+        - name: set_hour_cycle
+          params:
+            - name: hourCycle
+              type: String
+              description: "Hour cycle: h11, h12, h23, h24"
+          returns:
+            type: String
+            description: Validated hour cycle
+          description: Set hour cycle preference (FR-ES24-C-018)
+
+        - name: set_day_period
+          params:
+            - name: dayPeriod
+              type: String
+              description: "Day period: narrow, short, long"
+          returns:
+            type: String
+            description: Validated day period option
+          description: Set day period display style (FR-ES24-C-019)
+
+    - name: DateTimeFormatPart
+      description: Individual part of formatted date/time
+      methods:
+        - name: create_part
+          params:
+            - name: type
+              type: String
+              description: "Part type: day, month, year, weekday, era, hour, minute, second, dayPeriod, timeZoneName, literal"
+            - name: value
+              type: String
+              description: Formatted value for this part
+            - name: source
+              type: String|None
+              description: "For ranges: startRange, endRange, shared"
+          returns:
+            type: DateTimeFormatPart
+            description: Part object with type, value, and optional source
+          description: Create formatted part object
+
+    - name: TimeZoneSupport
+      description: IANA time zone database support
+      methods:
+        - name: validate_iana_timezone
+          params:
+            - name: timeZone
+              type: String
+              description: Time zone identifier to validate
+          returns:
+            type: bool
+            description: True if valid IANA time zone
+          description: Validate IANA time zone identifier (FR-ES24-C-016)
+
+        - name: get_timezone_offset
+          params:
+            - name: timeZone
+              type: String
+              description: IANA time zone identifier
+            - name: date
+              type: Date
+              description: Date for offset calculation (handles DST)
+          returns:
+            type: int
+            description: Offset in minutes from UTC
+          description: Get UTC offset for time zone at specific date
+
+        - name: apply_timezone
+          params:
+            - name: date
+              type: Date
+              description: Date to convert
+            - name: timeZone
+              type: String
+              description: Target time zone
+          returns:
+            type: Date
+            description: Date adjusted to time zone
+          description: Convert date to specific time zone
+
+        - name: get_timezone_name
+          params:
+            - name: timeZone
+              type: String
+              description: IANA time zone identifier
+            - name: locale
+              type: String
+              description: Locale for localized name
+            - name: style
+              type: String
+              description: "Name style: long, short, shortOffset, longOffset, shortGeneric, longGeneric"
+          returns:
+            type: String
+            description: Localized time zone name
+          description: Get localized time zone name/abbreviation
+
+    - name: CalendarSupport
+      description: Support for multiple calendar systems
+      methods:
+        - name: validate_calendar
+          params:
+            - name: calendar
+              type: String
+              description: Calendar identifier
+          returns:
+            type: bool
+            description: True if supported calendar
+          description: Validate calendar system identifier (FR-ES24-C-017)
+
+        - name: convert_to_calendar
+          params:
+            - name: date
+              type: Date
+              description: Gregorian date
+            - name: calendar
+              type: String
+              description: Target calendar system
+          returns:
+            type: Object
+            description: Date components in target calendar (year, month, day, era)
+          description: Convert date to specific calendar system
+
+        - name: get_calendar_era
+          params:
+            - name: date
+              type: Date
+              description: Date to check
+            - name: calendar
+              type: String
+              description: Calendar system
+          returns:
+            type: String
+            description: Era identifier (e.g., "BC", "AD", "BE" for Buddhist)
+          description: Get era for date in calendar system
+
+        - name: get_month_names
+          params:
+            - name: calendar
+              type: String
+              description: Calendar system
+            - name: locale
+              type: String
+              description: Locale for names
+            - name: format
+              type: String
+              description: "Format: long, short, narrow"
+          returns:
+            type: Array[String]
+            description: Month names in calendar system
+          description: Get localized month names for calendar
+
+    - name: LocaleSupport
+      description: Locale negotiation and matching
+      methods:
+        - name: negotiate_locale
+          params:
+            - name: requestedLocales
+              type: Array[String]
+              description: Requested locale identifiers
+            - name: availableLocales
+              type: Array[String]
+              description: Available locale identifiers
+            - name: defaultLocale
+              type: String
+              description: Fallback locale
+          returns:
+            type: String
+            description: Best matching locale
+          description: Perform BCP 47 locale negotiation
+
+        - name: parse_locale
+          params:
+            - name: locale
+              type: String
+              description: BCP 47 locale identifier
+          returns:
+            type: Object
+            description: Parsed locale components (language, script, region, variants, extensions)
+          description: Parse BCP 47 locale identifier
+
+        - name: canonicalize_locale
+          params:
+            - name: locale
+              type: String
+              description: Locale identifier
+          returns:
+            type: String
+            description: Canonicalized locale identifier
+          description: Canonicalize locale to standard form
+
+    - name: FormattingEngine
+      description: Core date/time formatting logic
+      methods:
+        - name: format_date_part
+          params:
+            - name: date
+              type: Date
+              description: Date to format
+            - name: part
+              type: String
+              description: "Part to format: year, month, day, etc."
+            - name: style
+              type: String
+              description: "Style: numeric, 2-digit, narrow, short, long"
+            - name: calendar
+              type: String
+              description: Calendar system
+            - name: locale
+              type: String
+              description: Locale for formatting
+          returns:
+            type: String
+            description: Formatted part value
+          description: Format individual date/time component
+
+        - name: format_time_part
+          params:
+            - name: date
+              type: Date
+              description: Date to format
+            - name: part
+              type: String
+              description: "Part: hour, minute, second, fractionalSecondDigits, dayPeriod"
+            - name: style
+              type: String|int
+              description: Style or digit count
+            - name: hourCycle
+              type: String
+              description: Hour cycle preference
+            - name: locale
+              type: String
+              description: Locale for formatting
+          returns:
+            type: String
+            description: Formatted part value
+          description: Format individual time component
+
+        - name: assemble_pattern
+          params:
+            - name: parts
+              type: Array[DateTimeFormatPart]
+              description: Formatted parts
+            - name: locale
+              type: String
+              description: Locale for pattern
+          returns:
+            type: String
+            description: Assembled formatted string
+          description: Assemble parts into final formatted string
+
+        - name: format_range_pattern
+          params:
+            - name: startParts
+              type: Array[DateTimeFormatPart]
+              description: Start date parts
+            - name: endParts
+              type: Array[DateTimeFormatPart]
+              description: End date parts
+            - name: locale
+              type: String
+              description: Locale for pattern
+          returns:
+            type: String
+            description: Formatted range string
+          description: Format date range with appropriate pattern
+
+dependencies:
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+      - JSDate
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - ValueType
+      - is_object
+
+requirements:
+  functional:
+    - FR-ES24-C-009: Intl.DateTimeFormat constructor with locale and options support
+    - FR-ES24-C-010: format() method for date/time formatting
+    - FR-ES24-C-011: formatToParts() method returning array of parts with type and value
+    - FR-ES24-C-012: formatRange() method for date range formatting
+    - FR-ES24-C-013: formatRangeToParts() method with source indicators (startRange, endRange, shared)
+    - FR-ES24-C-014: Date/time style options (full, long, medium, short) for both date and time
+    - FR-ES24-C-015: Component options (year, month, day, weekday, era, hour, minute, second, fractionalSecondDigits)
+    - FR-ES24-C-016: IANA time zone support (all time zones from IANA database)
+    - FR-ES24-C-017: Calendar support (gregory, buddhist, chinese, coptic, dangi, ethioaa, ethiopic, hebrew, indian, islamic variants, iso8601, japanese, persian, roc)
+    - FR-ES24-C-018: Hour cycle support (h11, h12, h23, h24)
+    - FR-ES24-C-019: dayPeriod option (narrow, short, long)
+    - FR-ES24-C-020: resolvedOptions() returning locale, calendar, numberingSystem, timeZone, and all formatting options
+
+  non_functional:
+    - DateTimeFormat construction <10ms (locale negotiation, option validation)
+    - format() execution <1ms per call (typical dates)
+    - formatToParts() execution <2ms per call
+    - formatRange() execution <3ms per call
+    - Time zone conversion <0.5ms (IANA database lookup and offset calculation)
+    - Calendar conversion <1ms (date component conversion)
+    - Locale negotiation <5ms (BCP 47 matching)
+    - Memory usage <2KB per DateTimeFormat instance
+
+  testing:
+    - Minimum 130 unit tests (covering all 12 requirements with edge cases)
+    - Test coverage ≥90%
+    - Test262 compliance for Intl.DateTimeFormat tests
+    - Locale coverage:
+      - Major locales: en-US, en-GB, de-DE, fr-FR, ja-JP, zh-CN, ar-SA, es-ES
+      - RTL locales: ar, he
+      - Complex scripts: th, hi, ko
+    - Time zone edge cases:
+      - DST transitions (spring forward, fall back)
+      - Historical time zone changes
+      - UTC, GMT, and named zones
+      - Offset formats (+/-HH:MM)
+    - Calendar edge cases:
+      - Leap years across calendars
+      - Era boundaries (BC/AD, BE, etc.)
+      - Month/year overflow
+      - Different week systems
+    - Style combinations:
+      - dateStyle + timeStyle
+      - Component options without styles
+      - Style conflicts (dateStyle with year option should throw)
+    - Range formatting:
+      - Same day, different times
+      - Different days, same month
+      - Different months, same year
+      - Different years
+      - Ranges crossing DST boundaries
+    - Hour cycle variations:
+      - 12-hour (h11, h12) vs 24-hour (h23, h24)
+      - Locale overrides
+      - dayPeriod display (AM/PM, etc.)
+
+performance:
+  construction: "<10ms"
+  format: "<1ms"
+  formatToParts: "<2ms"
+  formatRange: "<3ms"
+  timezone_conversion: "<0.5ms"
+  calendar_conversion: "<1ms"
+  locale_negotiation: "<5ms"
+  memory_per_instance: "<2KB"
+
+error_types:
+  - name: RangeError
+    cases:
+      - Invalid locale identifier
+      - Invalid time zone identifier
+      - Invalid calendar identifier
+      - Invalid hour cycle value
+      - Invalid style option value
+      - Invalid component option value
+      - startDate > endDate in formatRange
+      - Style option combined with component options
+  - name: TypeError
+    cases:
+      - Invalid date value (NaN date)
+      - Non-object options parameter
+      - Invalid options property types
+
+examples:
+  basic_formatting:
+    code: |
+      // Basic date formatting
+      const formatter = new Intl.DateTimeFormat('en-US');
+      formatter.format(new Date('2024-01-15'));
+      // "1/15/2024"
+
+      // With style options
+      const longFormatter = new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'full',
+        timeStyle: 'long'
+      });
+      longFormatter.format(new Date('2024-01-15T14:30:00Z'));
+      // "Monday, January 15, 2024 at 2:30:00 PM UTC"
+
+  component_options:
+    code: |
+      // Component-specific options
+      const customFormatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: '2-digit',
+        weekday: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        dayPeriod: 'long'
+      });
+      customFormatter.format(new Date('2024-01-15T14:30:45'));
+      // "Monday, January 15, 2024 at 02:30:45 in the afternoon"
+
+  formatToParts:
+    code: |
+      // Format to parts
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      formatter.formatToParts(new Date('2024-01-15'));
+      // [
+      //   { type: 'month', value: 'January' },
+      //   { type: 'literal', value: ' ' },
+      //   { type: 'day', value: '15' },
+      //   { type: 'literal', value: ', ' },
+      //   { type: 'year', value: '2024' }
+      // ]
+
+  timezone_support:
+    code: |
+      // Time zone formatting
+      const date = new Date('2024-01-15T12:00:00Z');
+
+      const nyFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeStyle: 'full',
+        dateStyle: 'full'
+      });
+      nyFormatter.format(date);
+      // "Monday, January 15, 2024 at 7:00:00 AM Eastern Standard Time"
+
+      const tokyoFormatter = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        timeStyle: 'full',
+        dateStyle: 'full'
+      });
+      tokyoFormatter.format(date);
+      // "2024年1月15日月曜日 21時00分00秒 日本標準時"
+
+  calendar_support:
+    code: |
+      // Buddhist calendar
+      const buddhistFormatter = new Intl.DateTimeFormat('th-TH', {
+        calendar: 'buddhist',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        era: 'long'
+      });
+      buddhistFormatter.format(new Date('2024-01-15'));
+      // "15 มกราคม พ.ศ. 2567" (2024 + 543 = 2567 BE)
+
+      // Japanese calendar
+      const japaneseFormatter = new Intl.DateTimeFormat('ja-JP', {
+        calendar: 'japanese',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        era: 'long'
+      });
+      japaneseFormatter.format(new Date('2024-01-15'));
+      // "令和6年1月15日" (Reiwa era)
+
+  hour_cycle:
+    code: |
+      // 12-hour vs 24-hour
+      const date = new Date('2024-01-15T14:30:00');
+
+      const h12 = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hourCycle: 'h12'
+      });
+      h12.format(date);  // "2:30 PM"
+
+      const h23 = new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      });
+      h23.format(date);  // "14:30"
+
+  formatRange:
+    code: |
+      // Date range formatting
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      const start = new Date('2024-01-15');
+      const end = new Date('2024-01-20');
+
+      formatter.formatRange(start, end);
+      // "January 15 – 20, 2024"
+
+      // With parts
+      formatter.formatRangeToParts(start, end);
+      // [
+      //   { type: 'month', value: 'January', source: 'shared' },
+      //   { type: 'literal', value: ' ', source: 'shared' },
+      //   { type: 'day', value: '15', source: 'startRange' },
+      //   { type: 'literal', value: ' – ', source: 'shared' },
+      //   { type: 'day', value: '20', source: 'endRange' },
+      //   { type: 'literal', value: ', ', source: 'shared' },
+      //   { type: 'year', value: '2024', source: 'shared' }
+      // ]
+
+  resolvedOptions:
+    code: |
+      // Get resolved options
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        calendar: 'gregory',
+        year: 'numeric',
+        month: 'long'
+      });
+
+      formatter.resolvedOptions();
+      // {
+      //   locale: "en-US",
+      //   calendar: "gregory",
+      //   numberingSystem: "latn",
+      //   timeZone: "America/New_York",
+      //   year: "numeric",
+      //   month: "long",
+      //   ...
+      // }
+
+  dst_handling:
+    code: |
+      // DST transition handling
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeStyle: 'full',
+        dateStyle: 'short'
+      });
+
+      // Before DST (EST)
+      formatter.format(new Date('2024-03-10T06:00:00Z'));
+      // "3/10/24, 1:00:00 AM Eastern Standard Time"
+
+      // After DST (EDT)
+      formatter.format(new Date('2024-03-10T07:00:00Z'));
+      // "3/10/24, 3:00:00 AM Eastern Daylight Time"

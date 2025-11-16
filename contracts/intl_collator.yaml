@@ -1,0 +1,389 @@
+contract:
+  name: intl_collator
+  version: 0.1.0
+  description: Intl.Collator - Locale-sensitive string comparison and sorting
+
+api:
+  classes:
+    - name: Intl.Collator
+      description: Language-sensitive string comparison with Unicode Collation Algorithm (UCA)
+
+      constructor:
+        parameters:
+          - name: locales
+            type: string | string[] | undefined
+            optional: true
+            description: BCP 47 language tag(s) for locale selection
+          - name: options
+            type: CollatorOptions
+            optional: true
+            description: Collation configuration options
+        description: Create Collator with locale and collation settings
+        throws: RangeError if locale is invalid
+
+      static_methods:
+        - name: supportedLocalesOf
+          parameters:
+            - name: locales
+              type: string | string[]
+            - name: options
+              type: "{ localeMatcher?: 'lookup' | 'best fit' }"
+              optional: true
+          returns: string[]
+          description: Returns array of supported locales from requested locales
+
+      methods:
+        - name: compare
+          parameters:
+            - name: string1
+              type: string
+            - name: string2
+              type: string
+          returns: number
+          description: |
+            Compare two strings according to collation rules.
+            Returns: negative if string1 < string2, 0 if equal, positive if string1 > string2
+          performance: <100µs per comparison (typical)
+
+        - name: resolvedOptions
+          parameters: []
+          returns: ResolvedCollatorOptions
+          description: Returns object with resolved locale and collation options
+
+      properties: []
+
+options:
+  CollatorOptions:
+    description: Configuration options for Intl.Collator
+    properties:
+      - name: localeMatcher
+        type: "'lookup' | 'best fit'"
+        default: "'best fit'"
+        description: Locale matching algorithm
+
+      - name: usage
+        type: "'sort' | 'search'"
+        default: "'sort'"
+        description: |
+          'sort': for sorting strings (default)
+          'search': for searching within strings (more lenient)
+
+      - name: sensitivity
+        type: "'base' | 'accent' | 'case' | 'variant'"
+        default: "'variant'"
+        description: |
+          Which differences in strings should lead to non-zero comparison results:
+          - 'base': Only base letters differ (a ≠ b, a = á, a = A)
+          - 'accent': Base letters and accents differ (a ≠ b, a ≠ á, a = A)
+          - 'case': Base letters, accents, and case differ (a ≠ b, a ≠ á, a ≠ A)
+          - 'variant': All differences (a ≠ b, a ≠ á, a ≠ A)
+        requirement: FR-ES24-C-004
+
+      - name: numeric
+        type: boolean
+        default: false
+        description: |
+          Whether to use numeric collation (e.g., "2" < "10")
+          true: "1" < "2" < "10" (numeric order)
+          false: "1" < "10" < "2" (lexicographic order)
+        requirement: FR-ES24-C-005
+
+      - name: caseFirst
+        type: "'upper' | 'lower' | 'false'"
+        default: "'false'"
+        description: |
+          Whether upper or lower case should sort first:
+          - 'upper': uppercase sorts first (A < a)
+          - 'lower': lowercase sorts first (a < A)
+          - 'false': use locale default
+        requirement: FR-ES24-C-006
+
+      - name: ignorePunctuation
+        type: boolean
+        default: false
+        description: Whether punctuation should be ignored in comparison
+        requirement: FR-ES24-C-007
+
+      - name: collation
+        type: string
+        optional: true
+        description: |
+          Collation type (locale-specific):
+          - 'standard' (default for most locales)
+          - 'search' (for search operations)
+          - 'phonebook' (German phone book order)
+          - 'pinyin' (Chinese pinyin order)
+          - 'stroke' (Chinese stroke order)
+          - 'traditional' (Spanish traditional)
+          - 'emoji' (emoji sort order)
+          And others depending on locale
+
+  ResolvedCollatorOptions:
+    description: Resolved options returned by resolvedOptions()
+    properties:
+      - name: locale
+        type: string
+        description: Resolved BCP 47 locale tag
+
+      - name: usage
+        type: "'sort' | 'search'"
+        description: Resolved usage
+
+      - name: sensitivity
+        type: "'base' | 'accent' | 'case' | 'variant'"
+        description: Resolved sensitivity
+
+      - name: numeric
+        type: boolean
+        description: Resolved numeric option
+
+      - name: caseFirst
+        type: "'upper' | 'lower' | 'false'"
+        description: Resolved case-first option
+
+      - name: ignorePunctuation
+        type: boolean
+        description: Resolved ignore-punctuation option
+
+      - name: collation
+        type: string
+        description: Resolved collation type
+
+locale_resolution:
+  algorithm: BCP 47 Locale Matching
+  description: |
+    1. Parse requested locales (BCP 47 language tags)
+    2. Apply locale matching algorithm (lookup or best fit)
+    3. Resolve Unicode extension keys:
+       - -u-co-*: collation type (e.g., 'de-DE-u-co-phonebk')
+       - -u-kn-*: numeric collation
+       - -u-kf-*: case first
+    4. Fall back to default locale if no match
+  requirement: FR-ES24-C-002
+
+  supported_locales:
+    minimum:
+      - en-US (English - United States)
+      - en-GB (English - United Kingdom)
+      - de-DE (German - Germany)
+      - fr-FR (French - France)
+      - es-ES (Spanish - Spain)
+      - zh-CN (Chinese - China)
+      - ja-JP (Japanese - Japan)
+      - ko-KR (Korean - South Korea)
+
+  extension_keys:
+    - key: co
+      name: collation
+      values: [standard, search, phonebook, pinyin, stroke, traditional, emoji]
+
+    - key: kn
+      name: numeric
+      values: [true, false]
+
+    - key: kf
+      name: caseFirst
+      values: [upper, lower, false]
+
+collation_algorithm:
+  name: Unicode Collation Algorithm (UCA)
+  specification: Unicode Technical Standard #10
+  description: |
+    Multi-level comparison:
+    1. Primary level: Base characters (a vs b)
+    2. Secondary level: Accents and diacritics (a vs á)
+    3. Tertiary level: Case (a vs A)
+    4. Quaternary level: Punctuation (when not ignored)
+
+  sensitivity_mapping:
+    base:
+      levels: [1]
+      description: Only primary differences matter
+
+    accent:
+      levels: [1, 2]
+      description: Primary and secondary differences matter
+
+    case:
+      levels: [1, 2, 3]
+      description: Primary, secondary, and tertiary differences matter
+
+    variant:
+      levels: [1, 2, 3, 4]
+      description: All differences matter
+
+examples:
+  basic_usage:
+    - description: Create collator with default locale
+      code: |
+        const collator = new Intl.Collator();
+        collator.compare('a', 'b'); // -1 (a < b)
+        collator.compare('b', 'a'); // 1 (b > a)
+        collator.compare('a', 'a'); // 0 (equal)
+
+    - description: Sort array with locale-specific rules
+      code: |
+        const collator = new Intl.Collator('de-DE');
+        const names = ['Ärzte', 'Affen', 'Zebra'];
+        names.sort(collator.compare); // ['Affen', 'Ärzte', 'Zebra']
+
+    - description: Case-insensitive comparison
+      code: |
+        const collator = new Intl.Collator('en', { sensitivity: 'base' });
+        collator.compare('a', 'A'); // 0 (equal, ignoring case)
+        collator.compare('a', 'b'); // -1 (a < b)
+
+    - description: Numeric collation
+      code: |
+        const collator = new Intl.Collator('en', { numeric: true });
+        collator.compare('2', '10'); // -1 (numeric: 2 < 10)
+
+        const noNumeric = new Intl.Collator('en', { numeric: false });
+        noNumeric.compare('2', '10'); // 1 (lexicographic: '2' > '10')
+
+    - description: Ignore punctuation
+      code: |
+        const collator = new Intl.Collator('en', { ignorePunctuation: true });
+        collator.compare('hello', 'he-llo'); // 0 (equal, ignoring hyphen)
+
+    - description: Get resolved options
+      code: |
+        const collator = new Intl.Collator('en-US', { numeric: true });
+        collator.resolvedOptions();
+        // {
+        //   locale: 'en-US',
+        //   usage: 'sort',
+        //   sensitivity: 'variant',
+        //   numeric: true,
+        //   caseFirst: 'false',
+        //   ignorePunctuation: false,
+        //   collation: 'default'
+        // }
+
+edge_cases:
+  - description: Empty strings
+    behavior: compare('', '') === 0, compare('', 'a') < 0
+
+  - description: Unicode normalization
+    behavior: Should handle both NFC and NFD forms consistently
+    test: "compare('café', 'cafe\\u0301') === 0"
+
+  - description: Emoji and special characters
+    behavior: Follow Unicode Collation Algorithm for emoji
+
+  - description: Surrogate pairs
+    behavior: Correctly handle characters outside BMP (U+10000+)
+
+  - description: Invalid locales
+    behavior: Throw RangeError for malformed BCP 47 tags
+
+  - description: Case folding edge cases
+    behavior: Turkish i/İ handled correctly when locale is 'tr'
+
+integration_points:
+  - component: object_runtime
+    interface: Intl global namespace
+
+  - component: string_methods
+    interface: String operations for comparison
+
+  - component: array_methods
+    interface: Array.prototype.sort can use collator.compare
+
+  - component: shared_types
+    interface: JSValue for string inputs/outputs
+
+implementation_notes:
+  - Use ICU (International Components for Unicode) library for UCA implementation
+  - Cache Collator instances for performance
+  - Normalize strings before comparison (NFC form)
+  - Implement fast path for ASCII-only strings
+  - Support tailoring rules for locale-specific sorting
+  - Handle Turkish i/İ special case
+  - Optimize common cases (same sensitivity, en-US locale)
+
+performance_requirements:
+  construction: <5ms per Collator instance
+  comparison: <100µs per string comparison (typical strings)
+  comparison_long: <500µs for strings up to 1000 characters
+  caching: Cache compiled collation rules per locale
+  memory: <10KB overhead per Collator instance
+
+test_requirements:
+  unit_tests: ≥70
+  integration_tests: ≥12
+  coverage: ≥85%
+
+  test_categories:
+    constructor:
+      - Valid locale tags
+      - Invalid locale tags (should throw)
+      - Options validation
+      - Default values
+
+    locale_resolution:
+      - Locale matching (lookup vs best fit)
+      - Unicode extension keys
+      - Fallback to default locale
+      - supportedLocalesOf()
+
+    sensitivity:
+      - base sensitivity
+      - accent sensitivity
+      - case sensitivity
+      - variant sensitivity
+
+    numeric_collation:
+      - Numeric ordering ("2" < "10")
+      - Mixed numeric/text
+      - Leading zeros
+
+    case_first:
+      - upper case first
+      - lower case first
+      - default (locale-specific)
+
+    ignore_punctuation:
+      - Punctuation ignored
+      - Punctuation significant
+
+    edge_cases:
+      - Empty strings
+      - Unicode normalization (NFC vs NFD)
+      - Emoji
+      - Surrogate pairs
+      - Turkish i/İ
+
+    resolved_options:
+      - All options resolved correctly
+      - Locale properly resolved
+
+    performance:
+      - Construction time
+      - Comparison time
+      - Large arrays sorting
+
+success_criteria:
+  - Intl.Collator constructor works with all option combinations
+  - Locale resolution follows BCP 47 specification
+  - compare() returns correct ordering for all sensitivity levels
+  - Numeric collation orders numbers correctly
+  - caseFirst option controls case ordering
+  - ignorePunctuation option works correctly
+  - resolvedOptions() returns accurate resolved settings
+  - supportedLocalesOf() returns correct supported locales
+  - Performance meets requirements (<5ms construction, <100µs comparison)
+  - All 8 requirements (FR-ES24-C-001 to FR-ES24-C-008) implemented
+  - Passes ≥70 unit tests with ≥85% coverage
+  - Works with Array.prototype.sort for locale-aware sorting
+  - Handles Unicode edge cases correctly (normalization, emoji, surrogates)
+
+requirements_traceability:
+  - FR-ES24-C-001: Intl.Collator constructor implementation
+  - FR-ES24-C-002: Locale resolution algorithm (BCP 47)
+  - FR-ES24-C-003: compare() method implementation
+  - FR-ES24-C-004: sensitivity option (base, accent, case, variant)
+  - FR-ES24-C-005: numeric option for numeric collation
+  - FR-ES24-C-006: caseFirst option (upper, lower, false)
+  - FR-ES24-C-007: ignorePunctuation option
+  - FR-ES24-C-008: resolvedOptions() method

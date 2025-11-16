@@ -1,0 +1,611 @@
+name: intl_segmenter
+version: 0.1.0
+type: feature
+description: ES2024 Intl.Segmenter for locale-sensitive text segmentation (grapheme/word/sentence boundaries)
+level: 2
+
+dependencies:
+  - name: intl_core
+    version: "^0.2.0"
+    imports:
+      - LocaleManager
+      - ResolvedLocale
+      - CanonicalizeLocaleList
+  - name: unicode_data
+    version: "^0.1.0"
+    imports:
+      - GraphemeBreakProperty
+      - WordBreakProperty
+      - SentenceBreakProperty
+      - UAX29Engine
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - JSValue
+      - JSObject
+      - Iterator
+  - name: error_handling
+    version: "^0.2.0"
+    imports:
+      - TypeError
+      - RangeError
+
+api:
+  # Main Classes
+  classes:
+    - name: Intl.Segmenter
+      description: Locale-sensitive text segmentation for grapheme clusters, words, and sentences
+      constructor:
+        params:
+          - name: locales
+            type: string | string[]
+            optional: true
+            description: BCP 47 language tag(s) for locale-sensitive segmentation
+          - name: options
+            type: SegmenterOptions
+            optional: true
+            description: Segmentation configuration options
+        returns:
+          type: Intl.Segmenter
+          description: Segmenter instance
+        raises:
+          - RangeError: If locale is invalid or granularity is invalid
+          - TypeError: If options is not an object
+        description: Create segmenter for locale-sensitive text segmentation
+
+      methods:
+        - name: segment
+          params:
+            - name: input
+              type: string
+              description: Text to segment
+          returns:
+            type: Segments
+            description: Iterator over segments
+          description: Create iterator over text segments
+          semantics:
+            - Returns Segments object (iterable)
+            - Segments object has containing() method
+            - Implements iterator protocol
+            - Lazy segmentation (computes on demand)
+
+        - name: resolvedOptions
+          params: []
+          returns:
+            type: ResolvedSegmenterOptions
+            description: Resolved locale and options
+          description: Get resolved locale and segmentation options
+          return_fields:
+            - locale: Resolved BCP 47 locale
+            - granularity: Segmentation granularity (grapheme/word/sentence)
+
+    - name: Segments
+      description: Iterator over text segments (returned by segment())
+      constructor:
+        visibility: internal
+        description: Created by Segmenter.segment(), not user-constructible
+
+      methods:
+        - name: "[Symbol.iterator]"
+          params: []
+          returns:
+            type: SegmentIterator
+            description: Iterator over segments
+          description: Return iterator over segments (implements iterable protocol)
+
+        - name: containing
+          params:
+            - name: index
+              type: number
+              description: Code unit index in input string
+          returns:
+            type: SegmentData | undefined
+            description: Segment containing the index, or undefined if index out of range
+          description: Find segment containing given code unit index
+          raises:
+            - RangeError: If index is negative or not an integer
+          semantics:
+            - Returns segment that contains code unit at index
+            - Returns undefined if index >= input.length
+            - Returns undefined if index < 0
+
+      properties:
+        - name: input
+          type: string
+          readonly: true
+          description: Original input string being segmented
+
+    - name: SegmentIterator
+      description: Iterator yielding individual segments
+      methods:
+        - name: next
+          params: []
+          returns:
+            type: IteratorResult<SegmentData>
+            description: Next segment or done signal
+          description: Advance to next segment
+          return_structure:
+            when_not_done:
+              value: SegmentData
+              done: false
+            when_done:
+              value: undefined
+              done: true
+
+  # Type Definitions
+  types:
+    - name: SegmenterOptions
+      type: object
+      description: Options for Segmenter constructor
+      fields:
+        - name: granularity
+          type: "\"grapheme\" | \"word\" | \"sentence\""
+          optional: true
+          default: "\"grapheme\""
+          description: Level of segmentation granularity
+          values:
+            - grapheme: Segment by grapheme clusters (user-perceived characters)
+            - word: Segment by words (locale-sensitive word boundaries)
+            - sentence: Segment by sentences (locale-sensitive sentence boundaries)
+
+    - name: ResolvedSegmenterOptions
+      type: object
+      description: Resolved options from resolvedOptions()
+      fields:
+        - name: locale
+          type: string
+          description: Resolved BCP 47 locale string
+        - name: granularity
+          type: "\"grapheme\" | \"word\" | \"sentence\""
+          description: Segmentation granularity
+
+    - name: SegmentData
+      type: object
+      description: Single segment object yielded by iterator
+      fields:
+        - name: segment
+          type: string
+          description: Text of the segment
+        - name: index
+          type: number
+          description: Code unit index where segment starts in input string
+        - name: input
+          type: string
+          description: Original input string (same as Segments.input)
+        - name: isWordLike
+          type: boolean | undefined
+          optional: true
+          description: Whether segment is word-like (only present for word granularity)
+          semantics:
+            - Only present when granularity is "word"
+            - true: Segment contains letters/numbers (word-like)
+            - false: Segment is whitespace or punctuation (non-word-like)
+            - undefined: Not applicable (grapheme or sentence granularity)
+
+# Segmentation Semantics
+semantics:
+  granularity_levels:
+    grapheme:
+      description: Segment by extended grapheme clusters
+      standard: Unicode UAX #29 Grapheme Cluster Boundaries
+      examples:
+        - input: "café"
+          segments: ["c", "a", "f", "é"]
+        - input: "👨‍👩‍👧‍👦"
+          segments: ["👨‍👩‍👧‍👦"]  # Family emoji is one grapheme cluster
+        - input: "नमस्ते"
+          segments: ["न", "म", "स्", "ते"]  # Devanagari combining characters
+      characteristics:
+        - User-perceived characters
+        - Handles combining marks, emoji ZWJ sequences
+        - Locale-independent (Unicode-defined)
+
+    word:
+      description: Segment by words (locale-sensitive)
+      standard: Unicode UAX #29 Word Boundaries (with locale tailoring)
+      examples:
+        - input: "Hello, world!"
+          segments:
+            - {segment: "Hello", isWordLike: true}
+            - {segment: ",", isWordLike: false}
+            - {segment: " ", isWordLike: false}
+            - {segment: "world", isWordLike: true}
+            - {segment: "!", isWordLike: false}
+        - input: "don't"
+          locale: en-US
+          segments: [{segment: "don't", isWordLike: true}]  # Apostrophe part of word
+        - input: "これは日本語です"
+          locale: ja-JP
+          segments:
+            - {segment: "これ", isWordLike: true}
+            - {segment: "は", isWordLike: true}
+            - {segment: "日本語", isWordLike: true}
+            - {segment: "です", isWordLike: true}
+      characteristics:
+        - Locale-sensitive (different rules per language)
+        - isWordLike distinguishes words from punctuation
+        - Handles contractions, hyphenated words
+
+    sentence:
+      description: Segment by sentences (locale-sensitive)
+      standard: Unicode UAX #29 Sentence Boundaries (with locale tailoring)
+      examples:
+        - input: "Hello world. How are you?"
+          segments: ["Hello world. ", "How are you?"]
+        - input: "Dr. Smith works here."
+          segments: ["Dr. Smith works here."]  # Dr. not sentence boundary
+        - input: "What?! Really..."
+          segments: ["What?! ", "Really..."]
+      characteristics:
+        - Locale-sensitive (different punctuation per language)
+        - Handles abbreviations (Dr., Mr., etc.)
+        - Handles multiple punctuation (?!, ...)
+
+  iterator_protocol:
+    description: Segments implements iterable protocol
+    usage:
+      for_of_loop: |
+        const segmenter = new Intl.Segmenter('en', {granularity: 'word'});
+        for (const segment of segmenter.segment('Hello world')) {
+          console.log(segment.segment);
+        }
+      spread_operator: |
+        const segments = [...segmenter.segment('Hello')];
+      array_from: |
+        const segments = Array.from(segmenter.segment('Hello'));
+
+  containing_method:
+    description: Find segment containing a code unit index
+    behavior:
+      - Returns SegmentData for segment containing index
+      - Returns undefined if index out of range
+      - Index is code unit offset (not code point offset)
+    examples:
+      - input: "Hello world"
+        granularity: word
+        index: 0
+        result: {segment: "Hello", index: 0, input: "Hello world", isWordLike: true}
+      - input: "Hello world"
+        granularity: word
+        index: 6
+        result: {segment: " ", index: 5, input: "Hello world", isWordLike: false}
+      - input: "Hello"
+        index: 100
+        result: undefined
+
+  locale_sensitivity:
+    description: Segmentation adapts to locale
+    thai_example:
+      locale: th-TH
+      input: "สวัสดีครับ"
+      granularity: word
+      behavior: Uses Thai word breaking rules (no spaces between words)
+    japanese_example:
+      locale: ja-JP
+      input: "私は学生です"
+      granularity: word
+      behavior: Uses Japanese word breaking (no spaces between words)
+    english_example:
+      locale: en-US
+      input: "don't"
+      granularity: word
+      behavior: Treats "don't" as single word (apostrophe part of word)
+
+# Error Conditions
+errors:
+  - name: RangeError
+    conditions:
+      - Invalid locale: "xx-INVALID"
+      - Invalid granularity: options.granularity not in ["grapheme", "word", "sentence"]
+      - containing() index is negative
+      - containing() index is not an integer (after coercion)
+    message_pattern: "Invalid locale / Invalid option value for granularity / Index out of range"
+
+  - name: TypeError
+    conditions:
+      - options is not undefined and not an object
+      - segment() called on non-Segmenter object
+      - Segments methods called on wrong object type
+    message_pattern: "Options must be an object / Method called on incompatible receiver"
+
+# Requirements Mapping
+requirements:
+  functional:
+    - id: FR-ES24-C-066
+      description: "Intl.Segmenter constructor with locale and granularity options"
+      implementation:
+        - Constructor accepts locales (string or array) and options object
+        - Options.granularity: "grapheme" (default), "word", "sentence"
+        - Validates locale and granularity
+        - Creates Segmenter instance
+      test_count: 12
+
+    - id: FR-ES24-C-067
+      description: "segment() method returns Segments object (iterable)"
+      implementation:
+        - segment(input) accepts string
+        - Returns Segments object
+        - Segments object has Symbol.iterator method
+        - Segments object has containing() method
+      test_count: 10
+
+    - id: FR-ES24-C-068
+      description: "Grapheme segmentation (extended grapheme clusters)"
+      implementation:
+        - Implements Unicode UAX #29 grapheme cluster boundaries
+        - Handles combining marks (café -> c,a,f,é)
+        - Handles emoji ZWJ sequences (👨‍👩‍👧‍👦 is one cluster)
+        - Handles Devanagari and other scripts
+      test_count: 15
+
+    - id: FR-ES24-C-069
+      description: "Word segmentation (locale-sensitive)"
+      implementation:
+        - Implements Unicode UAX #29 word boundaries
+        - Locale-specific rules (English, Japanese, Thai, etc.)
+        - isWordLike property distinguishes words from punctuation
+        - Handles contractions (don't, it's)
+      test_count: 18
+
+    - id: FR-ES24-C-070
+      description: "Sentence segmentation (locale-sensitive)"
+      implementation:
+        - Implements Unicode UAX #29 sentence boundaries
+        - Handles abbreviations (Dr., Mr., etc.)
+        - Handles multiple punctuation (?!, ...)
+        - Locale-specific sentence ending rules
+      test_count: 12
+
+    - id: FR-ES24-C-071
+      description: "Segment object with segment, index, input, isWordLike properties"
+      implementation:
+        - SegmentData object has segment (string)
+        - SegmentData has index (number) - start offset
+        - SegmentData has input (string) - original input
+        - SegmentData has isWordLike (boolean, only for word granularity)
+      test_count: 10
+
+    - id: FR-ES24-C-072
+      description: "containing() method finds segment at code unit index"
+      implementation:
+        - containing(index) returns SegmentData containing index
+        - Returns undefined if index out of range
+        - Index is code unit offset (not code point)
+        - Throws RangeError for negative index
+      test_count: 10
+
+    - id: FR-ES24-C-073
+      description: "Iterator protocol support (for-of, spread, Array.from)"
+      implementation:
+        - Segments[Symbol.iterator]() returns iterator
+        - Iterator.next() yields SegmentData objects
+        - Works with for-of loops
+        - Works with spread operator and Array.from
+      test_count: 8
+
+    - id: FR-ES24-C-074
+      description: "Locale-sensitive segmentation (adapts to language)"
+      implementation:
+        - Thai word breaking (no spaces between words)
+        - Japanese word breaking (no spaces)
+        - English contractions (don't = 1 word)
+        - Chinese sentence boundaries
+      test_count: 15
+
+    - id: FR-ES24-C-075
+      description: "resolvedOptions() returns locale and granularity"
+      implementation:
+        - Returns {locale: string, granularity: string}
+        - Locale is resolved BCP 47 locale
+        - Granularity is actual granularity used
+      test_count: 5
+
+  non_functional:
+    - Segmenter construction <3ms (locale loading + UAX #29 engine init)
+    - segment() method <100us (creates Segments object, lazy segmentation)
+    - Segmentation of 1KB text <5ms (grapheme: ~2ms, word: ~5ms, sentence: ~3ms)
+    - containing() lookup <500us (linear scan acceptable for MVP)
+    - Memory overhead <2KB per Segmenter instance
+    - Iterator.next() <200us per segment
+
+  testing:
+    minimum_tests: 110
+    coverage_target: 85%
+    test_categories:
+      - Constructor validation (locales, options)
+      - Grapheme segmentation (emoji, combining marks, scripts)
+      - Word segmentation (multiple locales, isWordLike)
+      - Sentence segmentation (abbreviations, punctuation)
+      - Segment object properties
+      - containing() method correctness
+      - Iterator protocol compliance
+      - Locale sensitivity (Thai, Japanese, Chinese, English)
+      - Error conditions (invalid locale, invalid granularity)
+      - Edge cases (empty string, single character)
+
+    test262_compliance:
+      expected_tests: ~60
+      test_paths:
+        - test/intl402/Segmenter/*
+        - test/intl402/Segmenter/constructor/*
+        - test/intl402/Segmenter/prototype/segment/*
+
+# Performance Targets
+performance:
+  segmenter_construction: "<3ms (locale resolution + UAX #29 engine initialization)"
+  segment_method: "<100us (creates Segments object, lazy segmentation)"
+  grapheme_segmentation_1kb: "<2ms (UAX #29 grapheme cluster algorithm)"
+  word_segmentation_1kb: "<5ms (UAX #29 word boundary algorithm + locale tailoring)"
+  sentence_segmentation_1kb: "<3ms (UAX #29 sentence boundary algorithm)"
+  containing_lookup: "<500us (linear scan from segment start)"
+  iterator_next: "<200us per segment"
+  memory_overhead: "<2KB per Segmenter instance (locale data + UAX #29 tables)"
+
+# Unicode UAX #29 Compliance
+unicode_standard:
+  uax29_version: "Unicode 15.0 UAX #29 (or later)"
+  algorithms:
+    - Grapheme Cluster Boundaries (GB1-GB999)
+    - Word Boundaries (WB1-WB999)
+    - Sentence Boundaries (SB1-SB999)
+
+  grapheme_properties:
+    - CR, LF, Control, Extend, ZWJ, Regional_Indicator, Prepend, SpacingMark, L, V, T, LV, LVT
+
+  word_properties:
+    - ALetter, Hebrew_Letter, Numeric, Katakana, MidLetter, MidNum, MidNumLet, ExtendNumLet, Format, Extend, ZWJ
+
+  sentence_properties:
+    - ATerm, STerm, Close, Sp, Sep, Format, Extend, CR, LF
+
+  locale_tailoring:
+    description: Locale-specific rules override default UAX #29
+    examples:
+      - locale: th-TH
+        tailoring: Thai dictionary-based word breaking
+      - locale: ja-JP
+        tailoring: Japanese dictionary-based word breaking (Mecab/Kuromoji)
+      - locale: zh-CN
+        tailoring: Chinese word segmentation (Jieba/ICU)
+
+# Integration Points
+integration:
+  with_intl_core:
+    - Uses LocaleManager for locale resolution
+    - Uses CanonicalizeLocaleList for locale validation
+    - Shares locale data caching
+
+  with_unicode_data:
+    - Uses UAX29Engine for boundary detection
+    - Loads GraphemeBreakProperty, WordBreakProperty, SentenceBreakProperty tables
+    - Integrates with Unicode database
+
+  with_object_runtime:
+    - Creates Segmenter, Segments, SegmentIterator as JSObjects
+    - Implements iterator protocol (Symbol.iterator)
+    - Returns SegmentData as plain objects
+
+  with_error_handling:
+    - Throws RangeError for invalid locale/granularity
+    - Throws TypeError for invalid options
+
+# Examples
+examples:
+  basic_grapheme_segmentation:
+    description: Segment by grapheme clusters
+    code: |
+      const segmenter = new Intl.Segmenter('en', {granularity: 'grapheme'});
+      const segments = segmenter.segment('café');
+      for (const {segment} of segments) {
+        console.log(segment);
+      }
+      // Output: c, a, f, é
+
+  word_segmentation_with_isWordLike:
+    description: Segment by words with isWordLike property
+    code: |
+      const segmenter = new Intl.Segmenter('en', {granularity: 'word'});
+      const segments = segmenter.segment('Hello, world!');
+      for (const {segment, isWordLike} of segments) {
+        console.log(`"${segment}" (word-like: ${isWordLike})`);
+      }
+      // Output:
+      // "Hello" (word-like: true)
+      // "," (word-like: false)
+      // " " (word-like: false)
+      // "world" (word-like: true)
+      // "!" (word-like: false)
+
+  sentence_segmentation:
+    description: Segment by sentences
+    code: |
+      const segmenter = new Intl.Segmenter('en', {granularity: 'sentence'});
+      const segments = segmenter.segment('Hello world. How are you?');
+      for (const {segment} of segments) {
+        console.log(segment);
+      }
+      // Output:
+      // "Hello world. "
+      // "How are you?"
+
+  containing_method:
+    description: Find segment containing index
+    code: |
+      const segmenter = new Intl.Segmenter('en', {granularity: 'word'});
+      const segments = segmenter.segment('Hello world');
+      console.log(segments.containing(0));
+      // {segment: "Hello", index: 0, input: "Hello world", isWordLike: true}
+      console.log(segments.containing(6));
+      // {segment: " ", index: 5, input: "Hello world", isWordLike: false}
+
+  emoji_grapheme_cluster:
+    description: Emoji ZWJ sequences are single grapheme clusters
+    code: |
+      const segmenter = new Intl.Segmenter('en', {granularity: 'grapheme'});
+      const family = '👨‍👩‍👧‍👦';  // Family emoji (man-woman-girl-boy)
+      const segments = [...segmenter.segment(family)];
+      console.log(segments.length);  // 1 (entire emoji is one grapheme cluster)
+      console.log(segments[0].segment);  // '👨‍👩‍👧‍👦'
+
+  thai_word_segmentation:
+    description: Locale-sensitive Thai word breaking
+    code: |
+      const segmenter = new Intl.Segmenter('th-TH', {granularity: 'word'});
+      const segments = segmenter.segment('สวัสดีครับ');  // "Hello" in Thai
+      for (const {segment, isWordLike} of segments) {
+        console.log(`"${segment}" (word-like: ${isWordLike})`);
+      }
+      // Thai word breaking (no spaces in Thai)
+      // "สวัสดี" (word-like: true) - "hello"
+      // "ครับ" (word-like: true) - polite particle
+
+  resolved_options:
+    description: Get resolved locale and granularity
+    code: |
+      const segmenter = new Intl.Segmenter('en-US', {granularity: 'word'});
+      console.log(segmenter.resolvedOptions());
+      // {locale: "en-US", granularity: "word"}
+
+# Implementation Notes
+implementation_notes:
+  architecture:
+    - Segmenter class wraps locale + granularity + UAX #29 engine
+    - Segments class wraps input string + iterator state
+    - SegmentIterator maintains current position and computes boundaries lazily
+    - containing() can reuse cached boundaries or recompute
+
+  uax29_engine:
+    - Load Unicode property tables (Grapheme_Cluster_Break, Word_Break, Sentence_Break)
+    - Implement boundary detection state machines
+    - Cache boundary positions for performance
+
+  locale_tailoring:
+    - Default: Use UAX #29 rules
+    - Thai/Lao: Dictionary-based word breaking (ICU BreakIterator or custom)
+    - Japanese: Mecab/Kuromoji dictionary-based
+    - Chinese: Jieba or ICU dictionary-based
+    - Store locale-specific rules in locale data
+
+  lazy_segmentation:
+    - segment() creates Segments object immediately (no segmentation yet)
+    - Iterator.next() computes next boundary on demand
+    - containing() can cache all boundaries or scan from position
+
+  isWordLike_detection:
+    - For word granularity, check if segment contains ALetter or Numeric
+    - If segment is only Format/Extend/ZWJ/Punctuation, isWordLike = false
+    - If segment contains any ALetter/Numeric, isWordLike = true
+
+# Compatibility
+compatibility:
+  browsers:
+    chrome: "≥87 (shipped in Chrome 87, Dec 2020)"
+    firefox: "≥125 (shipped in Firefox 125, Apr 2024)"
+    safari: "≥14.1 (shipped in Safari 14.1, Apr 2021)"
+
+  nodejs:
+    version: "≥16.0.0 (with ICU)"
+
+  spec:
+    ecma402: "ECMA-402 Intl.Segmenter (ES2024)"
+    stage: "Stage 4 (finished proposal)"
