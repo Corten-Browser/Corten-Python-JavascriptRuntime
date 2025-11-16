@@ -1,0 +1,571 @@
+name: unicode_edge_cases
+version: 0.1.0
+type: core
+description: ES2024 Wave D - Complete Unicode normalization edge case handling (NFC, NFD, NFKC, NFKD) with emoji variants and performance optimization
+
+api:
+  classes:
+    - name: UnicodeNormalizer
+      description: Static methods for Unicode normalization with comprehensive edge case handling
+
+      methods:
+        - name: normalize_nfc
+          params:
+            - name: text
+              type: String
+              description: Input string to normalize
+          returns:
+            type: String
+            description: NFC-normalized string (canonical composition)
+          throws: "TypeError: text must be a string"
+          description: |
+            Normalize to Unicode NFC (Canonical Decomposition followed by Canonical Composition).
+            Handles edge cases:
+            - Combining character sequences (base + combining marks)
+            - Multiple combining marks (correct ordering per UAX #15)
+            - Hangul syllable composition (Jamo to syllables)
+            - Singleton decompositions (characters with no composition)
+            - Emoji with combining marks (skin tone modifiers, ZWJ sequences)
+            - Normalization-sensitive grapheme clusters
+            - Boundary conditions (empty string, single character)
+            - Invalid combining sequences (orphaned marks)
+          performance: "<1ms for strings <1KB, <10ms for strings <10KB"
+
+        - name: normalize_nfd
+          params:
+            - name: text
+              type: String
+              description: Input string to normalize
+          returns:
+            type: String
+            description: NFD-normalized string (canonical decomposition)
+          throws: "TypeError: text must be a string"
+          description: |
+            Normalize to Unicode NFD (Canonical Decomposition).
+            Handles edge cases:
+            - Full decomposition of composed characters
+            - Hangul syllable decomposition (syllables to Jamo)
+            - Recursively decomposable characters
+            - Stability under multiple applications (NFD(NFD(s)) = NFD(s))
+            - Emoji decomposition (skin tone to base + modifier)
+            - Combining mark reordering (canonical ordering per UAX #15)
+            - Already-decomposed strings (no-op)
+            - Characters with no decomposition mapping
+          performance: "<1ms for strings <1KB, <10ms for strings <10KB"
+
+        - name: normalize_nfkc
+          params:
+            - name: text
+              type: String
+              description: Input string to normalize
+          returns:
+            type: String
+            description: NFKC-normalized string (compatibility composition)
+          throws: "TypeError: text must be a string"
+          description: |
+            Normalize to Unicode NFKC (Compatibility Decomposition followed by Canonical Composition).
+            Handles edge cases:
+            - Compatibility decompositions (full-width to half-width)
+            - Ligature decomposition (ﬁ -> fi, ﬂ -> fl)
+            - Superscript/subscript normalization (² -> 2, ₃ -> 3)
+            - Circled/squared character normalization (① -> 1)
+            - Font variants (mathematical bold, italic) to ASCII
+            - Fraction normalization (½ -> 1⁄2)
+            - Roman numerals preservation (Ⅷ -> VIII)
+            - Emoji presentation variants (text vs emoji style)
+            - NFKC_Casefold for case-insensitive matching
+          performance: "<1ms for strings <1KB, <10ms for strings <10KB"
+
+        - name: normalize_nfkd
+          params:
+            - name: text
+              type: String
+              description: Input string to normalize
+          returns:
+            type: String
+            description: NFKD-normalized string (compatibility decomposition)
+          throws: "TypeError: text must be a string"
+          description: |
+            Normalize to Unicode NFKD (Compatibility Decomposition).
+            Handles edge cases:
+            - Full compatibility decomposition
+            - Combining mark ordering
+            - Stability under multiple applications
+            - Lossy transformations (formatting information discarded)
+            - Irreversible decompositions
+            - Script-specific compatibility characters
+            - Arabic presentation forms
+            - CJK compatibility ideographs
+          performance: "<1ms for strings <1KB, <10ms for strings <10KB"
+
+        - name: is_normalized
+          params:
+            - name: text
+              type: String
+              description: Input string to test
+            - name: form
+              type: String
+              description: Normalization form ("NFC", "NFD", "NFKC", "NFKD")
+          returns:
+            type: Boolean
+            description: True if string is already normalized in specified form
+          throws: |
+            - "TypeError: text must be a string"
+            - "RangeError: Invalid normalization form (must be NFC, NFD, NFKC, or NFKD)"
+          description: |
+            Test if string is already in normalized form WITHOUT performing normalization.
+            Uses Unicode Quick Check algorithm (UAX #15 Section 8) for O(n) performance:
+            - Quick Check YES: Definitely normalized (fast path)
+            - Quick Check NO: Definitely not normalized (fast path)
+            - Quick Check MAYBE: Requires full normalization comparison (slow path)
+
+            Handles edge cases:
+            - Empty string (always normalized)
+            - ASCII-only strings (always NFC/NFD)
+            - Strings with only Quick Check YES characters (fast path)
+            - Boundary cases (starter characters, combining sequences)
+            - Stream-safe text (no cross-boundary dependencies)
+          performance: "<500µs for strings <1KB (Quick Check fast path), <5ms worst case"
+
+    - name: CombiningCharacterHandler
+      description: Internal handler for Unicode combining character sequences
+      methods:
+        - name: reorder_combining_marks
+          params:
+            - name: text
+              type: String
+              description: String with combining marks
+          returns:
+            type: String
+            description: String with combining marks in canonical order
+          description: |
+            Reorder combining marks according to Combining Class (UAX #15 Section 4):
+            - Sort by Canonical_Combining_Class value (0-254)
+            - Preserve relative order for marks with same class (stable sort)
+            - Handle blocked combining marks (cannot reorder past starter)
+            - Validate combining mark sequences
+
+        - name: is_starter
+          params:
+            - name: codepoint
+              type: Number
+              description: Unicode codepoint
+          returns:
+            type: Boolean
+            description: True if character is a starter (CCC=0)
+          description: Test if character is a starter (blocks combining mark reordering)
+
+        - name: get_combining_class
+          params:
+            - name: codepoint
+              type: Number
+              description: Unicode codepoint
+          returns:
+            type: Number
+            description: Canonical Combining Class (0-254)
+          description: Get Canonical_Combining_Class property value
+
+    - name: HangulNormalizer
+      description: Specialized handler for Korean Hangul syllable normalization
+      methods:
+        - name: compose_jamo
+          params:
+            - name: text
+              type: String
+              description: String containing Hangul Jamo (U+1100-U+11FF)
+          returns:
+            type: String
+            description: String with Jamo composed to syllables (U+AC00-U+D7A3)
+          description: |
+            Compose Hangul Jamo to syllables using algorithmic composition:
+            - LV composition: L (leading) + V (vowel) -> LV syllable
+            - LVT composition: LV + T (trailing) -> LVT syllable
+            - Handle partial sequences (isolated Jamo preserved)
+            - Use formula: SIndex = (LIndex × VCount + VIndex) × TCount + TIndex
+
+        - name: decompose_syllables
+          params:
+            - name: text
+              type: String
+              description: String containing Hangul syllables (U+AC00-U+D7A3)
+          returns:
+            type: String
+            description: String with syllables decomposed to Jamo
+          description: |
+            Decompose Hangul syllables to Jamo using algorithmic decomposition:
+            - Extract L, V, T components from syllable codepoint
+            - Use formula: LIndex = SIndex / NCount, VIndex = (SIndex % NCount) / TCount
+            - Omit trailing T if TIndex = 0
+
+        - name: is_hangul_syllable
+          params:
+            - name: codepoint
+              type: Number
+              description: Unicode codepoint
+          returns:
+            type: Boolean
+            description: True if codepoint is Hangul syllable (U+AC00-U+D7A3)
+          description: Test if character is a precomposed Hangul syllable
+
+    - name: EmojiNormalizer
+      description: Specialized handler for emoji normalization variants
+      methods:
+        - name: normalize_emoji_presentation
+          params:
+            - name: text
+              type: String
+              description: String containing emoji with variation selectors
+          returns:
+            type: String
+            description: String with normalized emoji presentation
+          description: |
+            Normalize emoji presentation sequences:
+            - Remove redundant variation selectors (VS15 text, VS16 emoji)
+            - Normalize emoji ZWJ sequences (family, skin tone, gender)
+            - Handle emoji flag sequences (regional indicators)
+            - Preserve tag sequences (subdivision flags)
+            - Normalize emoji keycap sequences (#️⃣, *️⃣)
+
+        - name: decompose_skin_tone
+          params:
+            - name: emoji
+              type: String
+              description: Emoji with skin tone modifier
+          returns:
+            type: Object
+            description: "{base: String, modifier: String | null}"
+          description: |
+            Decompose emoji with skin tone modifier:
+            - Extract base emoji (e.g., 👋)
+            - Extract skin tone modifier (U+1F3FB-U+1F3FF) if present
+            - Return {base, modifier} object
+
+        - name: is_emoji_modifier
+          params:
+            - name: codepoint
+              type: Number
+              description: Unicode codepoint
+          returns:
+            type: Boolean
+            description: True if codepoint is emoji modifier (skin tone)
+          description: Test if character is emoji modifier (U+1F3FB-U+1F3FF)
+
+    - name: QuickCheckOptimizer
+      description: Performance optimizer using Unicode Quick Check algorithm
+      methods:
+        - name: quick_check_nfc
+          params:
+            - name: text
+              type: String
+              description: String to check
+          returns:
+            type: String
+            description: 'YES, NO, or MAYBE'
+          description: |
+            Quick Check for NFC normalization (UAX #15 Section 8):
+            - YES: Definitely normalized (no normalization needed)
+            - NO: Definitely not normalized (requires normalization)
+            - MAYBE: Requires full comparison (edge cases)
+
+        - name: quick_check_nfd
+          params:
+            - name: text
+              type: String
+              description: String to check
+          returns:
+            type: String
+            description: 'YES or NO'
+          description: Quick Check for NFD normalization (no MAYBE results for NFD)
+
+        - name: is_quick_check_yes
+          params:
+            - name: codepoint
+              type: Number
+              description: Unicode codepoint
+            - name: form
+              type: String
+              description: Normalization form
+          returns:
+            type: Boolean
+            description: True if character is Quick Check YES
+          description: Test if single character is Quick Check YES for given form
+
+dependencies:
+  - name: shared_types
+    version: "^0.2.0"
+    imports:
+      - JSValue
+      - JSString
+      - JSBoolean
+  - name: value_system
+    version: "^0.2.0"
+    imports:
+      - ValueType
+      - create_string
+      - create_boolean
+  - name: object_runtime
+    version: "^0.3.0"
+    imports:
+      - create_object
+
+external_dependencies:
+  - name: Unicode Character Database (UCD)
+    version: ">=15.1"
+    description: Unicode normalization data tables
+    source: https://www.unicode.org/Public/UCD/latest/
+    required_data:
+      - UnicodeData.txt (canonical decomposition mappings)
+      - CompositionExclusions.txt (composition exclusions)
+      - DerivedNormalizationProps.txt (Quick Check properties)
+      - HangulSyllableType.txt (Hangul composition data)
+      - emoji-variation-sequences.txt (emoji presentation)
+
+  - name: Unicode Standard Annex #15
+    version: ">=15.1"
+    description: Unicode Normalization Forms specification
+    source: https://www.unicode.org/reports/tr15/
+
+requirements:
+  functional:
+    - FR-ES24-D-001: Advanced NFC normalization edge cases (combining marks, Hangul, singleton decompositions, emoji)
+    - FR-ES24-D-002: Advanced NFD normalization edge cases (recursive decomposition, canonical ordering, stability)
+    - FR-ES24-D-003: NFKC/NFKD edge cases (compatibility decompositions, ligatures, full-width, font variants)
+    - FR-ES24-D-004: Emoji normalization variants (ZWJ sequences, skin tones, flags, presentation selectors)
+    - FR-ES24-D-005: Normalization performance optimization (Quick Check algorithm, fast paths, caching)
+
+  non_functional:
+    - Normalization: <1ms for strings <1KB
+    - Normalization: <10ms for strings <10KB
+    - is_normalized: <500µs for strings <1KB (Quick Check fast path)
+    - is_normalized: <5ms worst case (full comparison)
+    - Memory: <2KB per normalization operation (temporary buffers)
+    - Quick Check lookup: O(1) (hash table)
+    - Combining mark reordering: O(n log n) worst case (stable sort)
+    - Hangul composition: O(n) (linear scan)
+    - Thread-safe UCD data access
+
+  testing:
+    - Minimum 50 unit tests
+    - Test coverage ≥85%
+    - Unicode Normalization Test (NormalizationTest.txt) compliance
+    - Edge case tests:
+      - Empty string normalization (identity)
+      - Single character (starters vs combining marks)
+      - ASCII-only strings (fast path)
+      - Combining mark sequences (canonical ordering)
+      - Multiple combining marks with same CCC (stable sort)
+      - Blocked combining marks (starter interrupts sequence)
+      - Hangul Jamo composition (all combinations)
+      - Hangul syllable decomposition (LV and LVT)
+      - Partial Hangul sequences (isolated Jamo)
+      - Singleton decompositions (no composition partner)
+      - Compatibility decompositions (full-width, ligatures)
+      - Emoji with skin tone modifiers (5 levels)
+      - Emoji ZWJ sequences (family, gender, profession)
+      - Emoji flag sequences (regional indicators)
+      - Variation selectors (text vs emoji presentation)
+      - Quick Check YES characters (fast path)
+      - Quick Check NO characters (requires normalization)
+      - Quick Check MAYBE characters (edge cases)
+      - Stability (NFC(NFC(s)) = NFC(s))
+      - Round trip (limited for NFKC/NFKD - lossy)
+      - Boundary conditions (0-length, 1-length, max-length)
+      - Invalid input (lone combining marks, broken sequences)
+      - Performance regression tests (<1ms, <500µs targets)
+
+performance:
+  normalization_small: "<1ms for strings <1KB"
+  normalization_medium: "<10ms for strings <10KB"
+  is_normalized_fast_path: "<500µs for strings <1KB (Quick Check YES/NO)"
+  is_normalized_worst_case: "<5ms (Quick Check MAYBE, full comparison)"
+  quick_check_lookup: "O(1) per character (hash table)"
+  combining_mark_reorder: "O(n log n) worst case (stable sort)"
+  hangul_composition: "O(n) linear scan"
+  memory_per_operation: "<2KB temporary buffers"
+  ucd_data_size: "<500KB (compressed normalization tables)"
+
+error_types:
+  - name: TypeError
+    cases:
+      - text parameter is not a string (all methods)
+      - text parameter is undefined or null
+
+  - name: RangeError
+    cases:
+      - Invalid normalization form in is_normalized (not NFC/NFD/NFKC/NFKD)
+      - Form parameter is case-sensitive (must be uppercase)
+
+validation_rules:
+  normalization_forms:
+    - NFC (Canonical Decomposition + Canonical Composition)
+    - NFD (Canonical Decomposition)
+    - NFKC (Compatibility Decomposition + Canonical Composition)
+    - NFKD (Compatibility Decomposition)
+
+  combining_class_values:
+    - 0: Starter (base character, blocks reordering)
+    - 1-254: Combining marks (sorted by CCC value)
+    - CCC ordering is stable (preserves relative order for same CCC)
+
+  hangul_constants:
+    - SBase: 0xAC00 (first syllable)
+    - LBase: 0x1100 (first leading Jamo)
+    - VBase: 0x1161 (first vowel Jamo)
+    - TBase: 0x11A7 (first trailing Jamo)
+    - LCount: 19 (number of leading Jamo)
+    - VCount: 21 (number of vowel Jamo)
+    - TCount: 28 (number of trailing Jamo)
+    - NCount: 588 (VCount × TCount)
+    - SCount: 11172 (LCount × NCount)
+
+  emoji_modifiers:
+    - U+1F3FB: Light skin tone
+    - U+1F3FC: Medium-light skin tone
+    - U+1F3FD: Medium skin tone
+    - U+1F3FE: Medium-dark skin tone
+    - U+1F3FF: Dark skin tone
+
+  variation_selectors:
+    - U+FE0E: Variation Selector-15 (text presentation)
+    - U+FE0F: Variation Selector-16 (emoji presentation)
+
+  quick_check_properties:
+    - NFC_QC: YES, NO, MAYBE
+    - NFD_QC: YES, NO (no MAYBE for NFD)
+    - NFKC_QC: YES, NO, MAYBE
+    - NFKD_QC: YES, NO (no MAYBE for NFKD)
+
+examples:
+  nfc_combining_marks:
+    code: |
+      // Combining mark sequence
+      const text = "e\u0301";  // e + combining acute accent
+      const normalized = UnicodeNormalizer.normalize_nfc(text);
+      console.log(normalized);  // "é" (U+00E9, precomposed)
+      console.log(normalized.length);  // 1 (composed to single character)
+
+  nfd_decomposition:
+    code: |
+      // Canonical decomposition
+      const text = "é";  // U+00E9 (precomposed)
+      const normalized = UnicodeNormalizer.normalize_nfd(text);
+      console.log(normalized);  // "e\u0301" (e + combining acute)
+      console.log(normalized.length);  // 2 (decomposed)
+
+  hangul_composition:
+    code: |
+      // Hangul Jamo to syllable
+      const jamo = "\u1100\u1161";  // ㄱ + ㅏ
+      const normalized = UnicodeNormalizer.normalize_nfc(jamo);
+      console.log(normalized);  // "가" (U+AC00, composed syllable)
+
+  hangul_decomposition:
+    code: |
+      // Hangul syllable to Jamo
+      const syllable = "가";  // U+AC00
+      const normalized = UnicodeNormalizer.normalize_nfd(syllable);
+      console.log(normalized);  // "\u1100\u1161" (ㄱ + ㅏ)
+
+  nfkc_compatibility:
+    code: |
+      // Compatibility decomposition + composition
+      const text = "ﬁ";  // U+FB01 (fi ligature)
+      const normalized = UnicodeNormalizer.normalize_nfkc(text);
+      console.log(normalized);  // "fi" (2 separate characters)
+
+  nfkc_fullwidth:
+    code: |
+      // Full-width to half-width
+      const text = "Ａ";  // U+FF21 (full-width A)
+      const normalized = UnicodeNormalizer.normalize_nfkc(text);
+      console.log(normalized);  // "A" (U+0041, ASCII A)
+
+  emoji_skin_tone:
+    code: |
+      // Emoji with skin tone
+      const emoji = "👋🏽";  // waving hand + medium skin tone
+      const nfd = UnicodeNormalizer.normalize_nfd(emoji);
+      // Decomposes to base + modifier (implementation-dependent)
+      console.log(nfd.length);  // 2 (base + modifier codepoints)
+
+  is_normalized_fast_path:
+    code: |
+      // Quick Check fast path (ASCII)
+      const ascii = "Hello World";
+      const isNormalized = UnicodeNormalizer.is_normalized(ascii, "NFC");
+      console.log(isNormalized);  // true (ASCII is always normalized, <500µs)
+
+  is_normalized_slow_path:
+    code: |
+      // Quick Check MAYBE (requires full comparison)
+      const text = "e\u0301\u0300";  // e + acute + grave
+      const isNormalized = UnicodeNormalizer.is_normalized(text, "NFC");
+      // Must perform full normalization comparison (slower)
+      console.log(isNormalized);  // false (combining marks need reordering)
+
+  combining_mark_reordering:
+    code: |
+      // Canonical ordering of combining marks
+      const text = "e\u0300\u0301";  // e + grave (CCC=230) + acute (CCC=230)
+      const normalized = UnicodeNormalizer.normalize_nfc(text);
+      // Marks with same CCC preserve order (stable), then compose if possible
+      console.log(normalized);  // Result depends on composition rules
+
+  stability:
+    code: |
+      // Normalization is stable (idempotent)
+      const text = "café";
+      const nfc1 = UnicodeNormalizer.normalize_nfc(text);
+      const nfc2 = UnicodeNormalizer.normalize_nfc(nfc1);
+      console.log(nfc1 === nfc2);  // true (NFC(NFC(s)) = NFC(s))
+
+  emoji_presentation:
+    code: |
+      // Emoji variation selectors
+      const textStyle = "☺\uFE0E";  // text presentation
+      const emojiStyle = "☺\uFE0F";  // emoji presentation
+      const normalized = UnicodeNormalizer.normalize_nfc(emojiStyle);
+      // Presentation selector is preserved
+      console.log(normalized);  // "☺️" (with emoji presentation)
+
+  empty_string:
+    code: |
+      // Empty string edge case
+      const empty = "";
+      const normalized = UnicodeNormalizer.normalize_nfc(empty);
+      console.log(normalized);  // "" (identity)
+      console.log(UnicodeNormalizer.is_normalized(empty, "NFC"));  // true
+
+  error_handling:
+    code: |
+      // Type errors
+      try {
+        UnicodeNormalizer.normalize_nfc(123);  // Not a string
+      } catch (e) {
+        console.log(e.name);  // "TypeError"
+        console.log(e.message);  // "text must be a string"
+      }
+
+      // Invalid normalization form
+      try {
+        UnicodeNormalizer.is_normalized("test", "nfc");  // Lowercase (invalid)
+      } catch (e) {
+        console.log(e.name);  // "RangeError"
+        console.log(e.message);  // "Invalid normalization form"
+      }
+
+test_data_sources:
+  - name: NormalizationTest.txt
+    description: Official Unicode normalization test suite
+    source: https://www.unicode.org/Public/UCD/latest/ucd/NormalizationTest.txt
+    coverage: "50,000+ test cases covering all normalization forms"
+
+  - name: emoji-test.txt
+    description: Official Unicode emoji test data
+    source: https://www.unicode.org/Public/emoji/latest/emoji-test.txt
+    coverage: "Emoji sequences, modifiers, ZWJ sequences"
+
+  - name: DerivedNormalizationProps.txt
+    description: Quick Check property test data
+    source: https://www.unicode.org/Public/UCD/latest/ucd/DerivedNormalizationProps.txt
+    coverage: "Quick Check YES/NO/MAYBE for all characters"

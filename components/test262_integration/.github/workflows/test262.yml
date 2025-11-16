@@ -1,0 +1,99 @@
+name: Test262 Conformance
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  test262:
+    name: Run Test262 Conformance Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Clone Test262 repository
+        run: |
+          git clone --depth 1 https://github.com/tc39/test262.git /tmp/test262
+
+      - name: Run Test262 tests
+        id: test262
+        run: |
+          python components/test262_integration/scripts/run_test262.py \
+            --test262-dir /tmp/test262 \
+            --output reports/test262-results.json \
+            --report reports/test262-report.html \
+            --baseline reports/baseline.json \
+            --detect-regressions
+        continue-on-error: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test262-results
+          path: |
+            reports/test262-results.json
+            reports/test262-report.html
+            reports/regression-report.txt
+
+      - name: Upload reports as GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: reports/
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('reports/test262-results.json', 'utf8'));
+            const summary = `## Test262 Results\n\n` +
+              `- Total: ${results.total}\n` +
+              `- Passed: ${results.passed} ✅\n` +
+              `- Failed: ${results.failed} ❌\n` +
+              `- Pass Rate: ${results.pass_rate.toFixed(1)}%\n\n` +
+              `[View full report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Update baseline (if approved)
+        if: contains(github.event.head_commit.message, '[update-baseline]')
+        run: |
+          cp reports/test262-results.json reports/baseline.json
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add reports/baseline.json
+          git commit -m "chore: update Test262 baseline [skip ci]" || true
+          git push || true
+
+      - name: Check for regressions
+        run: |
+          if [ -f reports/regression-report.txt ]; then
+            cat reports/regression-report.txt
+            exit 1
+          fi

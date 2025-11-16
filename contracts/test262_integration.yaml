@@ -1,0 +1,1071 @@
+openapi: 3.0.0
+info:
+  title: Test262 Integration API
+  version: 0.1.0
+  description: |
+    Test262 conformance suite integration component for Corten JavaScript Runtime.
+
+    This component provides automated Test262 testing capabilities including:
+    - Test262 harness integration and test execution
+    - Automated test runner with filtering and parallel execution
+    - HTML/JSON report generation with visualization
+    - Baseline comparison for regression detection
+    - CI/CD integration support
+
+    Requirements implemented:
+    - FR-ES24-D-022: Test262 harness integration
+    - FR-ES24-D-023: Automated Test262 runner
+    - FR-ES24-D-024: Test262 reporting dashboard
+    - FR-ES24-D-025: CI/CD integration preparation
+
+  contact:
+    name: Corten JavaScript Runtime
+    url: https://github.com/corten-javascript-runtime
+
+paths:
+  /test262/run:
+    post:
+      summary: Run Test262 tests
+      description: |
+        Execute Test262 conformance tests with optional filtering.
+        Supports parallel execution and configurable timeouts.
+      operationId: runTests
+      tags:
+        - Test Execution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunTestsRequest'
+            examples:
+              runAll:
+                summary: Run all tests
+                value:
+                  test262_dir: "/path/to/test262"
+                  parallel: true
+              runFiltered:
+                summary: Run filtered tests
+                value:
+                  test262_dir: "/path/to/test262"
+                  filter: "built-ins/Array/**"
+                  timeout: 10000
+              runFeature:
+                summary: Run specific features
+                value:
+                  test262_dir: "/path/to/test262"
+                  features: ["BigInt", "async-iteration"]
+      responses:
+        '200':
+          description: Tests executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResults'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidDir:
+                  value:
+                    error: "INVALID_PARAMETER"
+                    message: "test262_dir must be a valid path"
+                    timestamp: "2025-11-15T10:30:00Z"
+        '404':
+          description: Test262 directory not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                notFound:
+                  value:
+                    error: "TEST262_DIR_NOT_FOUND"
+                    message: "Test262 directory not found: /path/to/test262"
+                    timestamp: "2025-11-15T10:30:00Z"
+        '500':
+          description: Internal error during test execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test262/report:
+    post:
+      summary: Generate test report
+      description: |
+        Generate formatted report from test results.
+        Supports multiple output formats (HTML, JSON, Markdown, JUnit XML).
+      operationId: generateReport
+      tags:
+        - Reporting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateReportRequest'
+            examples:
+              htmlReport:
+                summary: Generate HTML report
+                value:
+                  results:
+                    timestamp: "2025-11-15T10:30:00Z"
+                    total: 1000
+                    passed: 950
+                    failed: 50
+                    skipped: 0
+                  format: "html"
+                  group_by: "feature"
+              jsonReport:
+                summary: Generate JSON report
+                value:
+                  format: "json"
+                  include_passed: true
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+            text/html:
+              schema:
+                type: string
+                description: HTML report content
+            text/markdown:
+              schema:
+                type: string
+                description: Markdown report content
+            application/xml:
+              schema:
+                type: string
+                description: JUnit XML report
+        '400':
+          description: Invalid test results or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error during report generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test262/compare:
+    post:
+      summary: Compare test results
+      description: |
+        Compare baseline and current test results to identify regressions
+        and improvements. Returns detailed diff with categorized changes.
+      operationId: compareResults
+      tags:
+        - Comparison
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompareResultsRequest'
+      responses:
+        '200':
+          description: Comparison completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comparison'
+        '400':
+          description: Invalid test results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal error during comparison
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test262/baseline:
+    get:
+      summary: Get baseline results
+      description: Retrieve stored baseline test results for comparison
+      operationId: getBaseline
+      tags:
+        - Baseline Management
+      parameters:
+        - name: version
+          in: query
+          description: Specific baseline version to retrieve
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: Baseline results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestResults'
+        '404':
+          description: No baseline results found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Save baseline results
+      description: Store test results as new baseline for future comparisons
+      operationId: saveBaseline
+      tags:
+        - Baseline Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveBaselineRequest'
+      responses:
+        '200':
+          description: Baseline saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaselineResponse'
+        '400':
+          description: Invalid test results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test262/config:
+    get:
+      summary: Get runner configuration
+      description: Retrieve current Test262 runner configuration
+      operationId: getConfig
+      tags:
+        - Configuration
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunnerConfig'
+
+    put:
+      summary: Update runner configuration
+      description: Update Test262 runner configuration settings
+      operationId: updateConfig
+      tags:
+        - Configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunnerConfig'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunnerConfig'
+        '400':
+          description: Invalid configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test262/features:
+    get:
+      summary: List available features
+      description: Get list of all Test262 features available for filtering
+      operationId: listFeatures
+      tags:
+        - Discovery
+      responses:
+        '200':
+          description: Feature list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeatureList'
+
+  /test262/status:
+    get:
+      summary: Get runner status
+      description: Get current status of test execution (for monitoring)
+      operationId: getStatus
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunnerStatus'
+
+components:
+  schemas:
+    RunTestsRequest:
+      type: object
+      required:
+        - test262_dir
+      properties:
+        test262_dir:
+          type: string
+          description: Absolute path to Test262 directory
+          example: "/path/to/test262"
+          pattern: '^/'
+        filter:
+          type: string
+          description: |
+            Glob pattern for test selection.
+            Examples: "built-ins/Array/**", "language/statements/*/S*.js"
+          nullable: true
+          example: "built-ins/Array/**"
+        timeout:
+          type: integer
+          description: Timeout per test in milliseconds
+          default: 5000
+          minimum: 100
+          maximum: 60000
+        parallel:
+          type: boolean
+          description: Enable parallel test execution
+          default: true
+        parallel_workers:
+          type: integer
+          description: Number of parallel workers (0 = auto-detect)
+          default: 0
+          minimum: 0
+          maximum: 64
+        features:
+          type: array
+          description: Specific features to test (empty = all features)
+          items:
+            type: string
+          example: ["BigInt", "async-iteration", "Symbol"]
+        exclude_features:
+          type: array
+          description: Features to exclude from testing
+          items:
+            type: string
+        strict_mode:
+          type: boolean
+          description: Run tests in strict mode
+          default: true
+        module_mode:
+          type: boolean
+          description: Run tests supporting module mode
+          default: true
+        stop_on_failure:
+          type: boolean
+          description: Stop execution on first failure
+          default: false
+
+    TestResults:
+      type: object
+      required:
+        - timestamp
+        - total
+        - passed
+        - failed
+        - skipped
+        - duration_ms
+        - tests
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: When tests were executed
+          example: "2025-11-15T10:30:00Z"
+        total:
+          type: integer
+          description: Total number of tests executed
+          minimum: 0
+          example: 1000
+        passed:
+          type: integer
+          description: Number of tests that passed
+          minimum: 0
+          example: 950
+        failed:
+          type: integer
+          description: Number of tests that failed
+          minimum: 0
+          example: 45
+        skipped:
+          type: integer
+          description: Number of tests skipped
+          minimum: 0
+          example: 5
+        timeout:
+          type: integer
+          description: Number of tests that timed out
+          minimum: 0
+          default: 0
+        error:
+          type: integer
+          description: Number of tests with execution errors
+          minimum: 0
+          default: 0
+        duration_ms:
+          type: integer
+          description: Total execution time in milliseconds
+          minimum: 0
+          example: 45000
+        pass_rate:
+          type: number
+          format: float
+          description: Percentage of tests passed (0-100)
+          minimum: 0
+          maximum: 100
+          example: 95.0
+        tests:
+          type: array
+          description: Individual test results (may be summary only)
+          items:
+            $ref: '#/components/schemas/TestResult'
+        features:
+          type: object
+          description: Results grouped by feature
+          additionalProperties:
+            $ref: '#/components/schemas/FeatureResults'
+          example:
+            "BigInt":
+              total: 100
+              passed: 95
+              failed: 5
+              skipped: 0
+              pass_rate: 95.0
+        metadata:
+          $ref: '#/components/schemas/TestMetadata'
+
+    TestResult:
+      type: object
+      required:
+        - path
+        - status
+        - duration_ms
+      properties:
+        path:
+          type: string
+          description: Test file path relative to Test262 root
+          example: "test/built-ins/Array/prototype/map/S15.4.4.19_A1_T1.js"
+        status:
+          type: string
+          enum: [passed, failed, skipped, timeout, error]
+          description: Test execution status
+        duration_ms:
+          type: integer
+          description: Execution time in milliseconds
+          minimum: 0
+        error:
+          type: string
+          description: Error message if test failed
+          nullable: true
+        error_type:
+          type: string
+          description: Error type (for categorization)
+          nullable: true
+          example: "TypeError"
+        expected_error:
+          type: string
+          description: Expected error type (for negative tests)
+          nullable: true
+          example: "SyntaxError"
+        features:
+          type: array
+          description: Features this test exercises
+          items:
+            type: string
+          example: ["Array.prototype.map", "Symbol.iterator"]
+        flags:
+          type: array
+          description: Test flags from Test262 metadata
+          items:
+            type: string
+            enum: [async, module, raw, noStrict, onlyStrict, generated, CanBlockIsFalse]
+          example: ["async", "module"]
+        description:
+          type: string
+          description: Test description from metadata
+          nullable: true
+        esid:
+          type: string
+          description: ECMAScript specification ID
+          nullable: true
+          example: "sec-array.prototype.map"
+
+    FeatureResults:
+      type: object
+      required:
+        - total
+        - passed
+        - failed
+        - skipped
+      properties:
+        total:
+          type: integer
+          description: Total tests for this feature
+          minimum: 0
+        passed:
+          type: integer
+          description: Passed tests for this feature
+          minimum: 0
+        failed:
+          type: integer
+          description: Failed tests for this feature
+          minimum: 0
+        skipped:
+          type: integer
+          description: Skipped tests for this feature
+          minimum: 0
+        timeout:
+          type: integer
+          description: Timed out tests for this feature
+          minimum: 0
+          default: 0
+        error:
+          type: integer
+          description: Tests with errors for this feature
+          minimum: 0
+          default: 0
+        pass_rate:
+          type: number
+          format: float
+          description: Pass rate percentage for this feature
+          minimum: 0
+          maximum: 100
+
+    TestMetadata:
+      type: object
+      description: Additional metadata about test execution
+      properties:
+        test262_version:
+          type: string
+          description: Test262 commit hash or version tag
+          example: "abc123def456"
+        test262_branch:
+          type: string
+          description: Test262 git branch
+          default: "main"
+        runtime_version:
+          type: string
+          description: Corten runtime version
+          example: "0.1.0"
+        platform:
+          type: string
+          description: Platform information (OS, arch)
+          example: "Linux x86_64"
+        python_version:
+          type: string
+          description: Python version used
+          example: "3.11.0"
+        command_line:
+          type: string
+          description: Command line used to run tests
+          nullable: true
+        environment:
+          type: object
+          description: Environment variables
+          additionalProperties:
+            type: string
+
+    GenerateReportRequest:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          $ref: '#/components/schemas/TestResults'
+        format:
+          type: string
+          enum: [html, json, markdown, junit]
+          default: html
+          description: Report output format
+        include_passed:
+          type: boolean
+          default: false
+          description: Include passed tests in detailed report
+        include_skipped:
+          type: boolean
+          default: false
+          description: Include skipped tests in report
+        group_by:
+          type: string
+          enum: [feature, directory, status, esid]
+          default: feature
+          description: How to group tests in report
+        output_path:
+          type: string
+          description: File path to save report (optional)
+          nullable: true
+        title:
+          type: string
+          description: Custom report title
+          default: "Test262 Conformance Report"
+        show_metadata:
+          type: boolean
+          description: Include metadata section in report
+          default: true
+
+    ReportResponse:
+      type: object
+      required:
+        - format
+        - content
+        - generated_at
+      properties:
+        format:
+          type: string
+          enum: [html, json, markdown, junit]
+          description: Report format
+        content:
+          type: string
+          description: Report content (may be large)
+        file_path:
+          type: string
+          description: Path where report was saved
+          nullable: true
+        url:
+          type: string
+          description: URL to view report (if hosted)
+          nullable: true
+        generated_at:
+          type: string
+          format: date-time
+          description: When report was generated
+        size_bytes:
+          type: integer
+          description: Report size in bytes
+          minimum: 0
+
+    CompareResultsRequest:
+      type: object
+      required:
+        - baseline
+        - current
+      properties:
+        baseline:
+          $ref: '#/components/schemas/TestResults'
+        current:
+          $ref: '#/components/schemas/TestResults'
+        ignore_skipped:
+          type: boolean
+          description: Ignore changes in skipped tests
+          default: true
+
+    Comparison:
+      type: object
+      required:
+        - summary
+        - regressions
+        - improvements
+        - unchanged
+        - compared_at
+      properties:
+        summary:
+          $ref: '#/components/schemas/ComparisonSummary'
+        regressions:
+          type: array
+          description: Tests that were passing but now fail
+          items:
+            $ref: '#/components/schemas/TestDiff'
+        improvements:
+          type: array
+          description: Tests that were failing but now pass
+          items:
+            $ref: '#/components/schemas/TestDiff'
+        new_failures:
+          type: array
+          description: Tests that didn't exist in baseline but now fail
+          items:
+            $ref: '#/components/schemas/TestDiff'
+        unchanged:
+          $ref: '#/components/schemas/UnchangedCounts'
+        compared_at:
+          type: string
+          format: date-time
+          description: When comparison was performed
+
+    ComparisonSummary:
+      type: object
+      required:
+        - baseline_pass_rate
+        - current_pass_rate
+        - pass_rate_delta
+        - regression_count
+        - improvement_count
+      properties:
+        baseline_pass_rate:
+          type: number
+          format: float
+          description: Baseline pass rate percentage
+          minimum: 0
+          maximum: 100
+          example: 94.5
+        current_pass_rate:
+          type: number
+          format: float
+          description: Current pass rate percentage
+          minimum: 0
+          maximum: 100
+          example: 95.0
+        pass_rate_delta:
+          type: number
+          format: float
+          description: Change in pass rate (positive = improvement)
+          example: 0.5
+        regression_count:
+          type: integer
+          description: Number of tests that started failing
+          minimum: 0
+          example: 2
+        improvement_count:
+          type: integer
+          description: Number of tests that started passing
+          minimum: 0
+          example: 7
+        new_failure_count:
+          type: integer
+          description: New tests that are failing
+          minimum: 0
+          default: 0
+        baseline_total:
+          type: integer
+          description: Total tests in baseline
+          minimum: 0
+        current_total:
+          type: integer
+          description: Total tests in current run
+          minimum: 0
+
+    TestDiff:
+      type: object
+      required:
+        - path
+        - baseline_status
+        - current_status
+      properties:
+        path:
+          type: string
+          description: Test file path
+          example: "test/built-ins/Array/prototype/map/S15.4.4.19_A1_T1.js"
+        baseline_status:
+          type: string
+          enum: [passed, failed, skipped, timeout, error, not_run]
+          description: Status in baseline
+        current_status:
+          type: string
+          enum: [passed, failed, skipped, timeout, error, not_run]
+          description: Status in current run
+        baseline_error:
+          type: string
+          description: Error message in baseline (if failed)
+          nullable: true
+        current_error:
+          type: string
+          description: Error message in current run (if failed)
+          nullable: true
+        features:
+          type: array
+          description: Features this test exercises
+          items:
+            type: string
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+          description: Severity of the change
+          default: medium
+
+    UnchangedCounts:
+      type: object
+      description: Count of tests with unchanged status
+      properties:
+        still_passing:
+          type: integer
+          description: Tests still passing
+          minimum: 0
+        still_failing:
+          type: integer
+          description: Tests still failing
+          minimum: 0
+        still_skipped:
+          type: integer
+          description: Tests still skipped
+          minimum: 0
+
+    SaveBaselineRequest:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          $ref: '#/components/schemas/TestResults'
+        version:
+          type: string
+          description: Version label for this baseline
+          example: "0.1.0"
+        description:
+          type: string
+          description: Description of this baseline
+          nullable: true
+        replace_existing:
+          type: boolean
+          description: Replace existing baseline if present
+          default: false
+
+    BaselineResponse:
+      type: object
+      required:
+        - saved_at
+        - test_count
+        - pass_rate
+      properties:
+        saved_at:
+          type: string
+          format: date-time
+          description: When baseline was saved
+        test_count:
+          type: integer
+          description: Number of tests in baseline
+          minimum: 0
+        pass_rate:
+          type: number
+          format: float
+          description: Pass rate of baseline
+          minimum: 0
+          maximum: 100
+        file_path:
+          type: string
+          description: Path where baseline was saved
+        version:
+          type: string
+          description: Version label of baseline
+          nullable: true
+
+    RunnerConfig:
+      type: object
+      required:
+        - test262_dir
+      properties:
+        test262_dir:
+          type: string
+          description: Path to Test262 directory
+          example: "/path/to/test262"
+        default_timeout:
+          type: integer
+          description: Default timeout per test (milliseconds)
+          default: 5000
+          minimum: 100
+          maximum: 60000
+        parallel_workers:
+          type: integer
+          description: Number of parallel workers (0 = auto)
+          default: 0
+          minimum: 0
+          maximum: 64
+        excluded_features:
+          type: array
+          description: Features to exclude from testing
+          items:
+            type: string
+          example: ["Atomics", "SharedArrayBuffer"]
+        excluded_paths:
+          type: array
+          description: Test path patterns to exclude
+          items:
+            type: string
+          example: ["test/staging/**", "test/intl402/**"]
+        strict_mode:
+          type: boolean
+          description: Run tests in strict mode
+          default: true
+        module_mode:
+          type: boolean
+          description: Run module tests
+          default: true
+        report_dir:
+          type: string
+          description: Directory for test reports
+          default: "reports/test262"
+        baseline_path:
+          type: string
+          description: Path to baseline results file
+          default: "reports/test262/baseline.json"
+        log_level:
+          type: string
+          enum: [debug, info, warning, error]
+          default: info
+          description: Logging level
+        save_individual_results:
+          type: boolean
+          description: Save individual test results to separate files
+          default: false
+        ci_mode:
+          type: boolean
+          description: Enable CI-specific optimizations
+          default: false
+
+    FeatureList:
+      type: object
+      required:
+        - features
+      properties:
+        features:
+          type: array
+          description: List of all available Test262 features
+          items:
+            $ref: '#/components/schemas/FeatureInfo'
+        total_count:
+          type: integer
+          description: Total number of features
+          minimum: 0
+
+    FeatureInfo:
+      type: object
+      required:
+        - name
+        - test_count
+      properties:
+        name:
+          type: string
+          description: Feature name
+          example: "BigInt"
+        test_count:
+          type: integer
+          description: Number of tests for this feature
+          minimum: 0
+        description:
+          type: string
+          description: Feature description
+          nullable: true
+        spec_url:
+          type: string
+          format: uri
+          description: Link to specification
+          nullable: true
+
+    RunnerStatus:
+      type: object
+      required:
+        - is_running
+      properties:
+        is_running:
+          type: boolean
+          description: Whether tests are currently executing
+        current_test:
+          type: string
+          description: Path of currently executing test
+          nullable: true
+        progress:
+          $ref: '#/components/schemas/Progress'
+        started_at:
+          type: string
+          format: date-time
+          description: When execution started
+          nullable: true
+
+    Progress:
+      type: object
+      description: Test execution progress
+      properties:
+        total:
+          type: integer
+          description: Total tests to run
+          minimum: 0
+        completed:
+          type: integer
+          description: Tests completed so far
+          minimum: 0
+        passed:
+          type: integer
+          description: Tests passed so far
+          minimum: 0
+        failed:
+          type: integer
+          description: Tests failed so far
+          minimum: 0
+        percentage:
+          type: number
+          format: float
+          description: Completion percentage
+          minimum: 0
+          maximum: 100
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "INVALID_TEST262_DIR"
+          enum:
+            - INVALID_PARAMETER
+            - TEST262_DIR_NOT_FOUND
+            - INVALID_FILTER
+            - INVALID_CONFIGURATION
+            - EXECUTION_ERROR
+            - REPORT_GENERATION_ERROR
+            - BASELINE_NOT_FOUND
+            - COMPARISON_ERROR
+            - INTERNAL_ERROR
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Test262 directory not found: /path/to/test262"
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+          description: When error occurred
+        stack_trace:
+          type: string
+          description: Stack trace (for internal errors)
+          nullable: true
+
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for CI/CD integration and remote access
+
+security:
+  - apiKey: []
+
+tags:
+  - name: Test Execution
+    description: Operations for running Test262 tests
+  - name: Reporting
+    description: Operations for generating test reports
+  - name: Comparison
+    description: Operations for comparing test results
+  - name: Baseline Management
+    description: Operations for managing baseline results
+  - name: Configuration
+    description: Operations for managing runner configuration
+  - name: Discovery
+    description: Operations for discovering available features and tests
+  - name: Monitoring
+    description: Operations for monitoring test execution status
