@@ -4,10 +4,10 @@ RelativeTimeFormat class - Intl.RelativeTimeFormat implementation.
 Provides locale-aware relative time formatting (FR-ES24-C-037 to FR-ES24-C-042).
 """
 
-from .options import RelativeTimeFormatOptions
-from .formatter import RelativeTimeFormatter
-from .locale_resolver import LocaleResolver
-from .exceptions import RangeError, TypeError
+from options import RelativeTimeFormatOptions
+from formatter import RelativeTimeFormatter
+from locale_resolver import LocaleResolver
+from exceptions import RangeError, TypeError
 
 
 class RelativeTimeFormat:

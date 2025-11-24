@@ -4,7 +4,7 @@ Options validation for RelativeTimeFormat.
 Validates style, numeric, and unit options.
 """
 
-from .exceptions import RangeError
+from exceptions import RangeError
 
 
 class RelativeTimeFormatOptions:

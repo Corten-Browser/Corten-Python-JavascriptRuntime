@@ -12,7 +12,7 @@ class TestTypedArrayExtensions:
 
     def test_to_reversed_basic(self):
         """FR-ES24-007: Basic toReversed operation"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -26,7 +26,7 @@ class TestTypedArrayExtensions:
 
     def test_to_reversed_original_unchanged(self):
         """FR-ES24-007: Original array should not be modified"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -40,7 +40,7 @@ class TestTypedArrayExtensions:
 
     def test_to_reversed_empty_array(self):
         """FR-ES24-007: Reversing empty array"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -53,7 +53,7 @@ class TestTypedArrayExtensions:
 
     def test_to_reversed_single_element(self):
         """FR-ES24-007: Reversing single element array"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -66,7 +66,7 @@ class TestTypedArrayExtensions:
 
     def test_to_sorted_basic(self):
         """FR-ES24-008: Basic toSorted operation"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -80,7 +80,7 @@ class TestTypedArrayExtensions:
 
     def test_to_sorted_original_unchanged(self):
         """FR-ES24-008: Original array should not be modified"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -94,7 +94,7 @@ class TestTypedArrayExtensions:
 
     def test_to_sorted_with_compare_function(self):
         """FR-ES24-008: toSorted with custom compare function"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -110,7 +110,7 @@ class TestTypedArrayExtensions:
 
     def test_to_sorted_empty_array(self):
         """FR-ES24-008: Sorting empty array"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -123,7 +123,7 @@ class TestTypedArrayExtensions:
 
     def test_to_sorted_already_sorted(self):
         """FR-ES24-008: Sorting already sorted array"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()

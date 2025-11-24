@@ -5,7 +5,7 @@ Handles BCP 47 locale resolution and numbering system detection.
 """
 
 import re
-from .exceptions import RangeError
+from exceptions import RangeError
 
 
 class LocaleResolver:

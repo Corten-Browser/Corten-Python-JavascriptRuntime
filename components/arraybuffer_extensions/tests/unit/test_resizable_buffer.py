@@ -11,7 +11,7 @@ class TestResizableArrayBuffer:
 
     def test_create_resizable_buffer(self):
         """FR-ES24-005: Create ResizableArrayBuffer with initial and max lengths"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
 
@@ -21,7 +21,7 @@ class TestResizableArrayBuffer:
 
     def test_resize_within_max(self):
         """FR-ES24-005: Resize buffer within max_byte_length"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
         buffer.resize(2048)
@@ -30,7 +30,7 @@ class TestResizableArrayBuffer:
 
     def test_resize_to_zero(self):
         """FR-ES24-005: Resize to zero is allowed"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
         buffer.resize(0)
@@ -39,7 +39,7 @@ class TestResizableArrayBuffer:
 
     def test_resize_exceeds_max_raises(self):
         """FR-ES24-005: Resize beyond max_byte_length raises RangeError"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
 
@@ -48,7 +48,7 @@ class TestResizableArrayBuffer:
 
     def test_resize_negative_raises(self):
         """FR-ES24-005: Negative resize raises error"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
 
@@ -57,7 +57,7 @@ class TestResizableArrayBuffer:
 
     def test_resize_detached_raises(self):
         """FR-ES24-005: Resizing detached buffer raises TypeError"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
         buffer.detached = True
@@ -67,14 +67,14 @@ class TestResizableArrayBuffer:
 
     def test_initial_length_exceeds_max_raises(self):
         """FR-ES24-005: Initial length > max_byte_length raises"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         with pytest.raises(ValueError, match="byte_length.*max_byte_length"):
             ResizableArrayBuffer(byte_length=4096, max_byte_length=1024)
 
     def test_resizable_property(self):
         """FR-ES24-005: resizable property always returns True"""
-        from src.resizable_buffer import ResizableArrayBuffer
+        from resizable_buffer import ResizableArrayBuffer
 
         buffer = ResizableArrayBuffer(byte_length=512, max_byte_length=2048)
 

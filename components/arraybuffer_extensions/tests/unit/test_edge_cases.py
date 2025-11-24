@@ -4,10 +4,10 @@ Tests boundary conditions and unusual scenarios
 """
 
 import pytest
-from src.arraybuffer_extensions import ArrayBufferExtensions
-from src.resizable_buffer import ResizableArrayBuffer
-from src.growable_shared_buffer import GrowableSharedArrayBuffer
-from src.typedarray_extensions import TypedArrayExtensions
+from arraybuffer_extensions import ArrayBufferExtensions
+from resizable_buffer import ResizableArrayBuffer
+from growable_shared_buffer import GrowableSharedArrayBuffer
+from typedarray_extensions import TypedArrayExtensions
 from unittest.mock import Mock
 
 

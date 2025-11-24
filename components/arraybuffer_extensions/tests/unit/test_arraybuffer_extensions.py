@@ -12,7 +12,7 @@ class TestArrayBufferExtensions:
 
     def test_transfer_basic(self):
         """FR-ES24-001: Test basic transfer operation"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -27,7 +27,7 @@ class TestArrayBufferExtensions:
 
     def test_transfer_with_resize(self):
         """FR-ES24-001: Test transfer with new byte length"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -42,7 +42,7 @@ class TestArrayBufferExtensions:
 
     def test_transfer_detached_buffer_raises(self):
         """FR-ES24-001: Transferring detached buffer should raise TypeError"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -53,7 +53,7 @@ class TestArrayBufferExtensions:
 
     def test_transfer_invalid_length_raises(self):
         """FR-ES24-001: Invalid new_byte_length should raise RangeError"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -65,7 +65,7 @@ class TestArrayBufferExtensions:
 
     def test_transfer_to_fixed_length_basic(self):
         """FR-ES24-002: Test transferToFixedLength operation"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -80,7 +80,7 @@ class TestArrayBufferExtensions:
 
     def test_transfer_to_fixed_length_detached_raises(self):
         """FR-ES24-002: Transferring detached buffer should raise"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -91,7 +91,7 @@ class TestArrayBufferExtensions:
 
     def test_is_detached_true(self):
         """FR-ES24-003: Test detached getter returns True"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -101,7 +101,7 @@ class TestArrayBufferExtensions:
 
     def test_is_detached_false(self):
         """FR-ES24-003: Test detached getter returns False"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -111,7 +111,7 @@ class TestArrayBufferExtensions:
 
     def test_get_max_byte_length_fixed(self):
         """FR-ES24-004: Fixed buffers return byte_length"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()
@@ -122,7 +122,7 @@ class TestArrayBufferExtensions:
 
     def test_get_max_byte_length_resizable(self):
         """FR-ES24-004: Resizable buffers return max_byte_length"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
+        from arraybuffer_extensions import ArrayBufferExtensions
 
         ext = ArrayBufferExtensions()
         buffer = Mock()

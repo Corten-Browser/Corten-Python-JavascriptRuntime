@@ -5,9 +5,9 @@ Validates non-functional requirements for transfer and resize operations
 
 import pytest
 import time
-from src.arraybuffer_extensions import ArrayBufferExtensions
-from src.resizable_buffer import ResizableArrayBuffer
-from src.growable_shared_buffer import GrowableSharedArrayBuffer
+from arraybuffer_extensions import ArrayBufferExtensions
+from resizable_buffer import ResizableArrayBuffer
+from growable_shared_buffer import GrowableSharedArrayBuffer
 
 
 class TestPerformance:
@@ -57,7 +57,7 @@ class TestPerformance:
 
     def test_to_reversed_performance(self):
         """toReversed should be efficient for large arrays"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
         from unittest.mock import Mock
 
         ext = TypedArrayExtensions()
@@ -74,7 +74,7 @@ class TestPerformance:
 
     def test_to_sorted_performance(self):
         """toSorted should be efficient for large arrays"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
         from unittest.mock import Mock
         import random
 

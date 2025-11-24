@@ -19,7 +19,7 @@ Tests:
 """
 
 import pytest
-from src.relative_time_format import RelativeTimeFormat, RangeError, TypeError
+from relative_time_format import RelativeTimeFormat, RangeError, TypeError
 
 
 class TestRelativeTimeFormatNumericMode:

@@ -5,7 +5,7 @@ Tests real-world usage scenarios and integration with other components.
 """
 
 import pytest
-from src.relative_time_format import RelativeTimeFormat, RangeError, TypeError
+from relative_time_format import RelativeTimeFormat, RangeError, TypeError
 
 
 class TestRelativeTimeFormatIntegration:

@@ -12,8 +12,8 @@ class TestBufferWorkflow:
 
     def test_transfer_and_resize_workflow(self):
         """Test transferring buffer with resize operation"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
-        from src.resizable_buffer import ResizableArrayBuffer
+        from arraybuffer_extensions import ArrayBufferExtensions
+        from resizable_buffer import ResizableArrayBuffer
 
         # Create resizable buffer
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=4096)
@@ -28,8 +28,8 @@ class TestBufferWorkflow:
 
     def test_resizable_to_fixed_workflow(self):
         """Test converting resizable buffer to fixed-length"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
-        from src.resizable_buffer import ResizableArrayBuffer
+        from arraybuffer_extensions import ArrayBufferExtensions
+        from resizable_buffer import ResizableArrayBuffer
 
         # Create resizable buffer
         buffer = ResizableArrayBuffer(byte_length=512, max_byte_length=2048)
@@ -43,7 +43,7 @@ class TestBufferWorkflow:
 
     def test_growable_shared_buffer_workflow(self):
         """Test GrowableSharedArrayBuffer growth workflow"""
-        from src.growable_shared_buffer import GrowableSharedArrayBuffer
+        from growable_shared_buffer import GrowableSharedArrayBuffer
 
         buffer = GrowableSharedArrayBuffer(byte_length=512, max_byte_length=4096)
 
@@ -59,7 +59,7 @@ class TestBufferWorkflow:
 
     def test_typedarray_chaining(self):
         """Test chaining toReversed and toSorted operations"""
-        from src.typedarray_extensions import TypedArrayExtensions
+        from typedarray_extensions import TypedArrayExtensions
 
         ext = TypedArrayExtensions()
         array = Mock()
@@ -76,8 +76,8 @@ class TestBufferWorkflow:
 
     def test_detached_buffer_detection(self):
         """Test detached buffer detection across operations"""
-        from src.arraybuffer_extensions import ArrayBufferExtensions
-        from src.resizable_buffer import ResizableArrayBuffer
+        from arraybuffer_extensions import ArrayBufferExtensions
+        from resizable_buffer import ResizableArrayBuffer
 
         ext = ArrayBufferExtensions()
         buffer = ResizableArrayBuffer(byte_length=1024, max_byte_length=2048)
