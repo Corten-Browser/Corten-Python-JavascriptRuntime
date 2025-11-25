@@ -44,6 +44,9 @@ class DateTimeFormatOptions:
 
         Args:
             **kwargs: Option key-value pairs
+
+        Raises:
+            ValueError: If invalid combination of options
         """
         self._options = {}
 
@@ -51,6 +54,37 @@ class DateTimeFormatOptions:
         for key, value in kwargs.items():
             if value is not None:
                 self._options[key] = value
+
+        # Validate style and component conflicts
+        has_date_style = 'dateStyle' in self._options
+        has_time_style = 'timeStyle' in self._options
+        component_keys = {'year', 'month', 'day', 'weekday', 'era',
+                         'hour', 'minute', 'second', 'fractionalSecondDigits',
+                         'dayPeriod', 'timeZoneName'}
+        has_components = any(key in self._options for key in component_keys)
+
+        if (has_date_style or has_time_style) and has_components:
+            if has_date_style:
+                raise ValueError("Cannot use dateStyle with other date-time component options")
+            else:
+                raise ValueError("Cannot use timeStyle with other date-time component options")
+
+    def __getattr__(self, name):
+        """Allow attribute-style access to options."""
+        if name.startswith('_'):
+            # Private attributes
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        return self._options.get(name)
+
+    def __setattr__(self, name, value):
+        """Allow attribute-style setting of options."""
+        if name.startswith('_'):
+            # Private attributes
+            super().__setattr__(name, value)
+        else:
+            if not hasattr(self, '_options'):
+                super().__setattr__('_options', {})
+            self._options[name] = value
 
     def to_dict(self):
         """

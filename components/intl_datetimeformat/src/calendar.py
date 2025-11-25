@@ -35,17 +35,11 @@ def validate_calendar(calendar):
 
     Returns:
         True if supported, False otherwise
-
-    Raises:
-        ValueError: If calendar is invalid
     """
     if not calendar:
-        raise ValueError("Invalid calendar: calendar cannot be empty")
+        return False
 
-    if calendar not in CalendarSupport.SUPPORTED_CALENDARS:
-        raise ValueError(f"Invalid calendar: {calendar}")
-
-    return True
+    return calendar in CalendarSupport.SUPPORTED_CALENDARS
 
 
 def convert_to_calendar(date, calendar):

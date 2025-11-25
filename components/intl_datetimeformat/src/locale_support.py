@@ -132,7 +132,32 @@ def parse_locale(locale):
             while idx < len(parts) and len(parts[idx]) > 1:
                 ext_values.append(parts[idx])
                 idx += 1
-            result['extensions'][ext_key] = '-'.join(ext_values)
+
+            # Parse extension values into a dictionary (key-value pairs)
+            ext_dict = {}
+            i = 0
+            while i < len(ext_values):
+                # Key is 2-letter code
+                if len(ext_values[i]) == 2:
+                    key = ext_values[i]
+                    # Collect values until next key or end
+                    value_parts = []
+                    i += 1
+                    while i < len(ext_values) and len(ext_values[i]) > 2:
+                        value_parts.append(ext_values[i])
+                        i += 1
+                    ext_dict[key] = '-'.join(value_parts) if value_parts else ''
+                else:
+                    i += 1
+
+            # Consolidate duplicate extensions by merging dictionaries
+            if ext_key in result['extensions']:
+                if isinstance(result['extensions'][ext_key], dict):
+                    result['extensions'][ext_key].update(ext_dict)
+                else:
+                    result['extensions'][ext_key] = ext_dict
+            else:
+                result['extensions'][ext_key] = ext_dict
         else:
             result['variants'].append(part)
             idx += 1
@@ -175,8 +200,17 @@ def canonicalize_locale(locale):
         parts.append(variant.lower())
 
     # Add extensions in sorted order
-    for key in sorted(parsed['extensions'].keys()):
-        parts.append(key)
-        parts.append(parsed['extensions'][key])
+    for ext_key in sorted(parsed['extensions'].keys()):
+        parts.append(ext_key)
+        ext_value = parsed['extensions'][ext_key]
+        if isinstance(ext_value, dict):
+            # Sort extension keys and add them
+            for key in sorted(ext_value.keys()):
+                parts.append(key)
+                if ext_value[key]:
+                    parts.append(ext_value[key])
+        else:
+            # Legacy string format (shouldn't happen with new parsing)
+            parts.append(ext_value)
 
     return '-'.join(parts)

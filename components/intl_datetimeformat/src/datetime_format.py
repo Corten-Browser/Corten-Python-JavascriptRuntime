@@ -67,11 +67,33 @@ class IntlDateTimeFormat:
             'en-US'
         )
 
+        # Extract calendar from locale Unicode extension if present
+        locale_calendar = None
+        if requested_locales:
+            from .locale_support import parse_locale
+            for req_locale in requested_locales:
+                parsed = parse_locale(req_locale)
+                if 'u' in parsed['extensions']:
+                    ext_u = parsed['extensions']['u']
+                    if isinstance(ext_u, dict) and 'ca' in ext_u:
+                        locale_calendar = ext_u['ca']
+                        break
+                    elif isinstance(ext_u, str):
+                        # Legacy string format fallback
+                        ext_parts = ext_u.split('-')
+                        for i, part in enumerate(ext_parts):
+                            if part == 'ca' and i + 1 < len(ext_parts):
+                                locale_calendar = ext_parts[i + 1]
+                                break
+                if locale_calendar:
+                    break
+
         # Process options
         self._options = {}
         self._dateStyle = options.get('dateStyle')
         self._timeStyle = options.get('timeStyle')
-        self._calendar = options.get('calendar', 'gregory')
+        # Use calendar from options, or from locale extension, or default to gregory
+        self._calendar = options.get('calendar') or locale_calendar or 'gregory'
         self._timeZone = options.get('timeZone', 'UTC')
         self._hourCycle = options.get('hourCycle')
         self._numberingSystem = options.get('numberingSystem', 'latn')
@@ -85,7 +107,10 @@ class IntlDateTimeFormat:
                             'hour', 'minute', 'second', 'fractionalSecondDigits',
                             'dayPeriod', 'timeZoneName'}
             if any(key in options for key in component_keys):
-                raise TypeError("Cannot specify both style and component options")
+                if self._dateStyle:
+                    raise ValueError("Cannot use dateStyle with other date-time component options")
+                else:
+                    raise ValueError("Cannot use timeStyle with other date-time component options")
 
             self._options['dateStyle'] = self._dateStyle
             self._options['timeStyle'] = self._timeStyle
@@ -318,6 +343,9 @@ class IntlDateTimeFormat:
         # Add hour cycle if set
         if self._hourCycle:
             result['hourCycle'] = self._hourCycle
+            # Add hour12 property derived from hourCycle
+            # h11 and h12 use 12-hour clock, h23 and h24 use 24-hour clock
+            result['hour12'] = self._hourCycle in ('h11', 'h12')
 
         # Add all formatting options
         result.update(self._options)

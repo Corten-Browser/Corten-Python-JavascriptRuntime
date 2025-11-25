@@ -46,11 +46,17 @@ def validate_iana_timezone(timeZone):
     except:
         pass
 
-    # Fallback to pytz
+    # Fallback to pytz - but be strict about case
     try:
-        pytz.timezone(timeZone)
-        TimeZoneSupport._validated_zones.add(timeZone)
-        return True
+        # pytz accepts case-insensitive aliases, so we need to validate strictly
+        # Check if the timezone is in pytz's all_timezones set
+        if timeZone in pytz.all_timezones:
+            TimeZoneSupport._validated_zones.add(timeZone)
+            return True
+        # Also check common timezones
+        if timeZone in pytz.common_timezones:
+            TimeZoneSupport._validated_zones.add(timeZone)
+            return True
     except:
         pass
 
@@ -67,7 +73,14 @@ def get_timezone_offset(timeZone, date):
 
     Returns:
         Offset in minutes from UTC
+
+    Raises:
+        ValueError: If timeZone is invalid
     """
+    # Validate timezone first
+    if not validate_iana_timezone(timeZone):
+        raise ValueError(f"Invalid time zone: {timeZone}")
+
     if not isinstance(date, datetime):
         # Convert timestamp to datetime
         if isinstance(date, (int, float)):
@@ -76,7 +89,7 @@ def get_timezone_offset(timeZone, date):
             date = datetime.now(timezone.utc)
 
     # Handle UTC/GMT specially
-    if timeZone.upper() in ('UTC', 'GMT'):
+    if timeZone in ('UTC', 'GMT'):
         return 0
 
     try:
@@ -97,7 +110,7 @@ def get_timezone_offset(timeZone, date):
         offset = localized.utcoffset()
         return int(offset.total_seconds() / 60)
     except:
-        return 0
+        raise ValueError(f"Invalid time zone: {timeZone}")
 
 
 def apply_timezone(date, timeZone):
@@ -110,7 +123,14 @@ def apply_timezone(date, timeZone):
 
     Returns:
         Date adjusted to time zone
+
+    Raises:
+        ValueError: If timeZone is invalid
     """
+    # Validate timezone first
+    if not validate_iana_timezone(timeZone):
+        raise ValueError(f"Invalid time zone: {timeZone}")
+
     if not isinstance(date, datetime):
         # Convert timestamp to datetime
         if isinstance(date, (int, float)):
@@ -123,7 +143,7 @@ def apply_timezone(date, timeZone):
         date = date.replace(tzinfo=timezone.utc)
 
     # Handle UTC/GMT
-    if timeZone.upper() in ('UTC', 'GMT'):
+    if timeZone in ('UTC', 'GMT'):
         return date.astimezone(timezone.utc)
 
     try:
@@ -138,7 +158,7 @@ def apply_timezone(date, timeZone):
         tz = pytz.timezone(timeZone)
         return date.astimezone(tz)
     except:
-        return date
+        raise ValueError(f"Invalid time zone: {timeZone}")
 
 
 def get_timezone_name(timeZone, locale, style):
@@ -163,7 +183,7 @@ def get_timezone_name(timeZone, locale, style):
     # Validate style
     valid_styles = {'long', 'short', 'shortOffset', 'longOffset', 'shortGeneric', 'longGeneric'}
     if style not in valid_styles:
-        raise ValueError(f"Invalid timeZoneName style: {style}. Must be one of {valid_styles}")
+        raise ValueError(f"Invalid style: {style}")
 
     # Simplified timezone name mapping
     # In a full implementation, this would use CLDR data
