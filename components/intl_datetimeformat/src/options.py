@@ -166,7 +166,7 @@ def set_time_zone(timeZone):
     from .timezone import validate_iana_timezone
 
     if not validate_iana_timezone(timeZone):
-        raise ValueError(f"Invalid IANA time zone: {timeZone}")
+        raise ValueError(f"Invalid time zone: {timeZone}")
 
     return timeZone
 

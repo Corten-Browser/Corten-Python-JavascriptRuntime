@@ -89,7 +89,16 @@ class IntlNumberFormat:
 
         # Basic BCP 47 pattern check
         pattern = r'^[a-zA-Z]{2,3}(-[a-zA-Z]{4})?(-[a-zA-Z]{2}|[0-9]{3})?(-u-.*)?$'
-        return bool(re.match(pattern, locale))
+        is_valid = bool(re.match(pattern, locale))
+
+        # Raise error for truly malformed locales (ones that look completely invalid)
+        if not is_valid and locale and '-' in locale:
+            # Only raise if it's a structured but invalid locale
+            parts = locale.split('-')
+            if len(parts) >= 2 and not all(part.isalpha() or part.isdigit() for part in parts):
+                raise RangeError(f"Invalid locale: {locale}")
+
+        return is_valid
 
     def _canonicalize_locale(self, locale: str) -> str:
         """Canonicalize locale to standard form."""
@@ -139,6 +148,8 @@ class IntlNumberFormat:
                 raise ValueError("Currency style requires currency option")
             if not isinstance(currency, str) or len(currency) != 3:
                 raise ValueError(f"Invalid currency code: {currency}")
+            if not currency.isupper():
+                raise RangeError(f"Currency code must be uppercase: {currency}")
             if currency not in self.VALID_CURRENCIES:
                 raise RangeError(f"Invalid ISO 4217 currency code: {currency}")
 
@@ -279,7 +290,11 @@ class IntlNumberFormat:
         elif mode == 'trunc':
             return math.trunc(value * multiplier) / multiplier
         elif mode == 'halfExpand':
-            return round(value, max_frac)
+            # Round half away from zero (not banker's rounding)
+            if value >= 0:
+                return math.floor(value * multiplier + 0.5) / multiplier
+            else:
+                return math.ceil(value * multiplier - 0.5) / multiplier
         else:
             return round(value, max_frac)
 
@@ -316,18 +331,30 @@ class IntlNumberFormat:
 
         # Fraction part
         frac = abs_value - int_part
-        if max_frac > 0:
+        if max_frac > 0 or min_frac > 0:
             frac_str = f"{frac:.{max_frac}f}".split('.')[1]
-            # Ensure minimum fraction digits
+
+            # Strip trailing zeros beyond minimum fraction digits
+            while len(frac_str) > min_frac and frac_str[-1] == '0':
+                frac_str = frac_str[:-1]
+
+            # Add back minimum fraction digits if needed
             frac_str = frac_str.ljust(min_frac, '0')
-            if frac_str and frac_str != '0' * len(frac_str):
-                return f"{sign}{int_str}.{frac_str}"
+
+            if frac_str:
+                # Get locale-specific separators
+                decimal_sep = self._get_decimal_separator()
+                return f"{sign}{int_str}{decimal_sep}{frac_str}"
 
         return f"{sign}{int_str}"
 
     def _get_sign(self, value: float) -> str:
         """Get sign prefix based on signDisplay option."""
         sign_display = self._resolved.get('signDisplay', 'auto')
+
+        # Never display any sign
+        if sign_display == 'never':
+            return ''
 
         if value < 0:
             return '-'
@@ -344,6 +371,26 @@ class IntlNumberFormat:
             else:
                 return ''
 
+    def _get_decimal_separator(self) -> str:
+        """Get locale-specific decimal separator."""
+        locale = self._resolved.get('locale', 'en-US')
+        if locale.startswith('de'):
+            return ','
+        elif locale.startswith('fr'):
+            return ','
+        else:
+            return '.'
+
+    def _get_group_separator(self) -> str:
+        """Get locale-specific grouping separator."""
+        locale = self._resolved.get('locale', 'en-US')
+        if locale.startswith('de'):
+            return '.'
+        elif locale.startswith('fr'):
+            return ' '
+        else:
+            return ','
+
     def _should_use_grouping(self) -> bool:
         """Check if grouping should be used."""
         use_grouping = self._resolved.get('useGrouping', 'auto')
@@ -353,14 +400,15 @@ class IntlNumberFormat:
 
     def _apply_grouping(self, int_str: str) -> str:
         """Apply thousand grouping."""
-        # US-style grouping: every 3 digits from right
+        # Grouping: every 3 digits from right
         if len(int_str) <= 3:
             return int_str
 
+        group_sep = self._get_group_separator()
         parts = []
         for i, digit in enumerate(reversed(int_str)):
             if i > 0 and i % 3 == 0:
-                parts.append(',')
+                parts.append(group_sep)
             parts.append(digit)
 
         return ''.join(reversed(parts))
@@ -376,6 +424,7 @@ class IntlNumberFormat:
         currency = self._resolved['currency']
         display = self._resolved.get('currencyDisplay', 'symbol')
         sign_type = self._resolved.get('currencySign', 'standard')
+        sign_display = self._resolved.get('signDisplay', 'auto')
 
         # Get currency symbol
         symbols = {
@@ -398,9 +447,9 @@ class IntlNumberFormat:
         formatted = self._format_standard(abs(value))
 
         # Handle negative with accounting format
-        if value < 0 and sign_type == 'accounting':
+        if value < 0 and sign_type == 'accounting' and sign_display != 'never':
             return f"({symbol}{formatted})"
-        elif value < 0:
+        elif value < 0 and sign_display != 'never':
             return f"-{symbol}{formatted}"
         else:
             sign = self._get_sign(value)
@@ -470,17 +519,34 @@ class IntlNumberFormat:
         """Format in compact notation (FR-ES24-C-029)."""
         abs_value = abs(value)
         sign = '-' if value < 0 else ''
+        compact_display = self._resolved.get('compactDisplay', 'short')
 
         if abs_value < 1000:
             return f"{sign}{abs_value:.0f}"
         elif abs_value < 1_000_000:
-            return f"{sign}{abs_value/1000:.1f}K"
+            scaled = abs_value / 1000
+            if compact_display == 'long':
+                return f"{sign}{scaled:.1f} thousand"
+            else:
+                return f"{sign}{scaled:.1f}K"
         elif abs_value < 1_000_000_000:
-            return f"{sign}{abs_value/1_000_000:.1f}M"
+            scaled = abs_value / 1_000_000
+            if compact_display == 'long':
+                return f"{sign}{scaled:.1f} million"
+            else:
+                return f"{sign}{scaled:.1f}M"
         elif abs_value < 1_000_000_000_000:
-            return f"{sign}{abs_value/1_000_000_000:.1f}B"
+            scaled = abs_value / 1_000_000_000
+            if compact_display == 'long':
+                return f"{sign}{scaled:.1f} billion"
+            else:
+                return f"{sign}{scaled:.1f}B"
         else:
-            return f"{sign}{abs_value/1_000_000_000_000:.1f}T"
+            scaled = abs_value / 1_000_000_000_000
+            if compact_display == 'long':
+                return f"{sign}{scaled:.1f} trillion"
+            else:
+                return f"{sign}{scaled:.1f}T"
 
     def formatToParts(self, value: Union[int, float]) -> List[Dict[str, str]]:
         """
@@ -513,6 +579,7 @@ class IntlNumberFormat:
         """Parse formatted string into parts."""
         parts = []
         style = self._resolved['style']
+        notation = self._resolved.get('notation', 'standard')
 
         # Simple parsing logic
         i = 0
@@ -525,20 +592,51 @@ class IntlNumberFormat:
             elif char == '%':
                 parts.append({'type': 'percentSign', 'value': char})
             elif char == ',':
-                parts.append({'type': 'group', 'value': char})
+                # Could be group separator or decimal separator (for some locales)
+                locale = self._resolved.get('locale', 'en-US')
+                if locale.startswith('de') or locale.startswith('fr'):
+                    # In German/French, comma is decimal separator
+                    has_decimal = any(p['type'] == 'decimal' for p in parts)
+                    if not has_decimal and ',' in formatted and '.' in formatted:
+                        # If both comma and dot, comma is group in English, decimal in German
+                        if locale.startswith('de'):
+                            parts.append({'type': 'decimal', 'value': char})
+                        else:
+                            parts.append({'type': 'group', 'value': char})
+                    else:
+                        # Ambiguous case - assume decimal for de/fr if no other decimal
+                        parts.append({'type': 'decimal', 'value': char})
+                else:
+                    parts.append({'type': 'group', 'value': char})
             elif char == '.':
-                parts.append({'type': 'decimal', 'value': char})
-            elif char.isdigit():
-                # Collect consecutive digits
+                # Could be decimal separator or group separator (for German)
+                locale = self._resolved.get('locale', 'en-US')
+                if locale.startswith('de'):
+                    parts.append({'type': 'group', 'value': char})
+                else:
+                    parts.append({'type': 'decimal', 'value': char})
+            elif char == 'E' and notation in ('scientific', 'engineering'):
+                # Exponent separator in scientific notation
+                parts.append({'type': 'exponentSeparator', 'value': char})
+            elif char.isdigit() or (char == '-' and i > 0 and formatted[i-1] == 'E'):
+                # Collect consecutive digits (or exponent with sign)
                 num = ''
-                while i < len(formatted) and formatted[i].isdigit():
+                while i < len(formatted) and (formatted[i].isdigit() or (formatted[i] == '-' and num == '')):
                     num += formatted[i]
                     i += 1
                 i -= 1
 
-                # Determine if integer or fraction
+                # Determine part type
+                has_exponent = any(p['type'] == 'exponentSeparator' for p in parts)
                 has_decimal = any(p['type'] == 'decimal' for p in parts)
-                part_type = 'fraction' if has_decimal else 'integer'
+
+                if has_exponent:
+                    part_type = 'exponentInteger'
+                elif has_decimal:
+                    part_type = 'fraction'
+                else:
+                    part_type = 'integer'
+
                 parts.append({'type': part_type, 'value': num})
             elif style == 'currency' and char in ('$', '€', '¥', '£', '₹'):
                 parts.append({'type': 'currency', 'value': char})
@@ -555,7 +653,7 @@ class IntlNumberFormat:
                 # Literal (spaces, unit symbols, etc.)
                 literal = ''
                 while i < len(formatted) and not formatted[i].isdigit():
-                    if formatted[i] in ('+', '-', '%', ',', '.'):
+                    if formatted[i] in ('+', '-', '%', ',', '.', 'E'):
                         break
                     if style == 'currency' and formatted[i] in ('$', '€', '¥', '£', '₹'):
                         break

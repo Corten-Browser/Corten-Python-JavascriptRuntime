@@ -35,8 +35,17 @@ def validate_calendar(calendar):
 
     Returns:
         True if supported, False otherwise
+
+    Raises:
+        ValueError: If calendar is invalid
     """
-    return calendar in CalendarSupport.SUPPORTED_CALENDARS
+    if not calendar:
+        raise ValueError("Invalid calendar: calendar cannot be empty")
+
+    if calendar not in CalendarSupport.SUPPORTED_CALENDARS:
+        raise ValueError(f"Invalid calendar: {calendar}")
+
+    return True
 
 
 def convert_to_calendar(date, calendar):
@@ -80,8 +89,10 @@ def convert_to_calendar(date, calendar):
     elif calendar == 'japanese':
         # Find the appropriate era
         era_info = None
+        # Create comparison date without timezone info for comparison
+        compare_date = date.replace(tzinfo=None) if date.tzinfo else date
         for era in CalendarSupport.JAPANESE_ERAS:
-            if date >= era['start']:
+            if compare_date >= era['start']:
                 era_info = era
                 break
 
@@ -117,7 +128,9 @@ def convert_to_calendar(date, calendar):
     elif calendar.startswith('islamic'):
         # Approximate conversion (not astronomically accurate)
         # Islamic calendar started July 16, 622 CE
-        gregorian_days = (date - datetime(622, 7, 16)).days
+        # Create comparison date without timezone info for calculation
+        compare_date = date.replace(tzinfo=None) if date.tzinfo else date
+        gregorian_days = (compare_date - datetime(622, 7, 16)).days
         islamic_year = int(gregorian_days / 354.367) + 1
 
         # Approximate month and day (simplified)
@@ -173,7 +186,13 @@ def get_calendar_era(date, calendar):
 
     Returns:
         Era identifier (e.g., "BC", "AD", "BE", "reiwa")
+
+    Raises:
+        ValueError: If calendar is invalid
     """
+    if calendar not in CalendarSupport.SUPPORTED_CALENDARS:
+        raise ValueError(f"Invalid calendar: {calendar}")
+
     converted = convert_to_calendar(date, calendar)
     return converted.get('era', 'ce')
 
@@ -189,7 +208,16 @@ def get_month_names(calendar, locale, format):
 
     Returns:
         Array of month names
+
+    Raises:
+        ValueError: If calendar or format is invalid
     """
+    if calendar not in CalendarSupport.SUPPORTED_CALENDARS:
+        raise ValueError(f"Invalid calendar: {calendar}")
+
+    if format not in ('long', 'short', 'narrow'):
+        raise ValueError(f"Invalid format: {format}. Must be one of 'long', 'short', 'narrow'")
+
     # Simplified month names (in real implementation, use CLDR data)
 
     if calendar in ('gregory', 'iso8601', 'buddhist', 'japanese', 'roc'):

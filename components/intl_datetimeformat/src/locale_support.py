@@ -74,6 +74,9 @@ def parse_locale(locale):
 
     Returns:
         Dict with parsed components (language, script, region, variants, extensions)
+
+    Raises:
+        ValueError: If locale contains invalid characters or format
     """
     if not locale:
         return {
@@ -83,6 +86,10 @@ def parse_locale(locale):
             'variants': [],
             'extensions': {}
         }
+
+    # Check for invalid characters (only alphanumeric and hyphens allowed)
+    if not re.match(r'^[a-zA-Z0-9\-]+$', locale):
+        raise ValueError(f"Invalid locale: {locale}")
 
     # BCP 47 pattern: language[-script][-region][-variants][-extensions]
     # Example: en-Latn-US-posix-u-ca-gregory
@@ -142,9 +149,16 @@ def canonicalize_locale(locale):
 
     Returns:
         Canonicalized locale identifier
+
+    Raises:
+        ValueError: If locale is invalid
     """
     if not locale:
         return 'en-US'
+
+    # Check for invalid characters before parsing
+    if not re.match(r'^[a-zA-Z0-9\-]+$', locale):
+        raise ValueError(f"Invalid locale: {locale}")
 
     # Parse and rebuild in canonical form
     parsed = parse_locale(locale)

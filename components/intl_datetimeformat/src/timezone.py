@@ -32,8 +32,8 @@ def validate_iana_timezone(timeZone):
     if timeZone in TimeZoneSupport._validated_zones:
         return True
 
-    # UTC is always valid
-    if timeZone.upper() in ('UTC', 'GMT'):
+    # UTC and GMT are always valid (case-sensitive)
+    if timeZone in ('UTC', 'GMT'):
         TimeZoneSupport._validated_zones.add(timeZone)
         return True
 
@@ -152,11 +152,23 @@ def get_timezone_name(timeZone, locale, style):
 
     Returns:
         Localized time zone name
+
+    Raises:
+        ValueError: If timeZone is invalid or style is unsupported
     """
+    # Validate timezone first
+    if not validate_iana_timezone(timeZone):
+        raise ValueError(f"Invalid time zone: {timeZone}")
+
+    # Validate style
+    valid_styles = {'long', 'short', 'shortOffset', 'longOffset', 'shortGeneric', 'longGeneric'}
+    if style not in valid_styles:
+        raise ValueError(f"Invalid timeZoneName style: {style}. Must be one of {valid_styles}")
+
     # Simplified timezone name mapping
     # In a full implementation, this would use CLDR data
 
-    if timeZone.upper() == 'UTC':
+    if timeZone == 'UTC':
         if style == 'long':
             return 'Coordinated Universal Time'
         elif style in ('short', 'shortGeneric'):
@@ -167,7 +179,7 @@ def get_timezone_name(timeZone, locale, style):
             return 'UTC+00:00'
         return 'UTC'
 
-    # For other time zones, construct a simple name
+    # For other time zones, construct a proper name
     try:
         # Get current offset
         now = datetime.now(timezone.utc)
@@ -182,21 +194,36 @@ def get_timezone_name(timeZone, locale, style):
                 return f"UTC{offset_str}"
             return offset_str
 
-        # Try to get abbreviated name from pytz
-        try:
-            tz = pytz.timezone(timeZone)
-            now_tz = now.astimezone(tz)
-            tzname = now_tz.strftime('%Z')
-            if tzname and tzname != timeZone:
-                return tzname
-        except:
-            pass
-
-        # Fallback to timezone name
+        # Special handling for common timezone names (long style)
         if style == 'long':
-            return timeZone.replace('_', ' ')
-        elif style == 'short':
-            # Try to create abbreviation
+            # Map common timezones to their long names
+            long_names = {
+                'America/New_York': 'Eastern Standard Time',
+                'America/Chicago': 'Central Standard Time',
+                'America/Denver': 'Mountain Standard Time',
+                'America/Los_Angeles': 'Pacific Standard Time',
+                'Europe/London': 'Greenwich Mean Time',
+                'Europe/Paris': 'Central European Time',
+                'Asia/Tokyo': 'Japan Standard Time',
+                'Australia/Sydney': 'Australian Eastern Standard Time',
+            }
+            if timeZone in long_names:
+                return long_names[timeZone]
+            # Fallback: replace underscores and add "Time"
+            return timeZone.replace('_', ' ') + ' Time'
+
+        # Try to get abbreviated name from pytz for short style
+        if style in ('short', 'shortGeneric'):
+            try:
+                tz = pytz.timezone(timeZone)
+                now_tz = now.astimezone(tz)
+                tzname = now_tz.strftime('%Z')
+                if tzname and tzname != timeZone:
+                    return tzname
+            except:
+                pass
+
+            # Fallback to city name
             parts = timeZone.split('/')
             return parts[-1].replace('_', ' ') if parts else timeZone
 

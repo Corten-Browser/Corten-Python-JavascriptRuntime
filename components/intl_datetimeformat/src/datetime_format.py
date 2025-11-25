@@ -42,7 +42,13 @@ class IntlDateTimeFormat:
         if locales is None:
             requested_locales = []
         elif isinstance(locales, str):
-            requested_locales = [locales]
+            # Validate locale format before using it
+            from .locale_support import parse_locale
+            try:
+                parse_locale(locales)
+                requested_locales = [locales]
+            except ValueError:
+                raise ValueError(f"Invalid locale: {locales}")
         elif isinstance(locales, (list, tuple)):
             requested_locales = list(locales)
         else:
