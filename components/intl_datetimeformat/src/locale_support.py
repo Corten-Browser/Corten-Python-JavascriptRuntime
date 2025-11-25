@@ -150,7 +150,13 @@ def parse_locale(locale):
                 else:
                     i += 1
 
-            # Consolidate duplicate extensions by merging dictionaries
+            # Store extensions as list to preserve multiple occurrences
+            # Don't consolidate - keep them separate (make a copy to avoid mutation)
+            if 'extensions_list' not in result:
+                result['extensions_list'] = []
+            result['extensions_list'].append((ext_key, dict(ext_dict)))
+
+            # Also keep dict format for backward compatibility
             if ext_key in result['extensions']:
                 if isinstance(result['extensions'][ext_key], dict):
                     result['extensions'][ext_key].update(ext_dict)
@@ -199,18 +205,32 @@ def canonicalize_locale(locale):
     for variant in parsed['variants']:
         parts.append(variant.lower())
 
-    # Add extensions in sorted order
-    for ext_key in sorted(parsed['extensions'].keys()):
-        parts.append(ext_key)
-        ext_value = parsed['extensions'][ext_key]
-        if isinstance(ext_value, dict):
-            # Sort extension keys and add them
-            for key in sorted(ext_value.keys()):
-                parts.append(key)
-                if ext_value[key]:
-                    parts.append(ext_value[key])
-        else:
-            # Legacy string format (shouldn't happen with new parsing)
-            parts.append(ext_value)
+    # Add extensions - use extensions_list if available (preserves multiple u-)
+    if 'extensions_list' in parsed and parsed['extensions_list']:
+        for ext_key, ext_dict in parsed['extensions_list']:
+            parts.append(ext_key)
+            if isinstance(ext_dict, dict):
+                # Sort keys within this extension
+                for key in sorted(ext_dict.keys()):
+                    parts.append(key)
+                    if ext_dict[key]:
+                        parts.append(ext_dict[key])
+            else:
+                parts.append(ext_dict)
+    else:
+        # Fallback to old dict format (for backward compatibility)
+        for ext_key in sorted(parsed['extensions'].keys()):
+            ext_value = parsed['extensions'][ext_key]
+            if isinstance(ext_value, dict):
+                # Single extension with multiple keys - output as one u-
+                parts.append(ext_key)
+                for key in sorted(ext_value.keys()):
+                    parts.append(key)
+                    if ext_value[key]:
+                        parts.append(ext_value[key])
+            else:
+                # Legacy string format (shouldn't happen with new parsing)
+                parts.append(ext_key)
+                parts.append(ext_value)
 
     return '-'.join(parts)

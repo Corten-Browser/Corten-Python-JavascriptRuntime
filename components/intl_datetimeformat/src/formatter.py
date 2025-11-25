@@ -243,54 +243,35 @@ def format_range_pattern(startParts, endParts, locale):
     Returns:
         Formatted range string
     """
-    # Find where dates differ
-    differ_at = None
+    # Find first difference between start and end
+    differ_at_index = None
     for i, (start, end) in enumerate(zip(startParts, endParts)):
-        if start.get('type') != 'literal' and start.get('value') != end.get('value'):
-            differ_at = start.get('type')
+        if start.get('value') != end.get('value'):
+            differ_at_index = i
             break
+
+    # If identical, just return single formatted date
+    if differ_at_index is None:
+        return ''.join([p['value'] for p in startParts])
 
     # Build range string
+    # Include all shared parts up to the difference
     result = []
 
-    # Add shared prefix
-    shared_prefix = []
-    for i, part in enumerate(startParts):
-        if i < len(endParts) and part.get('type') != 'literal':
-            if part.get('value') == endParts[i].get('value'):
-                shared_prefix.append(part)
-            else:
-                break
-        elif part.get('type') == 'literal' and i < len(endParts) and endParts[i].get('type') == 'literal':
-            shared_prefix.append(part)
-        else:
-            break
+    # Add shared prefix (with literals)
+    for i in range(differ_at_index):
+        result.append(startParts[i]['value'])
 
-    # Add start-specific parts
-    start_specific = []
-    for i in range(len(shared_prefix), len(startParts)):
-        part = startParts[i]
-        if part.get('type') != 'literal' or not start_specific:
-            start_specific.append(part)
+    # Add remaining start parts
+    for i in range(differ_at_index, len(startParts)):
+        result.append(startParts[i]['value'])
 
-    # Add end-specific parts
-    end_specific = []
-    for i in range(len(shared_prefix), len(endParts)):
-        part = endParts[i]
-        if part.get('type') != 'literal' or not end_specific:
-            end_specific.append(part)
-
-    # Assemble range
-    if shared_prefix:
-        result.extend([p['value'] for p in shared_prefix])
-
-    if start_specific:
-        result.append(''.join([p['value'] for p in start_specific if p.get('type') != 'literal']))
-
+    # Add range separator
     result.append(' – ')
 
-    if end_specific:
-        result.append(''.join([p['value'] for p in end_specific]))
+    # Add end parts from the difference point
+    for i in range(differ_at_index, len(endParts)):
+        result.append(endParts[i]['value'])
 
     return ''.join(result)
 
@@ -551,9 +532,21 @@ def _get_component_parts(date, options, locale, calendar, hourCycle, timeZone):
     parts = []
     lang = locale.split('-')[0]
 
-    # Order matters for proper formatting
-    component_order = ['era', 'year', 'month', 'day', 'weekday', 'hour', 'minute', 'second',
-                      'fractionalSecondDigits', 'dayPeriod', 'timeZoneName']
+    # Order matters for proper formatting - varies by locale
+    if locale.startswith('en-US'):
+        # US format: month/day/year
+        date_order = ['era', 'month', 'day', 'year', 'weekday']
+    else:
+        # Most other locales: day/month/year or year/month/day
+        date_order = ['era', 'year', 'month', 'day', 'weekday']
+
+    component_order = date_order + ['hour', 'minute', 'second',
+                                    'fractionalSecondDigits', 'dayPeriod', 'timeZoneName']
+
+    # Auto-add dayPeriod for 12-hour cycles if not explicitly disabled
+    if hourCycle in ('h11', 'h12') and 'hour' in options and 'dayPeriod' not in options:
+        options = dict(options)  # Make a copy
+        options['dayPeriod'] = 'short'
 
     prev_was_date = False
     prev_was_time = False
@@ -584,7 +577,9 @@ def _get_component_parts(date, options, locale, calendar, hourCycle, timeZone):
 
         elif component in ('hour', 'minute', 'second', 'fractionalSecondDigits', 'dayPeriod'):
             value = format_time_part(date, component, style, hourCycle or 'h23', locale)
-            parts.append({'type': component, 'value': value})
+            # Use 'fractionalSecond' as the type name, not 'fractionalSecondDigits'
+            part_type = 'fractionalSecond' if component == 'fractionalSecondDigits' else component
+            parts.append({'type': part_type, 'value': value})
 
             # Add time separators
             if component == 'hour' and 'minute' in options:

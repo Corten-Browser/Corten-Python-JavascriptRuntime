@@ -136,7 +136,7 @@ def convert_to_calendar(date, calendar):
             'year': islamic_year,
             'month': islamic_month,
             'day': islamic_day,
-            'era': 'ah'  # Anno Hegirae
+            'era': 'AH'  # Anno Hegirae
         }
 
     # Persian (Solar Hijri) calendar
@@ -160,7 +160,36 @@ def convert_to_calendar(date, calendar):
             'era': 'am'  # Anno Mundi
         }
 
-    # For other calendars, return Gregorian as fallback
+    # Chinese calendar (simplified)
+    elif calendar == 'chinese':
+        # Chinese calendar is lunisolar with 60-year cycles
+        # Simplified: approximate year in current cycle
+        # Actual calculation would require complex astronomical data
+
+        # Chinese calendar years are in 60-year cycles
+        # Current cycle started in 1984 (cycle 78)
+        years_since_cycle_start = date.year - 1984
+        cycle_year = (years_since_cycle_start % 60) + 1
+        cycle = 78 + (years_since_cycle_start // 60)
+
+        # Approximate month (Chinese months are lunar)
+        # This is a very rough approximation
+        chinese_month = date.month
+
+        return {
+            'year': date.year,
+            'month': chinese_month,
+            'day': date.day,
+            'cycle': cycle,
+            'cycleYear': cycle_year,
+            'era': 'ce'
+        }
+
+    # For invalid calendars, raise error
+    elif calendar not in CalendarSupport.SUPPORTED_CALENDARS:
+        raise ValueError(f"Invalid calendar: {calendar}")
+
+    # For other supported calendars, return Gregorian as fallback
     else:
         return {
             'year': date.year,

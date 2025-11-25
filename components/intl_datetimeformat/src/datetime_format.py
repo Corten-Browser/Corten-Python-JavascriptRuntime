@@ -288,26 +288,34 @@ class IntlDateTimeFormat:
         # Add source indicators
         result = []
 
-        # Find shared parts
-        shared_count = 0
+        # Identify which parts are shared (same type and value)
+        shared_indices = set()
         for i, (start_part, end_part) in enumerate(zip(startParts, endParts)):
             if start_part.get('type') == end_part.get('type') and \
                start_part.get('value') == end_part.get('value'):
-                shared_count = i + 1
+                shared_indices.add(i)
+
+        # Add shared prefix parts
+        prefix_end = 0
+        for i, (start_part, end_part) in enumerate(zip(startParts, endParts)):
+            if i in shared_indices:
+                prefix_end = i + 1
             else:
                 break
 
-        # Add shared prefix parts
-        for i in range(shared_count):
+        for i in range(prefix_end):
             part = startParts[i].copy()
             part['source'] = 'shared'
             result.append(part)
 
         # Add start-specific parts
-        for i in range(shared_count, len(startParts)):
+        for i in range(prefix_end, len(startParts)):
             part = startParts[i].copy()
             if part.get('type') != 'literal':
-                part['source'] = 'startRange'
+                if i in shared_indices:
+                    part['source'] = 'shared'
+                else:
+                    part['source'] = 'startRange'
             else:
                 part['source'] = 'shared'
             result.append(part)
@@ -316,10 +324,13 @@ class IntlDateTimeFormat:
         result.append({'type': 'literal', 'value': ' – ', 'source': 'shared'})
 
         # Add end-specific parts
-        for i in range(shared_count, len(endParts)):
+        for i in range(prefix_end, len(endParts)):
             part = endParts[i].copy()
             if part.get('type') != 'literal':
-                part['source'] = 'endRange'
+                if i in shared_indices:
+                    part['source'] = 'shared'
+                else:
+                    part['source'] = 'endRange'
             else:
                 part['source'] = 'shared'
             result.append(part)
