@@ -49,3 +49,5 @@ orchestration/.idea/
 # OS files
 .DS_Store
 Thumbs.db
+test262/
+failures.json
