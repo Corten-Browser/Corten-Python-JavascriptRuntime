@@ -9,7 +9,8 @@ Covers:
 
 import pytest
 import gc as python_gc
-from weakref_finalization import WeakRef, FinalizationRegistry
+from js_weakref import WeakRef
+from finalization_registry import FinalizationRegistry
 
 
 class TestWeakRefGCIntegration:
@@ -309,7 +310,7 @@ class TestGCHooks:
         """
         # This would test integration with memory_gc component
         # For now, verify the hook mechanism exists
-        from weakref_finalization import on_object_collected
+        from finalization_registry import on_object_collected
 
         # Clear any previous collected objects
         on_object_collected._collected_objects = []
@@ -330,7 +331,7 @@ class TestGCHooks:
 
         Note: This tests integration with event_loop component.
         """
-        from weakref_finalization import schedule_cleanup_microtask
+        from finalization_registry import schedule_cleanup_microtask
 
         cleanup_calls = []
         registry = FinalizationRegistry(lambda held: cleanup_calls.append(held))

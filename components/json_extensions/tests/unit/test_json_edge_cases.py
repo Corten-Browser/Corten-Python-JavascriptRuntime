@@ -18,7 +18,7 @@ class TestJSONCircularReferences:
 
     def test_direct_circular_reference_throws(self):
         """Direct circular reference should throw TypeError"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -30,7 +30,7 @@ class TestJSONCircularReferences:
 
     def test_indirect_circular_reference_throws(self):
         """Indirect circular reference should throw TypeError"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -43,7 +43,7 @@ class TestJSONCircularReferences:
 
     def test_deep_circular_reference_throws(self):
         """Deep circular reference should be detected"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -55,7 +55,7 @@ class TestJSONCircularReferences:
 
     def test_circular_array_reference_throws(self):
         """Circular reference in arrays should throw"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -67,7 +67,7 @@ class TestJSONCircularReferences:
 
     def test_detect_circular_method(self):
         """detect_circular method should identify circular references"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -78,7 +78,7 @@ class TestJSONCircularReferences:
 
     def test_detect_circular_no_reference(self):
         """detect_circular should return False for non-circular structures"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -88,7 +88,7 @@ class TestJSONCircularReferences:
 
     def test_circular_after_replacer(self):
         """Circular reference created by replacer should be detected"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -109,7 +109,7 @@ class TestJSONBigIntHandling:
 
     def test_bigint_throws_typeerror(self):
         """BigInt should throw TypeError"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -126,7 +126,7 @@ class TestJSONBigIntHandling:
 
     def test_bigint_in_array_throws(self):
         """BigInt in array should throw TypeError"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -141,7 +141,7 @@ class TestJSONBigIntHandling:
 
     def test_handle_bigint_method(self):
         """handle_bigint should throw appropriate error"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         edge_cases = JSONEdgeCases()
 
@@ -158,7 +158,7 @@ class TestJSONSymbolHandling:
 
     def test_symbol_in_object_skipped(self):
         """Symbol values in objects should be skipped"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -178,7 +178,7 @@ class TestJSONSymbolHandling:
 
     def test_symbol_in_array_becomes_null(self):
         """Symbol values in arrays should become null"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -194,7 +194,7 @@ class TestJSONSymbolHandling:
 
     def test_handle_symbol_method(self):
         """handle_symbol should return undefined"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         edge_cases = JSONEdgeCases()
 
@@ -212,7 +212,7 @@ class TestJSONFunctionHandling:
 
     def test_function_in_object_skipped(self):
         """Function values in objects should be skipped"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -227,7 +227,7 @@ class TestJSONFunctionHandling:
 
     def test_function_in_array_becomes_null(self):
         """Function values in arrays should become null"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -239,7 +239,7 @@ class TestJSONFunctionHandling:
 
     def test_handle_function_method(self):
         """handle_function should return undefined"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         edge_cases = JSONEdgeCases()
 
@@ -254,7 +254,7 @@ class TestJSONUndefinedHandling:
 
     def test_undefined_in_object_skipped(self):
         """Undefined values in objects should be skipped"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -275,7 +275,7 @@ class TestJSONUndefinedHandling:
 
     def test_undefined_in_array_becomes_null(self):
         """Undefined values in arrays should become null"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -290,7 +290,7 @@ class TestJSONUndefinedHandling:
 
     def test_handle_undefined_in_array_method(self):
         """handle_undefined_in_array should convert to null"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         edge_cases = JSONEdgeCases()
 
@@ -306,7 +306,7 @@ class TestJSONToJSONMethod:
 
     def test_object_with_toJSON_called(self):
         """Objects with toJSON() should have method called"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -326,7 +326,7 @@ class TestJSONToJSONMethod:
 
     def test_toJSON_return_primitive(self):
         """toJSON() can return primitive values"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -342,7 +342,7 @@ class TestJSONToJSONMethod:
 
     def test_toJSON_return_string(self):
         """toJSON() can return strings"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -357,7 +357,7 @@ class TestJSONToJSONMethod:
 
     def test_toJSON_in_nested_object(self):
         """toJSON() should work in nested structures"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -373,7 +373,7 @@ class TestJSONToJSONMethod:
 
     def test_toJSON_in_array(self):
         """toJSON() should work for objects in arrays"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -393,7 +393,7 @@ class TestJSONToJSONMethod:
 
     def test_handle_toJSON_method(self):
         """handle_toJSON should call toJSON() if present"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         edge_cases = JSONEdgeCases()
 
@@ -408,7 +408,7 @@ class TestJSONToJSONMethod:
 
     def test_toJSON_with_replacer(self):
         """toJSON() should be called before replacer"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -432,7 +432,7 @@ class TestJSONEdgeCaseIntegration:
 
     def test_complex_object_with_multiple_edge_cases(self):
         """Test object with multiple edge case types"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -462,7 +462,7 @@ class TestJSONEdgeCaseIntegration:
 
     def test_array_with_mixed_edge_cases(self):
         """Test array with various edge case values"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -482,7 +482,7 @@ class TestJSONEdgeCaseIntegration:
 
     def test_nested_structure_with_toJSON(self):
         """Test nested structure with toJSON at various levels"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 

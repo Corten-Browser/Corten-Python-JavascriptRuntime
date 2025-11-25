@@ -10,15 +10,12 @@ import time
 import sys
 from pathlib import Path
 
-# Add typed_arrays src to path
-typed_arrays_src = Path(__file__).parent.parent.parent.parent / 'typed_arrays' / 'src'
-if str(typed_arrays_src) not in sys.path:
-    sys.path.insert(0, str(typed_arrays_src))
-
-from typed_array import Int32Array
-from array_buffer import ArrayBuffer
+# Import from component paths
+from components.typed_arrays.src.typed_array import Int32Array
+from components.typed_arrays.src.array_buffer import ArrayBuffer
+# Import exceptions from same path as atomics_extensions uses (via sys.path)
 from exceptions import TypeError as JSTypeError, RangeError
-from components.event_loop.src import EventLoop
+from components.event_loop.src.event_loop import EventLoop
 
 
 class TestAtomicsWaitAsync:

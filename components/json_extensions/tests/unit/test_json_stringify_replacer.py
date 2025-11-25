@@ -16,7 +16,7 @@ class TestJSONStringifyFunctionReplacer:
 
     def test_function_replacer_transforms_values(self):
         """Function replacer should transform values during stringification"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -32,7 +32,7 @@ class TestJSONStringifyFunctionReplacer:
 
     def test_function_replacer_this_binding(self):
         """Replacer 'this' should be bound to holder object"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         this_values = []
@@ -49,7 +49,7 @@ class TestJSONStringifyFunctionReplacer:
 
     def test_function_replacer_can_filter(self):
         """Replacer can filter out properties by returning undefined"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -65,7 +65,7 @@ class TestJSONStringifyFunctionReplacer:
 
     def test_function_replacer_invocation_order(self):
         """Replacer should be invoked in correct order"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         call_order = []
@@ -81,7 +81,7 @@ class TestJSONStringifyFunctionReplacer:
 
     def test_function_replacer_with_arrays(self):
         """Function replacer should work with arrays"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -102,7 +102,7 @@ class TestJSONStringifyArrayReplacer:
 
     def test_array_replacer_filters_properties(self):
         """Array replacer should only include whitelisted properties"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -117,7 +117,7 @@ class TestJSONStringifyArrayReplacer:
 
     def test_array_replacer_nested_objects(self):
         """Array replacer should apply to nested objects"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -133,7 +133,7 @@ class TestJSONStringifyArrayReplacer:
 
     def test_array_replacer_with_numbers(self):
         """Array replacer can contain numeric indices for arrays"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -147,7 +147,7 @@ class TestJSONStringifyArrayReplacer:
 
     def test_array_replacer_empty_array(self):
         """Empty array replacer should exclude all properties"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -161,7 +161,7 @@ class TestJSONStringifyArrayReplacer:
 
     def test_array_replacer_ignores_non_string_entries(self):
         """Array replacer should only use string/number entries"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -179,7 +179,7 @@ class TestJSONStringifyReplacerContext:
 
     def test_replacer_context_get_key(self):
         """Replacer context should provide current key"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         keys = []
@@ -197,7 +197,7 @@ class TestJSONStringifyReplacerContext:
 
     def test_replacer_context_get_holder(self):
         """Replacer context should provide holder object"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         holders = []
@@ -214,7 +214,7 @@ class TestJSONStringifyReplacerContext:
 
     def test_replacer_context_get_path(self):
         """Replacer context should provide path from root"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         paths = {}
@@ -232,7 +232,7 @@ class TestJSONStringifyReplacerContext:
 
     def test_replacer_context_path_for_arrays(self):
         """Context path should work for arrays"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         paths = {}
@@ -253,7 +253,7 @@ class TestJSONStringifyReplacerEdgeCases:
 
     def test_replacer_with_null_values(self):
         """Replacer should handle null values correctly"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -268,7 +268,7 @@ class TestJSONStringifyReplacerEdgeCases:
 
     def test_replacer_returning_objects(self):
         """Replacer can return objects that get stringified"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -283,7 +283,7 @@ class TestJSONStringifyReplacerEdgeCases:
 
     def test_replacer_called_on_root(self):
         """Replacer should be called on root value with empty key"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         root_called = []

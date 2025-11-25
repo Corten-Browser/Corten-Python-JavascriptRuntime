@@ -79,7 +79,11 @@ class SharedArrayBufferIntegration:
             >>> sab.is_shared_array_buffer(regular)
             False
         """
-        if not isinstance(buffer, ArrayBuffer):
+        # Use duck typing to check for ArrayBuffer-like object
+        # This handles cases where ArrayBuffer is imported from different paths
+        if not (hasattr(buffer, 'byteLength') and
+                hasattr(buffer, '_data') and
+                type(buffer).__name__ == 'ArrayBuffer'):
             return False
 
         return getattr(buffer, '_shared', False)

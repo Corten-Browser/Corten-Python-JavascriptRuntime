@@ -16,7 +16,7 @@ class TestJSONStringifyUnicodeSurrogatePairs:
 
     def test_valid_surrogate_pair_preserved(self):
         """Valid surrogate pairs should be preserved in output"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -29,7 +29,7 @@ class TestJSONStringifyUnicodeSurrogatePairs:
 
     def test_unpaired_high_surrogate_escaped(self):
         """Unpaired high surrogate should be escaped"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -42,7 +42,7 @@ class TestJSONStringifyUnicodeSurrogatePairs:
 
     def test_unpaired_low_surrogate_escaped(self):
         """Unpaired low surrogate should be escaped"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -55,7 +55,7 @@ class TestJSONStringifyUnicodeSurrogatePairs:
 
     def test_reversed_surrogate_pair_escaped(self):
         """Reversed surrogate pair (low then high) should be escaped"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -69,7 +69,7 @@ class TestJSONStringifyUnicodeSurrogatePairs:
 
     def test_multiple_surrogate_pairs(self):
         """Multiple valid surrogate pairs should all be preserved"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -81,7 +81,7 @@ class TestJSONStringifyUnicodeSurrogatePairs:
 
     def test_mixed_valid_and_unpaired_surrogates(self):
         """Mix of valid pairs and unpaired surrogates"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -99,7 +99,7 @@ class TestJSONStringifyUnicodeEscaping:
 
     def test_escape_surrogate_pair_method(self):
         """Test escape_surrogate_pair utility method"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -111,7 +111,7 @@ class TestJSONStringifyUnicodeEscaping:
 
     def test_escape_unpaired_surrogate_method(self):
         """Test escape_unpaired_surrogate utility method"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -122,7 +122,7 @@ class TestJSONStringifyUnicodeEscaping:
 
     def test_escape_high_surrogate_range(self):
         """Test all high surrogates (U+D800 to U+DBFF) are escaped"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -135,7 +135,7 @@ class TestJSONStringifyUnicodeEscaping:
 
     def test_escape_low_surrogate_range(self):
         """Test all low surrogates (U+DC00 to U+DFFF) are escaped"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -152,7 +152,7 @@ class TestJSONStringifyUnicodeValidation:
 
     def test_validate_unicode_well_formed(self):
         """Valid Unicode should pass validation"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -162,7 +162,7 @@ class TestJSONStringifyUnicodeValidation:
 
     def test_validate_unicode_unpaired_surrogate_detected(self):
         """Unpaired surrogates should be detected"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -175,7 +175,7 @@ class TestJSONStringifyUnicodeValidation:
 
     def test_validate_unicode_empty_string(self):
         """Empty string should be valid"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -183,7 +183,7 @@ class TestJSONStringifyUnicodeValidation:
 
     def test_validate_unicode_ascii(self):
         """Pure ASCII should be valid"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 
@@ -195,7 +195,7 @@ class TestJSONStringifyWellFormedIntegration:
 
     def test_well_formed_stringify_vs_regular_stringify(self):
         """Well-formed stringify should differ from regular for unpaired surrogates"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -212,7 +212,7 @@ class TestJSONStringifyWellFormedIntegration:
 
     def test_well_formed_with_object_containing_surrogates(self):
         """Well-formed stringify should handle objects with surrogate strings"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -228,7 +228,7 @@ class TestJSONStringifyWellFormedIntegration:
 
     def test_well_formed_with_arrays(self):
         """Well-formed stringify should handle arrays with surrogate strings"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -240,7 +240,8 @@ class TestJSONStringifyWellFormedIntegration:
 
     def test_well_formed_roundtrip(self):
         """Well-formed stringified JSON should parse back correctly"""
-        from json_extensions import JSONStringifier, JSONParser
+        from json_stringifier import JSONStringifier
+        from json_parser import JSONParser
 
         stringifier = JSONStringifier()
         parser = JSONParser()

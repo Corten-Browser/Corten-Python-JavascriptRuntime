@@ -54,7 +54,10 @@ class JSONStringifier:
             JSON string
         """
         # Import edge case handler
-        from .json_edge_cases import JSONEdgeCases
+        try:
+            from .json_edge_cases import JSONEdgeCases
+        except ImportError:
+            from json_edge_cases import JSONEdgeCases
 
         edge_handler = JSONEdgeCases()
 
@@ -101,7 +104,10 @@ class JSONStringifier:
             Well-formed JSON (proper Unicode surrogates)
         """
         # Import Unicode handler
-        from .json_unicode import JSONUnicode
+        try:
+            from .json_unicode import JSONUnicode
+        except ImportError:
+            from json_unicode import JSONUnicode
 
         unicode_handler = JSONUnicode()
 

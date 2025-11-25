@@ -8,7 +8,7 @@ class TestUnicodeErrorHandling:
 
     def test_escape_surrogate_pair_invalid_high(self):
         """Test error when high surrogate is invalid"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 
@@ -18,7 +18,7 @@ class TestUnicodeErrorHandling:
 
     def test_escape_surrogate_pair_invalid_low(self):
         """Test error when low surrogate is invalid"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 
@@ -28,7 +28,7 @@ class TestUnicodeErrorHandling:
 
     def test_escape_unpaired_surrogate_invalid(self):
         """Test error when code point is not a surrogate"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 
@@ -38,7 +38,7 @@ class TestUnicodeErrorHandling:
 
     def test_validate_unicode_non_string(self):
         """Test validation with non-string input"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 
@@ -48,7 +48,7 @@ class TestUnicodeErrorHandling:
 
     def test_validate_unicode_with_exception(self):
         """Test validation handles exceptions"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 

@@ -8,7 +8,7 @@ class TestJSONBasicFunctionality:
 
     def test_stringify_primitives(self):
         """Test stringifying primitive values"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -20,7 +20,7 @@ class TestJSONBasicFunctionality:
 
     def test_stringify_simple_object(self):
         """Test stringifying simple object"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         result = stringifier.stringify({"a": 1})
@@ -30,7 +30,7 @@ class TestJSONBasicFunctionality:
 
     def test_stringify_simple_array(self):
         """Test stringifying simple array"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
         result = stringifier.stringify([1, 2, 3])
@@ -39,7 +39,7 @@ class TestJSONBasicFunctionality:
 
     def test_parse_primitives(self):
         """Test parsing primitive values"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
 
@@ -51,7 +51,7 @@ class TestJSONBasicFunctionality:
 
     def test_unicode_escape_valid_pair_chars(self):
         """Test escaping valid surrogate pair"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 
@@ -64,7 +64,7 @@ class TestJSONBasicFunctionality:
 
     def test_unicode_validate_normal_text(self):
         """Validate normal text"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
 

@@ -8,7 +8,7 @@ class TestJSONUnicodeUtilities:
 
     def test_has_unpaired_surrogates_detects_high(self):
         """Detect unpaired high surrogate"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         text = "\uD800test"  # Unpaired high surrogate
@@ -16,7 +16,7 @@ class TestJSONUnicodeUtilities:
 
     def test_has_unpaired_surrogates_detects_low(self):
         """Detect unpaired low surrogate"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         text = "test\uDC00"  # Unpaired low surrogate
@@ -24,7 +24,7 @@ class TestJSONUnicodeUtilities:
 
     def test_has_unpaired_surrogates_valid_pair(self):
         """Valid pair should not be detected as unpaired"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         text = "\U0001F600"  # Valid emoji (surrogate pair)
@@ -32,14 +32,14 @@ class TestJSONUnicodeUtilities:
 
     def test_has_unpaired_surrogates_normal_text(self):
         """Normal text should not have unpaired surrogates"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         assert handler.has_unpaired_surrogates("hello world") is False
 
     def test_fix_unpaired_surrogates(self):
         """Fix unpaired surrogates by escaping"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         text = "\uD800test"
@@ -50,7 +50,7 @@ class TestJSONUnicodeUtilities:
 
     def test_fix_unpaired_surrogates_preserves_valid_pairs(self):
         """Fix should preserve valid surrogate pairs"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         text = "\U0001F600test"  # Valid emoji
@@ -61,7 +61,7 @@ class TestJSONUnicodeUtilities:
 
     def test_fix_unpaired_surrogates_multiple(self):
         """Fix multiple unpaired surrogates"""
-        from json_extensions import JSONUnicode
+        from json_unicode import JSONUnicode
 
         handler = JSONUnicode()
         text = "\uD800\uDC00\uD801"  # Valid pair + unpaired high

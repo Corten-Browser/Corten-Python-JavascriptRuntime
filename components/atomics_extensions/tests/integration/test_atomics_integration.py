@@ -10,12 +10,7 @@ import time
 import sys
 from pathlib import Path
 
-# Add typed_arrays src to path
-typed_arrays_src = Path(__file__).parent.parent.parent.parent / 'typed_arrays' / 'src'
-if str(typed_arrays_src) not in sys.path:
-    sys.path.insert(0, str(typed_arrays_src))
-
-from typed_array import Int32Array
+from components.typed_arrays.src.typed_array import Int32Array
 from components.event_loop.src import EventLoop
 
 

@@ -33,7 +33,8 @@ class TypedArray:
         arg0 = args[0]
 
         # Pattern: TypedArray(buffer, byteOffset?, length?)
-        if isinstance(arg0, ArrayBuffer):
+        # Use duck typing to detect ArrayBuffer (handles import from different paths)
+        if self._is_array_buffer(arg0):
             self._init_from_buffer(*args)
 
         # Pattern: TypedArray(typedArray) - copy constructor
@@ -54,6 +55,18 @@ class TypedArray:
             self._byteOffset = 0
             self._length = length
             self._byteLength = byte_length
+
+    def _is_array_buffer(self, obj):
+        """Check if object is an ArrayBuffer using duck typing.
+
+        This handles cases where ArrayBuffer is imported from different paths,
+        which would cause isinstance() to fail.
+        """
+        # Check for ArrayBuffer-like characteristics
+        return (hasattr(obj, 'byteLength') and
+                hasattr(obj, '_data') and
+                hasattr(obj, '_detached') and
+                type(obj).__name__ == 'ArrayBuffer')
 
     def _init_from_buffer(self, buffer, byteOffset=0, length=None):
         """Initialize as view of ArrayBuffer"""

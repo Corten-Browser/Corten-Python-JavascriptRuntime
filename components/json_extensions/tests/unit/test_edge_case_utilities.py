@@ -8,7 +8,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_detect_circular_deeply_nested(self):
         """Detect circular references in deeply nested structures"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         handler = JSONEdgeCases()
 
@@ -19,7 +19,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_detect_circular_array_in_object(self):
         """Detect circular reference with arrays"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         handler = JSONEdgeCases()
 
@@ -30,7 +30,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_stringify_with_edge_cases_full(self):
         """Test stringify_with_edge_cases method"""
-        from json_extensions import JSONEdgeCases, Symbol
+        from json_edge_cases import JSONEdgeCases, Symbol
 
         handler = JSONEdgeCases()
 
@@ -44,7 +44,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_handle_undefined_in_array_multiple(self):
         """Test handle_undefined_in_array with multiple undefined"""
-        from json_extensions import JSONEdgeCases, Undefined
+        from json_edge_cases import JSONEdgeCases, Undefined
 
         handler = JSONEdgeCases()
 
@@ -56,7 +56,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_prepare_for_json_nested_symbols(self):
         """Test prepare_for_json with nested symbols"""
-        from json_extensions import JSONEdgeCases, Symbol
+        from json_edge_cases import JSONEdgeCases, Symbol
 
         handler = JSONEdgeCases()
 
@@ -77,7 +77,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_prepare_for_json_mixed_array(self):
         """Test prepare_for_json with mixed types in array"""
-        from json_extensions import JSONEdgeCases, Symbol, Undefined
+        from json_edge_cases import JSONEdgeCases, Symbol, Undefined
 
         handler = JSONEdgeCases()
 
@@ -94,7 +94,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_prepare_for_json_with_toJSON_nested(self):
         """Test toJSON in nested structures"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         handler = JSONEdgeCases()
 
@@ -122,7 +122,7 @@ class TestJSONEdgeCaseUtilities:
 
     def test_detect_circular_no_false_positives(self):
         """Ensure detect_circular doesn't give false positives"""
-        from json_extensions import JSONEdgeCases
+        from json_edge_cases import JSONEdgeCases
 
         handler = JSONEdgeCases()
 

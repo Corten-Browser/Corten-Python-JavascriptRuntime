@@ -16,7 +16,7 @@ class TestJSONParseReviverBinding:
 
     def test_reviver_this_bound_to_holder_object(self):
         """Reviver 'this' should be bound to the object containing the property"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         this_values = []
@@ -34,7 +34,7 @@ class TestJSONParseReviverBinding:
 
     def test_reviver_this_for_nested_objects(self):
         """Test this binding for nested object properties"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         this_bindings = {}
@@ -52,7 +52,7 @@ class TestJSONParseReviverBinding:
 
     def test_reviver_this_for_arrays(self):
         """Test this binding for array elements"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         this_values = []
@@ -72,7 +72,7 @@ class TestJSONParseReviverOrder:
 
     def test_reviver_depth_first_order(self):
         """Reviver should visit properties depth-first, innermost to outermost"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         visit_order = []
@@ -95,7 +95,7 @@ class TestJSONParseReviverOrder:
 
     def test_reviver_nested_array_order(self):
         """Test depth-first order for nested arrays"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         visit_order = []
@@ -112,7 +112,7 @@ class TestJSONParseReviverOrder:
 
     def test_reviver_multiple_nesting_levels(self):
         """Test order for multiple nesting levels"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         visit_order = []
@@ -133,7 +133,7 @@ class TestJSONParseReviverContext:
 
     def test_reviver_receives_context(self):
         """Reviver should receive context as third parameter"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         contexts = []
@@ -150,7 +150,7 @@ class TestJSONParseReviverContext:
 
     def test_context_get_source(self):
         """Context should provide get_source() method"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         sources = []
@@ -167,7 +167,7 @@ class TestJSONParseReviverContext:
 
     def test_context_get_key(self):
         """Context should provide get_key() method"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         keys = []
@@ -184,7 +184,7 @@ class TestJSONParseReviverContext:
 
     def test_context_get_holder(self):
         """Context should provide get_holder() method"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         holders = []
@@ -205,7 +205,7 @@ class TestJSONParseReviverTransformations:
 
     def test_reviver_transforms_values(self):
         """Reviver should be able to transform parsed values"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
 
@@ -220,7 +220,7 @@ class TestJSONParseReviverTransformations:
 
     def test_reviver_can_delete_properties(self):
         """Reviver can delete properties by returning undefined"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
 
@@ -237,7 +237,7 @@ class TestJSONParseReviverTransformations:
 
     def test_reviver_transforms_nested_values(self):
         """Reviver should transform values at all nesting levels"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
 

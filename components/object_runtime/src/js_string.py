@@ -8,7 +8,10 @@ to implement JavaScript string semantics.
 from typing import Optional
 from components.memory_gc.src import GarbageCollector
 from components.value_system.src import Value
-from js_object import JSObject
+try:
+    from .js_object import JSObject
+except ImportError:
+    from js_object import JSObject
 
 
 class JSString(JSObject):

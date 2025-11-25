@@ -8,7 +8,7 @@ class TestJSONParserEdgeCases:
 
     def test_parse_array_with_reviver(self):
         """Parse array with reviver"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
 
@@ -26,7 +26,7 @@ class TestJSONParserEdgeCases:
 
     def test_parse_empty_object(self):
         """Parse empty object"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         result = parser.parse('{}')
@@ -35,7 +35,7 @@ class TestJSONParserEdgeCases:
 
     def test_parse_empty_array(self):
         """Parse empty array"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
         result = parser.parse('[]')
@@ -44,7 +44,7 @@ class TestJSONParserEdgeCases:
 
     def test_parse_with_source_empty(self):
         """Parse with source for empty object"""
-        from json_extensions import JSONParser
+        from json_parser import JSONParser
 
         parser = JSONParser()
 

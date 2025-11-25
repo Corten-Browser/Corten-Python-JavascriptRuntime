@@ -4,7 +4,10 @@ Options validation for RelativeTimeFormat.
 Validates style, numeric, and unit options.
 """
 
-from exceptions import RangeError
+try:
+    from .exceptions import RangeError
+except ImportError:
+    from components.intl_relativetimeformat.src.exceptions import RangeError
 
 
 class RelativeTimeFormatOptions:

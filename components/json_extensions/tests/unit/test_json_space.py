@@ -16,7 +16,7 @@ class TestJSONStringifySpaceNumeric:
 
     def test_space_number_basic_indentation(self):
         """Numeric space should indent with that many spaces"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -31,7 +31,7 @@ class TestJSONStringifySpaceNumeric:
 
     def test_space_zero_no_formatting(self):
         """Space of 0 should produce compact JSON"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -43,7 +43,7 @@ class TestJSONStringifySpaceNumeric:
 
     def test_space_negative_ignored(self):
         """Negative space should be treated as 0 (compact)"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -55,7 +55,7 @@ class TestJSONStringifySpaceNumeric:
 
     def test_space_max_10_clamped(self):
         """Space greater than 10 should be clamped to 10"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -80,7 +80,7 @@ class TestJSONStringifySpaceNumeric:
 
     def test_space_nested_objects(self):
         """Space parameter should properly indent nested objects"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -102,7 +102,7 @@ class TestJSONStringifySpaceNumeric:
 
     def test_space_arrays(self):
         """Space parameter should properly format arrays"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -118,7 +118,7 @@ class TestJSONStringifySpaceString:
 
     def test_space_string_custom_indent(self):
         """String space should use that string for indentation"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -130,7 +130,7 @@ class TestJSONStringifySpaceString:
 
     def test_space_string_custom_characters(self):
         """Space string can be custom characters"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -142,7 +142,7 @@ class TestJSONStringifySpaceString:
 
     def test_space_string_max_10_characters(self):
         """String space should be clamped to 10 characters"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -161,7 +161,7 @@ class TestJSONStringifySpaceString:
 
     def test_space_string_nested(self):
         """String space should apply to nested levels"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -173,7 +173,7 @@ class TestJSONStringifySpaceString:
 
     def test_space_empty_string_no_formatting(self):
         """Empty string space should produce compact JSON"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -189,7 +189,7 @@ class TestJSONStringifySpaceFormatting:
 
     def test_space_object_formatting(self):
         """Objects should be formatted with proper spacing"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -207,7 +207,7 @@ class TestJSONStringifySpaceFormatting:
 
     def test_space_array_formatting(self):
         """Arrays should be formatted with proper spacing"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -226,7 +226,7 @@ class TestJSONStringifySpaceFormatting:
 
     def test_space_mixed_structure(self):
         """Mixed objects and arrays should be formatted consistently"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -247,7 +247,7 @@ class TestJSONStringifySpaceFormatting:
 
     def test_space_empty_object(self):
         """Empty objects should be formatted compactly even with space"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -258,7 +258,7 @@ class TestJSONStringifySpaceFormatting:
 
     def test_space_empty_array(self):
         """Empty arrays should be formatted compactly even with space"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -269,7 +269,7 @@ class TestJSONStringifySpaceFormatting:
 
     def test_space_single_property_object(self):
         """Single-property objects can be formatted"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -287,7 +287,7 @@ class TestJSONStringifySpaceEdgeCases:
 
     def test_space_none_compact(self):
         """None/undefined space should produce compact JSON"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -299,7 +299,7 @@ class TestJSONStringifySpaceEdgeCases:
 
     def test_space_float_truncated_to_int(self):
         """Float space should be truncated to integer"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
@@ -313,7 +313,7 @@ class TestJSONStringifySpaceEdgeCases:
 
     def test_space_with_replacer(self):
         """Space should work together with replacer"""
-        from json_extensions import JSONStringifier
+        from json_stringifier import JSONStringifier
 
         stringifier = JSONStringifier()
 
