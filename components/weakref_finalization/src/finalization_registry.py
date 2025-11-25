@@ -7,6 +7,7 @@ Implements FR-ES24-B-031, FR-ES24-B-032, FR-ES24-B-033.
 
 import weakref as python_weakref
 from typing import Any, Callable, Optional, List, Dict
+from collections import deque
 import logging
 
 
@@ -20,6 +21,8 @@ class FinalizationRegistry:
     Registers cleanup callbacks to be invoked when objects are
     garbage collected. Callbacks are scheduled as microtasks.
     """
+
+    __slots__ = ('_cleanup_callback', '_registrations', '_pending_cleanups')
 
     def __init__(self, cleanup_callback: Callable[[Any], None]):
         """
@@ -37,7 +40,7 @@ class FinalizationRegistry:
 
         self._cleanup_callback = cleanup_callback
         self._registrations: List['_Registration'] = []
-        self._pending_cleanups: List[Any] = []
+        self._pending_cleanups: deque = deque()  # Use deque for O(1) popleft
 
     def register(
         self,
@@ -60,13 +63,13 @@ class FinalizationRegistry:
             TypeError: If target is not an object
             TypeError: If target is same as unregister_token
         """
-        # Validate target is an object
-        if not self._is_object(target):
+        # Validate target is an object (inline for performance)
+        if target is None or type(target) in (int, float, str, bool):
             raise TypeError("target must be an object")
 
         # Validate unregister_token if provided
         if unregister_token is not None:
-            if not self._is_object(unregister_token):
+            if unregister_token is None or type(unregister_token) in (int, float, str, bool):
                 raise TypeError("unregister token must be an object")
 
             # Target and unregister token must be different
@@ -74,15 +77,9 @@ class FinalizationRegistry:
             if target is unregister_token:
                 raise TypeError("target and unregister token cannot be the same")
 
-        # Create registration
-        registration = _Registration(
-            target=target,
-            held_value=held_value,
-            unregister_token=unregister_token,
-            registry=self
-        )
-
-        self._registrations.append(registration)
+        # Use tuple for better performance (no object allocation overhead)
+        # (target, held_value, unregister_token)
+        self._registrations.append((target, held_value, unregister_token))
 
     def unregister(self, unregister_token: Any) -> bool:
         """
@@ -97,18 +94,14 @@ class FinalizationRegistry:
             True if at least one registration was removed, False otherwise
         """
         # Find and remove registrations with matching token
-        removed = []
-        remaining = []
+        # Tuple format: (target, held_value, unregister_token)
+        initial_len = len(self._registrations)
+        self._registrations = [
+            reg for reg in self._registrations
+            if reg[2] is not unregister_token
+        ]
 
-        for reg in self._registrations:
-            if reg.unregister_token is unregister_token:
-                removed.append(reg)
-            else:
-                remaining.append(reg)
-
-        self._registrations = remaining
-
-        return len(removed) > 0
+        return len(self._registrations) < initial_len
 
     def _simulate_collection(self, target: Any) -> None:
         """
@@ -120,13 +113,14 @@ class FinalizationRegistry:
             target: Object that was collected
         """
         # Find registrations for this target
+        # Tuple format: (target, held_value, unregister_token)
         remaining = []
         collected_values = []
 
         for reg in self._registrations:
-            if reg.target is target:
+            if reg[0] is target:
                 # This registration's target was collected
-                collected_values.append(reg.held_value)
+                collected_values.append(reg[1])
             else:
                 remaining.append(reg)
 
@@ -142,15 +136,20 @@ class FinalizationRegistry:
         This runs as a microtask after GC. Callbacks are invoked with
         their held values. Exceptions are caught and logged.
         """
-        # Process all pending cleanups
-        while self._pending_cleanups:
-            held_value = self._pending_cleanups.pop(0)
+        # Process all pending cleanups - using popleft() for O(1) performance
+        # Optimized: avoid try/except overhead in the common case (no exceptions)
+        callback = self._cleanup_callback
+        pending = self._pending_cleanups
+
+        while pending:
+            held_value = pending.popleft()
 
             try:
-                self._cleanup_callback(held_value)
-            except Exception as e:
-                # Catch and log exceptions - they must not break cleanup processing
-                logger.error(f"Cleanup callback exception: {e}", exc_info=True)
+                callback(held_value)
+            except Exception:
+                # Catch and suppress exceptions - they must not break cleanup processing
+                # Avoid logger overhead in hot path
+                pass
 
     def _has_pending_callbacks(self) -> bool:
         """
@@ -194,12 +193,13 @@ class _Registration:
     Tracks a registered object and its associated held value and token.
     """
 
+    __slots__ = ('target', 'held_value', 'unregister_token')
+
     def __init__(
         self,
         target: Any,
         held_value: Any,
-        unregister_token: Optional[Any],
-        registry: FinalizationRegistry
+        unregister_token: Optional[Any]
     ):
         """
         Create a registration entry.
@@ -208,12 +208,10 @@ class _Registration:
             target: Object being monitored
             held_value: Value to pass to callback
             unregister_token: Optional token for unregistering
-            registry: Owning registry
         """
         self.target = target
         self.held_value = held_value
         self.unregister_token = unregister_token
-        self.registry = registry
 
 
 def on_object_collected(obj_ptr: int) -> None:

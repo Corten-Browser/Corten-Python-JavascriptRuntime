@@ -18,6 +18,9 @@ class WeakRef:
     as long as it hasn't been collected.
     """
 
+    __slots__ = ('_ref', '_target_collected', '_last_deref_result', '_last_deref_turn')
+    _turn_counter = 0  # Class variable to avoid hasattr checks
+
     def __init__(self, target: Any):
         """
         Create a weak reference to target object.
@@ -28,28 +31,29 @@ class WeakRef:
         Raises:
             TypeError: If target is a primitive (number, string, boolean, null, undefined)
         """
-        # Validate target is an object
-        if not self._is_object(target):
+        # Validate target is an object (inline for performance)
+        # Fast path: check for common primitives first
+        if target is None or type(target) in (int, float, str, bool):
             raise TypeError("WeakRef target must be an object")
 
-        # Store target weakly
-        # Note: In a real JavaScript engine, this would use the GC's weak reference mechanism.
-        # For this Python implementation, we'll store the target and manually track collection.
-        # This is appropriate for testing/simulation purposes.
-        try:
-            # Try to use Python's weakref if the object supports it
-            self._ref = python_weakref.ref(target)
-            self._uses_python_weakref = True
-        except TypeError:
-            # For objects that don't support Python weakref (like dict, list),
-            # we'll store a regular reference and rely on manual collection tracking.
-            # This simulates weak reference behavior for testing.
+        # Check for Undefined sentinel (rare case, but required)
+        if type(target).__name__ == 'Undefined':
+            raise TypeError("WeakRef target must be an object")
+
+        # Store target weakly - optimized for dict (most common in tests)
+        # For simulation purposes, we use regular refs for dict/list
+        if type(target) is dict:
+            # Fast path for dict - most common case
             self._ref = lambda: target
-            self._uses_python_weakref = False
+        else:
+            try:
+                self._ref = python_weakref.ref(target)
+            except TypeError:
+                self._ref = lambda: target
 
         self._target_collected = False
         self._last_deref_result = None
-        self._last_deref_turn = None
+        self._last_deref_turn = -1
 
     def deref(self) -> Optional[Any]:
         """
@@ -64,25 +68,25 @@ class WeakRef:
         Returns:
             Target object if alive, None if collected
         """
-        # Get current turn (for now, we'll use a simple counter)
-        current_turn = self._get_current_turn()
-
-        # Check if target was already marked as collected
+        # Fast path: already collected
         if self._target_collected:
             return None
 
-        # If we're in the same turn as last deref, return cached result
-        if current_turn == self._last_deref_turn and self._last_deref_result is not None:
+        # Get current turn - use class variable directly (avoid hasattr)
+        current_turn = WeakRef._turn_counter
+
+        # Fast path: same turn, return cached result
+        if current_turn == self._last_deref_turn:
             return self._last_deref_result
 
-        # Try to get target from weak reference
+        # Slow path: need to deref
         target = self._ref()
 
         # Update turn tracking
         self._last_deref_turn = current_turn
         self._last_deref_result = target
 
-        # If target is None, it's been collected
+        # If target is None, mark as collected
         if target is None:
             self._target_collected = True
 
@@ -144,23 +148,6 @@ class WeakRef:
         """
         return False
 
-    def _get_current_turn(self) -> int:
-        """
-        Get current event loop turn.
-
-        For now, returns a simple counter. In production, this would
-        integrate with the event_loop component.
-
-        Returns:
-            Current turn number
-        """
-        # Simple implementation for testing
-        # In production, this would query event_loop
-        if not hasattr(WeakRef, '_turn_counter'):
-            WeakRef._turn_counter = 0
-
-        return WeakRef._turn_counter
-
     @staticmethod
     def _advance_turn() -> None:
         """
@@ -168,6 +155,4 @@ class WeakRef:
 
         Test helper method.
         """
-        if not hasattr(WeakRef, '_turn_counter'):
-            WeakRef._turn_counter = 0
         WeakRef._turn_counter += 1
