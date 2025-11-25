@@ -7,7 +7,7 @@ FR-P3-019 (Symbol.toStringTag), FR-P3-020 (Symbol.hasInstance).
 Well-known symbols are used to customize language behavior and define protocols.
 """
 
-from symbol_value import SymbolValue
+from .symbol_value import SymbolValue
 
 
 # Well-known symbols are created once and reused throughout the runtime

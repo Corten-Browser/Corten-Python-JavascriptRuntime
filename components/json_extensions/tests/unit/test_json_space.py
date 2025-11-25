@@ -72,9 +72,11 @@ class TestJSONStringifySpaceNumeric:
         max_indent_20 = max((len(line) - len(line.lstrip()) for line in lines_20), default=0)
         max_indent_10 = max((len(line) - len(line.lstrip()) for line in lines_10), default=0)
 
-        # Should both be clamped to 10 or less
-        assert max_indent_20 <= 10
-        assert max_indent_10 <= 10
+        # Both should have same indentation (since space clamped to 10)
+        assert max_indent_20 == max_indent_10
+        # With nested object (2 levels) and space=10, max indent is 20 (2*10)
+        assert max_indent_20 == 20
+        assert max_indent_10 == 20
 
     def test_space_nested_objects(self):
         """Space parameter should properly indent nested objects"""

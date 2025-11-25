@@ -73,6 +73,11 @@ class JSONStringifier:
         if replacer is not None:
             value = self._apply_replacer(value, replacer, '', {'': value}, [])
 
+            # Check for circular references again after replacer
+            # (replacer could create new circular references)
+            if self.detect_circular(value):
+                raise TypeError("Converting circular structure to JSON")
+
         # Handle space parameter
         indent = self._process_space(space)
 
@@ -157,8 +162,13 @@ class JSONStringifier:
             return value
 
     def _apply_function_replacer(self, value: Any, replacer: Callable,
-                                 key: str, holder: Any, path: List[str]) -> Any:
+                                 key: str, holder: Any, path: List[str],
+                                 seen: Optional[Set] = None) -> Any:
         """Apply function replacer with proper this binding"""
+        # Initialize seen set for circular detection
+        if seen is None:
+            seen = set()
+
         # Create context
         context = JSONReplacerContext(key, holder, path)
 
@@ -166,32 +176,67 @@ class JSONStringifier:
         try:
             import inspect
             sig = inspect.signature(replacer)
-            if len(sig.parameters) >= 3:
-                # Replacer supports context
-                result = replacer(key, value, context)
+
+            # Inject 'this' into replacer's scope (JavaScript-like behavior)
+            if hasattr(replacer, '__globals__'):
+                old_this = replacer.__globals__.get('this')
+                replacer.__globals__['this'] = holder
+                try:
+                    if len(sig.parameters) >= 3:
+                        # Replacer supports context
+                        result = replacer(key, value, context)
+                    else:
+                        # Standard replacer
+                        result = replacer(key, value)
+                finally:
+                    # Restore old 'this' value
+                    if old_this is None:
+                        replacer.__globals__.pop('this', None)
+                    else:
+                        replacer.__globals__['this'] = old_this
             else:
-                # Standard replacer
-                result = replacer(key, value)
+                # Fallback if can't inject 'this'
+                if len(sig.parameters) >= 3:
+                    result = replacer(key, value, context)
+                else:
+                    result = replacer(key, value)
+
+            # Check for circular reference in result
+            if isinstance(result, (dict, list)):
+                obj_id = id(result)
+                if obj_id in seen:
+                    # Circular reference detected
+                    raise TypeError("Converting circular structure to JSON")
+                seen.add(obj_id)
 
             # Recursively apply to nested structures
             if isinstance(result, dict):
                 new_obj = {}
                 for k, v in result.items():
                     new_val = self._apply_function_replacer(
-                        v, replacer, k, result, path + [k]
+                        v, replacer, k, result, path + [k], seen
                     )
                     new_obj[k] = new_val
+
+                # Remove from seen after processing
+                seen.discard(id(result))
                 return new_obj
             elif isinstance(result, list):
-                return [
+                new_list = [
                     self._apply_function_replacer(
-                        item, replacer, str(i), result, path + [str(i)]
+                        item, replacer, str(i), result, path + [str(i)], seen
                     )
                     for i, item in enumerate(result)
                 ]
+                # Remove from seen after processing
+                seen.discard(id(result))
+                return new_list
             else:
                 return result
 
+        except TypeError:
+            # Re-raise TypeError (circular reference)
+            raise
         except Exception:
             return value
 

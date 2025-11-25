@@ -110,13 +110,32 @@ class JSONParser:
         try:
             import inspect
             sig = inspect.signature(reviver)
-            if len(sig.parameters) >= 3:
-                # Reviver supports context
-                context = JSONReviverContext(key, holder)
-                result = reviver(key, value, context)
+
+            # Inject 'this' into reviver's scope (JavaScript-like behavior)
+            if hasattr(reviver, '__globals__'):
+                old_this = reviver.__globals__.get('this')
+                reviver.__globals__['this'] = holder
+                try:
+                    if len(sig.parameters) >= 3:
+                        # Reviver supports context
+                        context = JSONReviverContext(key, holder)
+                        result = reviver(key, value, context)
+                    else:
+                        # Standard reviver (key, value)
+                        result = reviver(key, value)
+                finally:
+                    # Restore old 'this' value
+                    if old_this is None:
+                        reviver.__globals__.pop('this', None)
+                    else:
+                        reviver.__globals__['this'] = old_this
             else:
-                # Standard reviver (key, value)
-                result = reviver(key, value)
+                # Fallback if can't inject 'this'
+                if len(sig.parameters) >= 3:
+                    context = JSONReviverContext(key, holder)
+                    result = reviver(key, value, context)
+                else:
+                    result = reviver(key, value)
 
             return result
         except Exception:

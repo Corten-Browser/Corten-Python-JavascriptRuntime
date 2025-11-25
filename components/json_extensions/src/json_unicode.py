@@ -66,6 +66,9 @@ class JSONUnicode:
         Returns:
             True if valid Unicode
         """
+        if text is None:
+            return False
+
         if not text:
             return True
 

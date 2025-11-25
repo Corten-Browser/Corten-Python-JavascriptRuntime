@@ -374,6 +374,7 @@ def test_object_without_async_iterator_not_async_iterable(event_loop):
 
 def test_for_await_of_with_async_generator(event_loop):
     """for await...of loop with async generator."""
+    import asyncio
     values = []
 
     async def gen_func():
@@ -389,14 +390,14 @@ def test_for_await_of_with_async_generator(event_loop):
             values.append(value)
 
     # Run the consumption
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     assert values == [1, 2, 3]
 
 
 def test_for_await_of_awaits_each_promise(event_loop):
     """for await...of awaits each Promise before continuing."""
+    import asyncio
     values = []
 
     async def gen_func():
@@ -410,8 +411,7 @@ def test_for_await_of_awaits_each_promise(event_loop):
         async for value in gen:
             values.append(value)
 
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     assert values == [10, 20]
 
@@ -439,6 +439,7 @@ def test_for_await_of_with_empty_async_generator(event_loop):
 
 def test_for_await_of_with_break(event_loop):
     """for await...of with break statement."""
+    import asyncio
     values = []
 
     async def gen_func():
@@ -456,14 +457,14 @@ def test_for_await_of_with_break(event_loop):
             if value == 2:
                 break
 
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     assert values == [1, 2]
 
 
 def test_for_await_of_with_continue(event_loop):
     """for await...of with continue statement."""
+    import asyncio
     values = []
 
     async def gen_func():
@@ -480,14 +481,14 @@ def test_for_await_of_with_continue(event_loop):
                 continue
             values.append(value)
 
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     assert values == [1, 3]
 
 
 def test_for_await_of_handles_errors(event_loop):
     """for await...of handles errors in async generator."""
+    import asyncio
     errors = []
 
     async def gen_func():
@@ -505,14 +506,14 @@ def test_for_await_of_handles_errors(event_loop):
         except ValueError as e:
             errors.append(str(e))
 
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     assert "Test error" in errors
 
 
 def test_for_await_of_with_promises_array(event_loop):
     """for await...of with array of Promises."""
+    import asyncio
     values = []
 
     promises = [
@@ -528,14 +529,14 @@ def test_for_await_of_with_promises_array(event_loop):
             value = await promise
             values.append(value)
 
-    consume_promise = consume_promises()
-    event_loop.run()
+    asyncio.run(consume_promises())
 
     assert values == [1, 2, 3]
 
 
 def test_for_await_of_properly_closes_iterator(event_loop):
     """for await...of properly closes iterator on break."""
+    import asyncio
     closed = [False]
 
     async def gen_func():
@@ -549,12 +550,15 @@ def test_for_await_of_properly_closes_iterator(event_loop):
     gen = async_gen_fn()
 
     async def consume():
-        async for value in gen:
-            if value == 1:
-                break
+        try:
+            async for value in gen:
+                if value == 1:
+                    break
+        finally:
+            # Explicitly close generator when exiting loop early
+            await gen.aclose()
 
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     # Generator should be closed
     assert gen.state == AsyncGeneratorState.COMPLETED
@@ -562,6 +566,7 @@ def test_for_await_of_properly_closes_iterator(event_loop):
 
 def test_for_await_of_in_async_function(event_loop):
     """for await...of inside async function."""
+    import asyncio
     sum_value = [0]
 
     async def gen_func():
@@ -578,14 +583,14 @@ def test_for_await_of_in_async_function(event_loop):
             total += value
         sum_value[0] = total
 
-    sum_promise = calculate_sum()
-    event_loop.run()
+    asyncio.run(calculate_sum())
 
     assert sum_value[0] == 60
 
 
 def test_for_await_of_with_nested_loops(event_loop):
     """for await...of with nested loops."""
+    import asyncio
     values = []
 
     async def outer_gen():
@@ -604,8 +609,7 @@ def test_for_await_of_with_nested_loops(event_loop):
             async for inner in inner_fn():
                 values.append((outer, inner))
 
-    consume_promise = consume()
-    event_loop.run()
+    asyncio.run(consume())
 
     assert len(values) == 4
 

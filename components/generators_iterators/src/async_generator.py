@@ -410,6 +410,22 @@ class AsyncGenerator:
         """
         return self
 
+    async def aclose(self):
+        """
+        Close the async generator.
+
+        Called when exiting an async for loop early (e.g., via break).
+        Ensures proper cleanup of the generator.
+        """
+        if self.state == AsyncGeneratorState.COMPLETED:
+            return
+
+        # Close the internal iterator
+        if self._iterator is not None and inspect.isasyncgen(self._iterator):
+            await self._iterator.aclose()
+
+        self.state = AsyncGeneratorState.COMPLETED
+
     def __anext__(self):
         """
         Python async iterator protocol support.
@@ -417,24 +433,41 @@ class AsyncGenerator:
         Allows using Python's built-in async iteration (async for loops).
 
         Returns:
-            Promise resolving to next yielded value
+            Coroutine that yields the next value
 
         Raises:
             StopAsyncIteration: When generator completes
         """
         async def get_next():
-            result_promise = self.next()
+            # Initialize iterator on first call
+            if self._iterator is None:
+                self._iterator = self.generator_function()
 
-            # Wait for promise to resolve
-            # This is a simplified implementation
-            result = await self._promise_to_awaitable(result_promise)
+            # Directly use the Python async generator
+            if inspect.isasyncgen(self._iterator):
+                try:
+                    value = await self._iterator.__anext__()
+                    self.state = AsyncGeneratorState.SUSPENDED_YIELD
 
-            if result.done:
-                if result.value is not None:
-                    raise StopAsyncIteration(result.value)
-                raise StopAsyncIteration
+                    # If value is a JSPromise, await it (for await...of behavior)
+                    if isinstance(value, JSPromise):
+                        value = await self._promise_to_awaitable(value)
 
-            return result.value
+                    return value
+                except StopAsyncIteration as e:
+                    self.state = AsyncGeneratorState.COMPLETED
+                    raise
+            else:
+                # For non-async generators, fall back to promise-based approach
+                result_promise = self.next()
+                result = await self._promise_to_awaitable(result_promise)
+
+                if result.done:
+                    if result.value is not None:
+                        raise StopAsyncIteration(result.value)
+                    raise StopAsyncIteration
+
+                return result.value
 
         return get_next()
 

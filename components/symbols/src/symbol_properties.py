@@ -8,7 +8,7 @@ Symbol properties are non-enumerable by default and excluded from normal enumera
 """
 
 from typing import Any, List, Dict
-from symbol_value import SymbolValue
+from .symbol_value import SymbolValue
 
 
 class SymbolPropertyStore:

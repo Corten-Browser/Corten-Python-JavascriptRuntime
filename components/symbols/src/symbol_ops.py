@@ -5,7 +5,7 @@ Implements FR-P3-014 (Symbol coercion rules) and FR-P3-015 (Symbol in operations
 """
 
 from typing import Any
-from symbol_value import SymbolValue
+from .symbol_value import SymbolValue
 
 
 def symbol_typeof(value: Any) -> str:
