@@ -5,6 +5,6 @@ Locale-aware number formatting with support for decimal, percent, currency,
 and unit formatting, plus multiple notation styles.
 """
 
-from components.intl_numberformat.src.number_format import IntlNumberFormat
+from components.intl_numberformat.src.number_format import IntlNumberFormat, RangeError
 
-__all__ = ['IntlNumberFormat']
+__all__ = ['IntlNumberFormat', 'RangeError']

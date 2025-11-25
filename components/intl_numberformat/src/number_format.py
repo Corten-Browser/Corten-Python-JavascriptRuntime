@@ -67,7 +67,8 @@ class IntlNumberFormat:
         if locales is None:
             return 'en-US'  # Default locale
 
-        if isinstance(locales, str):
+        is_single = isinstance(locales, str)
+        if is_single:
             locale_list = [locales]
         elif isinstance(locales, list):
             locale_list = locales
@@ -76,8 +77,23 @@ class IntlNumberFormat:
 
         # Simple locale validation and canonicalization
         for locale in locale_list:
-            if locale and self._is_valid_locale(locale):
-                return self._canonicalize_locale(locale)
+            if locale:
+                try:
+                    if self._is_valid_locale(locale):
+                        # Check if it's a supported locale (not just well-formed)
+                        canonical = self._canonicalize_locale(locale)
+                        if self._is_supported_locale(canonical):
+                            return canonical
+                except RangeError:
+                    # If single locale and invalid, re-raise
+                    if is_single:
+                        raise
+                    # Otherwise, continue to next locale
+                    continue
+
+        # If single locale and not supported/valid, raise error
+        if is_single and locale_list:
+            raise ValueError(f"Invalid or unsupported locale: {locale_list[0]}")
 
         # Fall back to default
         return 'en-US'
@@ -92,13 +108,26 @@ class IntlNumberFormat:
         is_valid = bool(re.match(pattern, locale))
 
         # Raise error for truly malformed locales (ones that look completely invalid)
-        if not is_valid and locale and '-' in locale:
-            # Only raise if it's a structured but invalid locale
-            parts = locale.split('-')
-            if len(parts) >= 2 and not all(part.isalpha() or part.isdigit() for part in parts):
-                raise RangeError(f"Invalid locale: {locale}")
+        if not is_valid:
+            raise ValueError(f"Invalid locale: {locale}")
 
         return is_valid
+
+    def _is_supported_locale(self, locale: str) -> bool:
+        """Check if locale is supported (not just well-formed)."""
+        # List of supported locales (common ones)
+        # For simplicity, we support a basic set of real locales
+        supported_languages = {
+            'en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'sv', 'no', 'da', 'fi',
+            'pl', 'cs', 'hu', 'ro', 'bg', 'el', 'tr', 'ru', 'uk', 'ar', 'he',
+            'ja', 'ko', 'zh', 'th', 'vi', 'id', 'ms', 'hi', 'bn', 'ur', 'fa'
+        }
+
+        # Extract language code (first part before hyphen)
+        lang = locale.split('-')[0].lower()
+
+        # Accept if language is in supported list
+        return lang in supported_languages
 
     def _canonicalize_locale(self, locale: str) -> str:
         """Canonicalize locale to standard form."""
@@ -149,9 +178,9 @@ class IntlNumberFormat:
             if not isinstance(currency, str) or len(currency) != 3:
                 raise ValueError(f"Invalid currency code: {currency}")
             if not currency.isupper():
-                raise RangeError(f"Currency code must be uppercase: {currency}")
+                raise ValueError(f"Currency code must be uppercase: {currency}")
             if currency not in self.VALID_CURRENCIES:
-                raise RangeError(f"Invalid ISO 4217 currency code: {currency}")
+                raise ValueError(f"Invalid ISO 4217 currency code: {currency}")
 
             resolved['currency'] = currency
             resolved['currencyDisplay'] = options.get('currencyDisplay', 'symbol')
@@ -159,11 +188,19 @@ class IntlNumberFormat:
 
             # Currency-specific fraction defaults
             if currency == 'JPY':
-                min_frac = options.get('minimumFractionDigits', 0)
-                max_frac = options.get('maximumFractionDigits', 0)
+                min_frac_default = 0
+                max_frac_default = 0
             else:
-                min_frac = options.get('minimumFractionDigits', 2)
-                max_frac = options.get('maximumFractionDigits', 2)
+                min_frac_default = 2
+                max_frac_default = 2
+
+            # If user explicitly sets maxFractionDigits, adjust minFractionDigits accordingly
+            if 'maximumFractionDigits' in options:
+                max_frac = options['maximumFractionDigits']
+                min_frac = options.get('minimumFractionDigits', min(min_frac_default, max_frac))
+            else:
+                max_frac = options.get('maximumFractionDigits', max_frac_default)
+                min_frac = options.get('minimumFractionDigits', min_frac_default)
         else:
             min_frac = options.get('minimumFractionDigits', 0)
             max_frac = options.get('maximumFractionDigits', 3)
@@ -174,7 +211,7 @@ class IntlNumberFormat:
             if not unit:
                 raise ValueError("Unit style requires unit option")
             if unit not in self.VALID_UNITS:
-                raise RangeError(f"Invalid unit identifier: {unit}")
+                raise ValueError(f"Invalid unit identifier: {unit}")
 
             resolved['unit'] = unit
             resolved['unitDisplay'] = options.get('unitDisplay', 'short')
@@ -199,7 +236,7 @@ class IntlNumberFormat:
             max_frac, 0, 20, 'maximumFractionDigits')
 
         if resolved['minimumFractionDigits'] > resolved['maximumFractionDigits']:
-            raise RangeError(
+            raise ValueError(
                 f"minimumFractionDigits ({resolved['minimumFractionDigits']}) "
                 f"> maximumFractionDigits ({resolved['maximumFractionDigits']})")
 
@@ -215,7 +252,7 @@ class IntlNumberFormat:
         if ('minimumSignificantDigits' in resolved and
             'maximumSignificantDigits' in resolved):
             if resolved['minimumSignificantDigits'] > resolved['maximumSignificantDigits']:
-                raise RangeError("minimumSignificantDigits > maximumSignificantDigits")
+                raise ValueError("minimumSignificantDigits > maximumSignificantDigits")
 
         # Other options
         use_grouping = options.get('useGrouping', 'auto')
@@ -239,7 +276,7 @@ class IntlNumberFormat:
         if not isinstance(value, int):
             raise TypeError(f"{name} must be an integer")
         if value < min_val or value > max_val:
-            raise RangeError(f"{name} must be between {min_val} and {max_val}")
+            raise ValueError(f"{name} must be between {min_val} and {max_val}")
         return value
 
     def format(self, value: Union[int, float]) -> str:
@@ -255,14 +292,18 @@ class IntlNumberFormat:
         if not isinstance(value, (int, float)):
             raise TypeError(f"Value must be a number, not {type(value).__name__}")
 
-        # Handle special values
-        if math.isnan(value):
-            return 'NaN'
-        if math.isinf(value):
-            return '-∞' if value < 0 else '∞'
+        # Handle special values (only for floats)
+        if isinstance(value, float):
+            if math.isnan(value):
+                return 'NaN'
+            if math.isinf(value):
+                return '-∞' if value < 0 else '∞'
 
-        # Apply rounding
-        rounded = self._apply_rounding(value)
+        # Apply rounding (skip for large integers to preserve precision)
+        if isinstance(value, int):
+            rounded = value
+        else:
+            rounded = self._apply_rounding(value)
 
         # Format based on style
         style = self._resolved['style']
@@ -321,30 +362,39 @@ class IntlNumberFormat:
         min_frac = self._resolved.get('minimumFractionDigits', 0)
         max_frac = self._resolved.get('maximumFractionDigits', 3)
 
-        # Integer part
-        int_part = int(abs_value)
-        int_str = str(int_part).zfill(min_int)
+        # Check if value is a large integer (BigInt support)
+        is_integer = isinstance(value, int) or (isinstance(value, float) and value == int(value))
+
+        if is_integer and max_frac == 0:
+            # For large integers, use string conversion to preserve precision
+            int_part = int(abs_value)
+            int_str = str(int_part).zfill(min_int)
+        else:
+            # Integer part
+            int_part = int(abs_value)
+            int_str = str(int_part).zfill(min_int)
 
         # Apply grouping
         if self._should_use_grouping():
             int_str = self._apply_grouping(int_str)
 
-        # Fraction part
-        frac = abs_value - int_part
-        if max_frac > 0 or min_frac > 0:
-            frac_str = f"{frac:.{max_frac}f}".split('.')[1]
+        # Fraction part (only for non-integers or when fraction digits required)
+        if not (is_integer and max_frac == 0 and min_frac == 0):
+            frac = abs_value - int_part
+            if max_frac > 0 or min_frac > 0:
+                frac_str = f"{frac:.{max_frac}f}".split('.')[1]
 
-            # Strip trailing zeros beyond minimum fraction digits
-            while len(frac_str) > min_frac and frac_str[-1] == '0':
-                frac_str = frac_str[:-1]
+                # Strip trailing zeros beyond minimum fraction digits
+                while len(frac_str) > min_frac and frac_str[-1] == '0':
+                    frac_str = frac_str[:-1]
 
-            # Add back minimum fraction digits if needed
-            frac_str = frac_str.ljust(min_frac, '0')
+                # Add back minimum fraction digits if needed
+                frac_str = frac_str.ljust(min_frac, '0')
 
-            if frac_str:
-                # Get locale-specific separators
-                decimal_sep = self._get_decimal_separator()
-                return f"{sign}{int_str}{decimal_sep}{frac_str}"
+                if frac_str:
+                    # Get locale-specific separators
+                    decimal_sep = self._get_decimal_separator()
+                    return f"{sign}{int_str}{decimal_sep}{frac_str}"
 
         return f"{sign}{int_str}"
 
@@ -425,6 +475,7 @@ class IntlNumberFormat:
         display = self._resolved.get('currencyDisplay', 'symbol')
         sign_type = self._resolved.get('currencySign', 'standard')
         sign_display = self._resolved.get('signDisplay', 'auto')
+        notation = self._resolved.get('notation', 'standard')
 
         # Get currency symbol
         symbols = {
@@ -443,8 +494,15 @@ class IntlNumberFormat:
         else:  # symbol or narrowSymbol
             symbol = symbols.get(currency, currency)
 
-        # Format value
-        formatted = self._format_standard(abs(value))
+        # Format value according to notation
+        if notation == 'compact':
+            formatted = self._format_compact(abs(value))
+        elif notation == 'scientific':
+            formatted = self._format_scientific(abs(value))
+        elif notation == 'engineering':
+            formatted = self._format_engineering(abs(value))
+        else:
+            formatted = self._format_standard(abs(value))
 
         # Handle negative with accounting format
         if value < 0 and sign_type == 'accounting' and sign_display != 'never':
@@ -686,7 +744,7 @@ class IntlNumberFormat:
             raise TypeError("Range values must be numbers")
 
         if start > end:
-            raise RangeError("Start must be <= end")
+            raise ValueError("Start must be <= end")
 
         start_formatted = self.format(start)
         end_formatted = self.format(end)
@@ -709,7 +767,7 @@ class IntlNumberFormat:
             raise TypeError("Range values must be numbers")
 
         if start > end:
-            raise RangeError("Start must be <= end")
+            raise ValueError("Start must be <= end")
 
         start_parts = self.formatToParts(start)
         end_parts = self.formatToParts(end)
